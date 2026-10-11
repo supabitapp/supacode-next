@@ -30,10 +30,7 @@ beforeEach(() => {
 });
 
 const fixture = Effect.gen(function* () {
-  const settings = yield* SubscriptionRef.make({
-    ...DEFAULT_SERVER_SETTINGS,
-    publicRelayEnabled: true,
-  });
+  const settings = yield* SubscriptionRef.make(DEFAULT_SERVER_SETTINGS);
   const changes = yield* PubSub.unbounded<ServerSettings>();
   const secrets = new Map<string, Uint8Array>();
   const layerSecrets = Layer.succeed(ServerSecretStore.ServerSecretStore, {
@@ -93,28 +90,7 @@ const openTransport = Effect.sync(() => {
   return { opened: Effect.promise(() => opened.promise), stopped };
 });
 
-it.effect.each([false, true])(
-  "stays off by default with an existing relay identity: %s",
-  (hasIdentity) =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const test = yield* fixture;
-        yield* SubscriptionRef.set(test.settings, DEFAULT_SERVER_SETTINGS);
-        if (hasIdentity) test.secrets.set("relay-identity", new Uint8Array(32).fill(1));
-        yield* Effect.gen(function* () {
-          const service = yield* RelayAccess.RelayAccess;
-          yield* service.start;
-          expect((yield* awaitState(service, "off"))._tag).toBe("Some");
-          expect(yield* service.advertisement).toEqual({});
-          expect((yield* service.prepare.pipe(Effect.flip)).reason).toBe("off");
-          expect(test.secrets.size).toBe(hasIdentity ? 1 : 0);
-          expect(startRelayTransport).not.toHaveBeenCalled();
-        }).pipe(Effect.provide(test.layer));
-      }),
-    ),
-);
-
-it.effect("stays idle while enabled without creating an identity when started or toggled", () =>
+it.effect("stays idle by default without creating an identity when started or toggled", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const test = yield* fixture;

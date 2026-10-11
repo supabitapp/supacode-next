@@ -22,8 +22,8 @@ const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 
 describe("ServerSettings public relay", () => {
-  it("disables relay by default for settings without a saved preference", () => {
-    expect(decodeServerSettings({}).publicRelayEnabled).toBe(false);
+  it("enables relay by default for settings without a saved preference", () => {
+    expect(decodeServerSettings({}).publicRelayEnabled).toBe(true);
   });
 
   it.each([true, false])("preserves the saved %s preference and accepts updates", (enabled) => {
