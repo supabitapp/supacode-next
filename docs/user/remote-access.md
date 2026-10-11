@@ -55,9 +55,8 @@ clients reconnect. The host must stay running and have internet access.
 After the first activation, the host reconnects automatically when Supacode starts
 while **Public relay** is enabled.
 
-To use your own relay server, set **Relay server** under **Public relay** before
-you create pairing links. New links carry that server to the clients that pair
-with them. Automatically learned relay routes follow this change through a
+New pairing links carry the configured relay server to the clients that pair
+with them. Automatically learned relay routes follow a server change through a
 working connection; routes paired explicitly through relay need a new link. If Connections reports that
 another host is using the relay identity, the same Supacode data is running on a
 second machine. Turn **Public relay** off and on to bring the relay back to this
