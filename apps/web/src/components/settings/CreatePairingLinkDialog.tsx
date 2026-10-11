@@ -160,7 +160,7 @@ export function CreatePairingLinkDialog({
     >
       <DialogTrigger
         render={
-          <Button ref={triggerRef} size="comfortable">
+          <Button ref={triggerRef} size="xs">
             <PlusIcon aria-hidden />
             Add device
           </Button>

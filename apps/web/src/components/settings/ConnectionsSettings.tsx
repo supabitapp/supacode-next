@@ -3249,6 +3249,31 @@ export function ConnectionsSettings() {
                 update={updatePrimarySettings}
               />
             ) : null}
+            {canManageLocalBackend && desktopBridge ? (
+              <>
+                {renderNetworkAccessRow()}
+                {renderEndpointRows("endpoint-rail")}
+                {renderTailscaleRow()}
+                {renderWslRow()}
+              </>
+            ) : canManageLocalBackend ? (
+              renderDisabledNetworkAccessRow()
+            ) : null}
+            {primaryEnvironment ? (
+              <details className="group px-3 sm:px-4">
+                <summary className="-mx-2 flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                  Permissions
+                  <ChevronRightIcon
+                    aria-hidden
+                    className="size-3 text-muted-foreground transition-transform duration-150 group-open:rotate-90 motion-reduce:transition-none"
+                  />
+                </summary>
+                <SessionPermissions
+                  environmentId={primaryEnvironment.environmentId}
+                  connected={primaryEnvironment.connection.phase === "connected"}
+                />
+              </details>
+            ) : null}
             {canManageLocalBackend ? (
               <SettingsRow
                 title="Version"
@@ -3294,31 +3319,6 @@ export function ConnectionsSettings() {
                   ) : undefined
                 }
               />
-            ) : null}
-            {canManageLocalBackend && desktopBridge ? (
-              <>
-                {renderNetworkAccessRow()}
-                {renderEndpointRows("endpoint-rail")}
-                {renderTailscaleRow()}
-                {renderWslRow()}
-              </>
-            ) : canManageLocalBackend ? (
-              renderDisabledNetworkAccessRow()
-            ) : null}
-            {primaryEnvironment ? (
-              <details className="group px-3 sm:px-4">
-                <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-                  Permissions
-                  <ChevronRightIcon
-                    aria-hidden
-                    className="size-3 text-muted-foreground group-open:rotate-90"
-                  />
-                </summary>
-                <SessionPermissions
-                  environmentId={primaryEnvironment.environmentId}
-                  connected={primaryEnvironment.connection.phase === "connected"}
-                />
-              </details>
             ) : null}
           </SettingsSection>
 
