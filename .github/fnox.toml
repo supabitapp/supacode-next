@@ -19,7 +19,7 @@ APPLE_API_KEY_ID = { provider = "op", value = "dxvzgzlnmd4fen4c7ltqdre76m/APPLE_
 APPLE_API_ISSUER = { provider = "op", value = "dxvzgzlnmd4fen4c7ltqdre76m/APPLE_API_ISSUER" }
 
 [profiles.cloudflare.secrets]
-CLOUDFLARE_API_TOKEN = { provider = "op", value = "Cloudflare Hosting/CLOUDFLARE_API_TOKEN" }
+CLOUDFLARE_API_TOKEN = { provider = "op", value = "7p7xugt7rb7bwia3gucpeqb7di/CLOUDFLARE_API_TOKEN" }
 
 [profiles.mobile.secrets]
 EXPO_TOKEN = { provider = "op", value = "t2yimao5k2nhpryu5bc7omrqiq/EXPO_TOKEN" }
