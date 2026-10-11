@@ -46,6 +46,16 @@ export function connectionRoutes(entry: ConnectionCatalogEntry): ReadonlyArray<C
   return [{ target: entry.target, profile: entry.profile }, ...(entry.alternateRoutes ?? [])];
 }
 
+export function preferredConnectionRoutes(
+  entry: ConnectionCatalogEntry,
+): ReadonlyArray<ConnectionRoute> {
+  const routes = connectionRoutes(entry);
+  return [
+    ...routes.filter((route) => connectionRouteKind(route) !== "relay"),
+    ...routes.filter((route) => connectionRouteKind(route) === "relay"),
+  ];
+}
+
 export function entryWithRoutes(
   entry: ConnectionCatalogEntry,
   routes: ReadonlyArray<ConnectionRoute>,
@@ -179,8 +189,8 @@ const ROUTE_KIND_RANK: Record<ConnectionRouteKind, number> = {
   tailnet: 2,
   vpn: 2,
   public: 3,
-  relay: 3,
   ssh: 4,
+  relay: 5,
 };
 
 export function insertRoute(

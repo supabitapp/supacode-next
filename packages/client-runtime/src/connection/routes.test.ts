@@ -247,7 +247,7 @@ describe("relay route advertisements", () => {
     },
   );
 
-  it("keeps relay at public route priority, after direct routes and before SSH", () => {
+  it("keeps relay after direct and SSH routes", () => {
     const relay = route(relayEndpoint);
     const direct = route("http://192.168.1.20:4389/", "lan");
     const publicRoute = route("https://remote.example.test", "public");
@@ -259,9 +259,10 @@ describe("relay route advertisements", () => {
     expect(insertRoute([direct, publicRoute, ssh], relay)).toEqual([
       direct,
       publicRoute,
-      relay,
       ssh,
+      relay,
     ]);
+    expect(insertRoute(insertRoute([relay], ssh), publicRoute)).toEqual([publicRoute, ssh, relay]);
   });
 
   it("does not identify ordinary or malformed public addresses as encrypted relay", () => {

@@ -18,7 +18,7 @@ import type {
 } from "./model.ts";
 import { ConnectionTransientError } from "./model.ts";
 import * as ConnectionResolver from "./resolver.ts";
-import { connectionRoutes, routeEntry, routeHttpBaseUrl } from "./routes.ts";
+import { connectionRouteKind, connectionRoutes, routeEntry, routeHttpBaseUrl } from "./routes.ts";
 import * as RpcSession from "../rpc/session.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
 import { resolveRelayOrigin } from "../relay/gateway.ts";
@@ -81,24 +81,6 @@ export class ConnectionDriver extends Context.Service<
   }
 >()("@supacode/client-runtime/connection/driver/ConnectionDriver") {}
 
-/**
- * Connects over the first route, in preference order, that is worth trying.
- * Every route is checked at once, but a route only waits for its own check,
- * so a reachable LAN address connects without waiting on a silent tailnet
- * one. A route whose check is silent or slow is skipped on the first pass so
- * a LAN address from another network costs one short check, not a connection
- * timeout. A route that fails to connect moves on to the next so an
- * unavailable address cannot hide a working LAN or Tailscale route.
- *
- * Slow routes are tried in the order their checks answer, so a tailnet still
- * waking up after a network change goes ahead of a LAN that will never answer.
- * Silent routes are tried last, in preference order, once every slow check has
- * answered or timed out, since a check is not proof.
- *
- * The reported error is a transient one when any route failed transiently,
- * so the supervisor keeps retrying a route that may come back; a blocked
- * error is reported only when every attempted route was blocked.
- */
 export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")(function* <R>(
   entry: ConnectionCatalogEntry,
   checkRoute: (route: ConnectionRoute) => Effect.Effect<RouteCheck>,
@@ -107,10 +89,12 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
   ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, R | Scope.Scope>,
 ) {
   const routes = connectionRoutes(entry);
+  const directRoutes = routes.filter((route) => connectionRouteKind(route) !== "relay");
+  const relayRoutes = routes.filter((route) => connectionRouteKind(route) === "relay");
   const checks =
     routes.length === 1
       ? []
-      : yield* Effect.forEach(routes, (route) => Effect.forkChild(checkRoute(route)));
+      : yield* Effect.forEach(directRoutes, (route) => Effect.forkChild(checkRoute(route)));
   const firstChecks = yield* Effect.forEach(checks, (check) =>
     Effect.forkChild(Fiber.join(check).pipe(Effect.timeoutOption(ROUTE_CHECK_TIMEOUT_MS))),
   );
@@ -157,9 +141,9 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
     else blocked ??= result.failure;
     return Option.none();
   });
-  const slow: Array<number> = [];
+  let slow: Array<number> = [];
   const silent: Array<number> = [];
-  for (const [index, route] of routes.entries()) {
+  for (const [index, route] of directRoutes.entries()) {
     const check =
       firstChecks.length === 0
         ? Option.some<RouteCheck>("unchecked")
@@ -175,6 +159,30 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
     const lease = yield* attempt(route);
     if (Option.isSome(lease)) return lease.value;
   }
+  if (relayRoutes.length > 0) {
+    const stillSlow: Array<number> = [];
+    while (slow.length > 0) {
+      const [index, check] = yield* Effect.raceAll(
+        slow.map((index) =>
+          Fiber.join(firstChecks[index]!).pipe(Effect.map((check) => [index, check] as const)),
+        ),
+      );
+      slow.splice(slow.indexOf(index), 1);
+      if (Option.isNone(check)) {
+        stillSlow.push(index);
+      } else if (check.value === "silent") {
+        silent.push(index);
+      } else {
+        const lease = yield* attempt(directRoutes[index]!);
+        if (Option.isSome(lease)) return lease.value;
+      }
+    }
+    slow = stillSlow;
+    for (const route of relayRoutes) {
+      const lease = yield* attempt(route);
+      if (Option.isSome(lease)) return lease.value;
+    }
+  }
   while (slow.length > 0) {
     const [index, check] = yield* Effect.raceAll(
       slow.map((index) =>
@@ -186,11 +194,11 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
       silent.push(index);
       continue;
     }
-    const lease = yield* attempt(routes[index]!);
+    const lease = yield* attempt(directRoutes[index]!);
     if (Option.isSome(lease)) return lease.value;
   }
   for (const index of silent.sort((a, b) => a - b)) {
-    const lease = yield* attempt(routes[index]!);
+    const lease = yield* attempt(directRoutes[index]!);
     if (Option.isSome(lease)) return lease.value;
   }
   return yield* (
