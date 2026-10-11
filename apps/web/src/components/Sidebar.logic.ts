@@ -892,8 +892,12 @@ export function shouldRecedeSidebarThread(input: {
   isWoke: boolean;
   isActive: boolean;
   isSelected: boolean;
+  isPinned: boolean;
+  environmentConnected: boolean;
 }): boolean {
-  if (input.isActive || input.isSelected || input.status === "input") return false;
+  if (input.isActive || input.isSelected) return false;
+  if (input.isPinned) return !input.environmentConnected;
+  if (input.status === "input") return false;
   if (input.status === "working" || input.status === "waiting") return true;
   if (input.status === "ready" || input.status === "approval") {
     return !input.isUnread && !input.isWoke;

@@ -1339,12 +1339,15 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // Background work always recedes when it is not selected: an unread parent
   // completion must not pull a still-working thread back into the foreground.
   // Ready and action-required rows keep their unread and wake prominence.
+  // Pinned rows stay at full strength and recede only while connecting.
   const shouldRecede = shouldRecedeSidebarThread({
     status,
     isUnread,
     isWoke,
     isActive: props.isActive,
     isSelected,
+    isPinned: props.isPinned && !isParked,
+    environmentConnected,
   });
   // Status hues follow the system-wide convention set by sidebar v1 and the
   // mobile widgets (amber approval, indigo input, sky working) so a thread

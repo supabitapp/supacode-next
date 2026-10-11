@@ -710,7 +710,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
               ? selectedThreadRowColors.iconTintClassName
               : rowAppearance.mutedIconTintClassName),
         };
-  const recede = environmentConnected && shouldRecedeThreadRow({ status, selected });
+  const recede =
+    environmentConnected && shouldRecedeThreadRow({ status, selected, pinned: pinnedRow });
   // The timestamp is precomputed on the list item (same stamps the settled
   // tail sorts by) so a minute tick only re-renders rows that draw it.
   const timeLabel = props.timeLabel;
