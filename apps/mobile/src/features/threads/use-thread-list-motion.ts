@@ -10,6 +10,7 @@ import {
   type EntryAnimationsValues,
   type ExitAnimationsValues,
   type LayoutAnimationFunction,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { useReducedMotionPreference } from "../../lib/useReducedMotionPreference";
@@ -29,8 +30,10 @@ export function useThreadListMotion(input: {
   readonly scrolling: boolean;
   readonly ready: boolean;
   readonly settledLimit?: number;
+  /** Raises every row together, such as above a keyboard. */
+  readonly lift?: SharedValue<number>;
 }) {
-  const { items, scope, searching, scrolling, ready, settledLimit = 0 } = input;
+  const { items, scope, searching, scrolling, ready, settledLimit = 0, lift } = input;
   const reducedMotion = useReducedMotionPreference();
   const frame = useMemo(
     () => ({ items: items.map(({ key, expanded }) => ({ key, expanded })), scope, settledLimit }),
@@ -96,7 +99,7 @@ export function useThreadListMotion(input: {
     [timing],
   );
   const alignmentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: alignmentOffset.value }],
+    transform: [{ translateY: alignmentOffset.value - (lift?.value ?? 0) }],
   }));
   const sharedValues = useMemo(
     () => ({ alignItemsAtEndPadding: alignmentPadding }),

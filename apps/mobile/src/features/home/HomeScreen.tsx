@@ -2,7 +2,7 @@ import { useThreadListV2Layout } from "../threads/use-thread-list-v2-layout";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { type LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import Animated from "react-native-reanimated";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useThreadListMotion } from "../threads/use-thread-list-motion";
 import {
   type EnvironmentProject,
@@ -25,6 +25,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type ReactNode,
 } from "react";
 import {
   ActivityIndicator,
@@ -85,6 +86,8 @@ import {
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
+import { useSearchKeyboardLift } from "./use-search-keyboard-lift";
+import { NATIVE_MAIL_SEARCH_TOOLBAR_SUPPORTED } from "../layout/native-mail-search-toolbar";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -232,6 +235,29 @@ function HomeTopContentSpacer() {
   return <View className="h-4" />;
 }
 
+// Android centers its empty state in the whole pane.
+const EMPTY_STATE_LIFT_RATIO = Platform.OS === "android" ? 0.5 : 1;
+
+function KeyboardLiftedEmptyState(props: {
+  readonly lift: SharedValue<number>;
+  readonly children: ReactNode;
+}) {
+  const { lift } = props;
+  const insets = useSafeAreaInsets();
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: -lift.get() * EMPTY_STATE_LIFT_RATIO }],
+  }));
+  // The list's flex-end empty layout ignores the iOS start inset.
+  return (
+    <Animated.View
+      className="w-full"
+      style={[{ marginBottom: Platform.OS === "ios" ? insets.top : 0 }, style]}
+    >
+      {props.children}
+    </Animated.View>
+  );
+}
+
 function HomeScrollView(props: ComponentProps<typeof ScrollView>) {
   const insets = useSafeAreaInsets();
   const primaryColumn = use(NativePrimaryColumnContext);
@@ -266,6 +292,7 @@ function renderHomeScrollView(props: ScrollViewProps) {
 /* ─── Main screen ────────────────────────────────────────────────────── */
 
 const PRE_LIQUID_GLASS_BOTTOM_TOOLBAR_HEIGHT = 44;
+const SEARCH_KEYBOARD_GAP = 16;
 
 export function HomeScreen(props: HomeScreenProps) {
   const primaryColumn = use(NativePrimaryColumnContext);
@@ -294,7 +321,27 @@ export function HomeScreen(props: HomeScreenProps) {
       ? Math.max(insets.bottom, 24) + 60 + PRE_LIQUID_GLASS_BOTTOM_TOOLBAR_HEIGHT
       : 0;
 
-  const iosBottomClearance = Math.max(columnMetrics?.safeArea.bottom ?? insets.bottom, 24);
+  const keyboardVisible = useKeyboardState((state) => state.isVisible);
+  const keyboardHeight = useKeyboardState((state) => state.height);
+  const safeAreaBottom = columnMetrics?.safeArea.bottom ?? insets.bottom;
+  // iOS raises the safe area with the search toolbar riding the keyboard. The
+  // list keeps its resting geometry and is lifted instead.
+  const [restSafeAreaBottom, setRestSafeAreaBottom] = useState(safeAreaBottom);
+  if (!keyboardVisible && restSafeAreaBottom !== safeAreaBottom) {
+    setRestSafeAreaBottom(safeAreaBottom);
+  }
+  const iosBottomClearance = Math.max(restSafeAreaBottom, 24);
+  const listContentBottomPadding =
+    Platform.OS === "ios"
+      ? iosBottomClearance
+      : Math.max(insets.bottom, 16) + (Platform.OS === "android" ? fabClearance : 88);
+  const searchToolbarRidesKeyboard = NATIVE_MAIL_SEARCH_TOOLBAR_SUPPORTED && primaryColumn === null;
+  const keyboardBottomClearance = searchToolbarRidesKeyboard
+    ? safeAreaBottom
+    : keyboardHeight + SEARCH_KEYBOARD_GAP;
+  const searchKeyboardLift = useSearchKeyboardLift(
+    keyboardBottomClearance - listBottomInset - listContentBottomPadding,
+  );
   const searchEnvironmentIds = useMemo(
     () =>
       props.selectedEnvironmentId === null
@@ -649,6 +696,7 @@ export function HomeScreen(props: HomeScreenProps) {
     searching: hasSearchQuery || searchKeyboardVisible,
     scrolling: !swipeEnabled,
     ready: shelfPreferencesLoaded && !props.catalogState.isLoadingConnections,
+    lift: searchKeyboardLift,
   });
   const prepareListMotion = listMotion.prepare;
   const renderV2ItemContent = useCallback(
@@ -980,6 +1028,10 @@ export function HomeScreen(props: HomeScreenProps) {
         variant={Platform.OS === "android" ? "plain" : undefined}
       />
     );
+  const liftedListEmpty =
+    v2ListEmpty === undefined ? undefined : (
+      <KeyboardLiftedEmptyState lift={searchKeyboardLift}>{v2ListEmpty}</KeyboardLiftedEmptyState>
+    );
 
   if (Platform.OS === "android" && threadListV2Items.length === 0) {
     return (
@@ -988,7 +1040,7 @@ export function HomeScreen(props: HomeScreenProps) {
           className="flex-1 items-center justify-center overflow-hidden rounded-t-[28px] bg-screen px-4"
           style={{ paddingBottom: insets.bottom }}
         >
-          {v2ListEmpty}
+          {liftedListEmpty}
         </View>
       </View>
     );
@@ -1026,11 +1078,11 @@ export function HomeScreen(props: HomeScreenProps) {
             itemLayoutAnimation={listMotion.layout}
             extraData={v2ExtraData}
             ListHeaderComponent={v2ListHeader}
-            ListEmptyComponent={v2ListEmpty}
+            ListEmptyComponent={liftedListEmpty}
             style={{ flex: 1 }}
             sharedValues={listMotion.sharedValues}
             itemsContainerStyle={listMotion.alignmentStyle}
-            alignItemsAtEnd={!hasSearchQuery && !searchKeyboardVisible}
+            alignItemsAtEnd
             automaticallyAdjustsScrollIndicatorInsets={Platform.OS === "ios"}
             contentInsetAdjustmentBehavior="never"
             contentInset={Platform.OS === "ios" ? { top: insets.top } : undefined}
@@ -1042,10 +1094,7 @@ export function HomeScreen(props: HomeScreenProps) {
             scrollEventThrottle={16}
             contentContainerStyle={{
               paddingHorizontal: primaryColumn ? 8 : 0,
-              paddingBottom:
-                Platform.OS === "ios"
-                  ? iosBottomClearance
-                  : Math.max(insets.bottom, 16) + (Platform.OS === "android" ? fabClearance : 88),
+              paddingBottom: listContentBottomPadding,
             }}
           />
         </SwipeableScrollGateProvider>
