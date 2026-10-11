@@ -58,6 +58,7 @@ If you have a packaged `supacode` executable installed, these commands are avail
 | Keep it running in the background (macOS, Linux) | `supacode service install` ([details](./background-service.md)) |
 | Move to the newest release                       | `supacode update`                                               |
 | Remove it again                                  | `supacode uninstall`                                            |
+| List supported server settings                   | `supacode settings list`                                        |
 
 Run `supacode --help` for the full reference.
 

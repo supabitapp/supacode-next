@@ -21,8 +21,18 @@ On a host you reach only over SSH, print a relay pairing link there:
 supacode pair --relay
 ```
 
-If public relay is off, set `"publicRelayEnabled": true` in the host's
-`settings.json` before running the command.
+If public relay is off, enable it from the terminal before creating the link:
+
+```bash
+supacode settings set publicRelayEnabled true
+```
+
+Use `supacode settings set publicRelayUrl <relay-url>` when the host should use a
+different `ws://` or `wss://` relay service. Run `supacode settings list` to see
+the supported settings and accepted values, or `supacode settings get publicRelayEnabled` to
+check the effective value. Pass `--base-dir <path>` when the server uses a
+custom Supacode home. When no home is configured, a linked worktree uses its
+own `.supacode` directory.
 
 For browser access, install the [Supacode command line](./install.md) on the
 computer running the browser, then start its companion:
