@@ -34,7 +34,6 @@ import {
   connectionRouteId,
   connectionRoutes,
   entryWithRoutes,
-  preferredConnectionRoutes,
 } from "./routes.ts";
 
 const RETRY_BASE_DELAY_MS = 1_000;
@@ -261,7 +260,7 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
   const session = yield* SubscriptionRef.make<Option.Option<RpcSession.RpcSession>>(Option.none());
   const prepared = yield* SubscriptionRef.make<Option.Option<PreparedConnection>>(Option.none());
   const currentEntry = options?.entryRef ?? (yield* Ref.make(entry));
-  const currentRoutes = Ref.get(currentEntry).pipe(Effect.map(preferredConnectionRoutes));
+  const currentRoutes = Ref.get(currentEntry).pipe(Effect.map(connectionRoutes));
   // Set when a better route answered while connected over a worse one; the
   // replacement attempt tries it first. Cleared once an attempt starts.
   const preferredRoute = yield* Ref.make(Option.none<ConnectionDriver.PreparedRoute>());
@@ -270,7 +269,7 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
 
   const attemptEntry = Effect.gen(function* () {
     const latest = yield* Ref.get(currentEntry);
-    const routes = preferredConnectionRoutes(latest);
+    const routes = connectionRoutes(latest);
     const preferred = yield* Ref.getAndSet(preferredRoute, Option.none());
     if (Option.isNone(preferred)) return { entry: latest, preflight: undefined };
     const route = routes.find(
@@ -311,7 +310,7 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
     if (current <= 0) return;
     const now = yield* Clock.monotonicTimeNanos;
     const cooldowns = yield* Ref.get(routeCooldowns);
-    const better = preferredConnectionRoutes(latest)
+    const better = connectionRoutes(latest)
       .slice(0, current)
       .filter((route) => (cooldowns.get(connectionRouteId(route.target)) ?? 0n) <= now);
     const passed = yield* Effect.forEach(

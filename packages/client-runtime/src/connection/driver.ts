@@ -89,12 +89,16 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
   ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, R | Scope.Scope>,
 ) {
   const routes = connectionRoutes(entry);
-  const directRoutes = routes.filter((route) => connectionRouteKind(route) !== "relay");
-  const relayRoutes = routes.filter((route) => connectionRouteKind(route) === "relay");
   const checks =
     routes.length === 1
       ? []
-      : yield* Effect.forEach(directRoutes, (route) => Effect.forkChild(checkRoute(route)));
+      : yield* Effect.forEach(routes, (route) =>
+          Effect.forkChild(
+            connectionRouteKind(route) === "relay"
+              ? Effect.succeed<RouteCheck>("unchecked")
+              : checkRoute(route),
+          ),
+        );
   const firstChecks = yield* Effect.forEach(checks, (check) =>
     Effect.forkChild(Fiber.join(check).pipe(Effect.timeoutOption(ROUTE_CHECK_TIMEOUT_MS))),
   );
@@ -141,11 +145,31 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
     else blocked ??= result.failure;
     return Option.none();
   });
-  let slow: Array<number> = [];
+  const slow: Array<number> = [];
   const silent: Array<number> = [];
-  for (const [index, route] of directRoutes.entries()) {
+  for (const [index, route] of routes.entries()) {
+    const isRelay = connectionRouteKind(route) === "relay";
+    if (isRelay) {
+      const earlier = slow.splice(0);
+      while (earlier.length > 0) {
+        const [index, check] = yield* Effect.raceAll(
+          earlier.map((index) =>
+            Fiber.join(firstChecks[index]!).pipe(Effect.map((check) => [index, check] as const)),
+          ),
+        );
+        earlier.splice(earlier.indexOf(index), 1);
+        if (Option.isNone(check)) {
+          slow.push(index);
+        } else if (check.value === "silent") {
+          silent.push(index);
+        } else {
+          const lease = yield* attempt(routes[index]!);
+          if (Option.isSome(lease)) return lease.value;
+        }
+      }
+    }
     const check =
-      firstChecks.length === 0
+      isRelay || firstChecks.length === 0
         ? Option.some<RouteCheck>("unchecked")
         : yield* Effect.raceFirst(Fiber.join(firstChecks[index]!), Fiber.join(preferenceWindow));
     if (Option.isNone(check)) {
@@ -159,30 +183,6 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
     const lease = yield* attempt(route);
     if (Option.isSome(lease)) return lease.value;
   }
-  if (relayRoutes.length > 0) {
-    const stillSlow: Array<number> = [];
-    while (slow.length > 0) {
-      const [index, check] = yield* Effect.raceAll(
-        slow.map((index) =>
-          Fiber.join(firstChecks[index]!).pipe(Effect.map((check) => [index, check] as const)),
-        ),
-      );
-      slow.splice(slow.indexOf(index), 1);
-      if (Option.isNone(check)) {
-        stillSlow.push(index);
-      } else if (check.value === "silent") {
-        silent.push(index);
-      } else {
-        const lease = yield* attempt(directRoutes[index]!);
-        if (Option.isSome(lease)) return lease.value;
-      }
-    }
-    slow = stillSlow;
-    for (const route of relayRoutes) {
-      const lease = yield* attempt(route);
-      if (Option.isSome(lease)) return lease.value;
-    }
-  }
   while (slow.length > 0) {
     const [index, check] = yield* Effect.raceAll(
       slow.map((index) =>
@@ -194,11 +194,11 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
       silent.push(index);
       continue;
     }
-    const lease = yield* attempt(directRoutes[index]!);
+    const lease = yield* attempt(routes[index]!);
     if (Option.isSome(lease)) return lease.value;
   }
   for (const index of silent.sort((a, b) => a - b)) {
-    const lease = yield* attempt(directRoutes[index]!);
+    const lease = yield* attempt(routes[index]!);
     if (Option.isSome(lease)) return lease.value;
   }
   return yield* (

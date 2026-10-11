@@ -113,12 +113,12 @@ Your client needs a working connection to receive new addresses. If its only
 route is relay and the host moves to another relay server, pair again or connect
 through another saved route to learn the change.
 
-Direct and SSH routes are tried in your saved preference order. Relay is used only
-when those routes do not answer or connect, even if you move it higher in the list.
-Supacode checks direct addresses before opening a relay connection, so a reachable
-LAN or Tailscale route avoids relay traffic. Supacode checks for a preferred route
-when your network changes, when you return to the app, and periodically while
-using a fallback.
+Routes are tried in your saved preference order. Relay is last by default;
+moving it higher makes it take priority over the routes below it.
+Supacode checks higher-priority direct addresses before opening a relay connection,
+so a reachable preferred LAN or Tailscale route avoids relay traffic.
+Supacode checks for a preferred route when your network changes, when you return
+to the app, and periodically while using a fallback.
 A browser opened over HTTPS needs HTTPS routes; it cannot connect to plain HTTP
 LAN addresses.
 

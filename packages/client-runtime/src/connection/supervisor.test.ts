@@ -1501,8 +1501,38 @@ describe("EnvironmentSupervisor", () => {
       expect(Option.isNone(yield* SubscriptionRef.get(supervisor.session))).toBe(true);
     }),
   );
+  it.effect(
+    "keeps a manually preferred relay when a lower-priority direct route is reachable",
+    () =>
+      Effect.gen(function* () {
+        const probed = yield* Deferred.make<void>();
+        const harness = yield* makeHarness({
+          checkRoute: () => Effect.succeed("answered"),
+          probe: () => Deferred.succeed(probed, undefined).pipe(Effect.asVoid),
+        });
+        const supervisor = yield* EnvironmentSupervisor.make({
+          ...RELAY_ROUTE,
+          alternateRoutes: [LAN_ROUTE],
+          enabled: true,
+        }).pipe(Effect.provide(harness.dependencies));
+        yield* supervisor.connect;
+        yield* awaitState(supervisor.state, (state) => state.phase === "connected");
+        expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+          RELAY_TARGET,
+        );
+        yield* harness.wake("application-resumed");
+        yield* Deferred.await(probed);
+        yield* TestClock.adjust("60 seconds");
+        expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+          RELAY_TARGET,
+        );
+        expect(yield* Ref.get(harness.sessionCount)).toBe(1);
+        expect(yield* Ref.get(harness.releaseCount)).toBe(0);
+      }),
+  );
+
   it.effect.each([LAN_ROUTE, TAILNET_ROUTE])(
-    "switches from an earlier saved relay to a newly reachable direct route: %#",
+    "switches from relay to a newly reachable preferred direct route: %#",
     (direct) =>
       Effect.gen(function* () {
         const reachable = yield* Ref.make(false);
@@ -1525,8 +1555,8 @@ describe("EnvironmentSupervisor", () => {
               : Effect.succeed("answered"),
         });
         const supervisor = yield* EnvironmentSupervisor.make({
-          ...RELAY_ROUTE,
-          alternateRoutes: [direct],
+          ...direct,
+          alternateRoutes: [RELAY_ROUTE],
           enabled: true,
         }).pipe(Effect.provide(harness.dependencies));
         yield* supervisor.connect;

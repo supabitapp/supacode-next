@@ -46,16 +46,6 @@ export function connectionRoutes(entry: ConnectionCatalogEntry): ReadonlyArray<C
   return [{ target: entry.target, profile: entry.profile }, ...(entry.alternateRoutes ?? [])];
 }
 
-export function preferredConnectionRoutes(
-  entry: ConnectionCatalogEntry,
-): ReadonlyArray<ConnectionRoute> {
-  const routes = connectionRoutes(entry);
-  return [
-    ...routes.filter((route) => connectionRouteKind(route) !== "relay"),
-    ...routes.filter((route) => connectionRouteKind(route) === "relay"),
-  ];
-}
-
 export function entryWithRoutes(
   entry: ConnectionCatalogEntry,
   routes: ReadonlyArray<ConnectionRoute>,

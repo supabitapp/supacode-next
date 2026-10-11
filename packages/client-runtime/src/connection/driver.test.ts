@@ -53,14 +53,55 @@ const transient = () =>
   new ConnectionTransientError({ reason: "transport", detail: "Network lost" });
 
 describe("direct route connection attempts", () => {
+  it.effect.each([[relay, lan] as const, [lan, relay, tailnet] as const])(
+    "honors a saved relay preference ahead of a reachable direct route: %#",
+    (routes) =>
+      Effect.gen(function* () {
+        const [first, ...rest] = routes;
+        const attempted: ConnectionRoute[] = [];
+        const result = yield* connectOverRoutes(
+          { ...first, enabled: true, alternateRoutes: rest },
+          (route) =>
+            Effect.succeed(
+              route.target === lan.target && first.target !== relay.target ? "silent" : "answered",
+            ),
+          (route) =>
+            Effect.sync(() => {
+              attempted.push(route);
+              return lease(route);
+            }),
+        );
+        expect(result.prepared.target).toEqual(relay.target);
+        expect(attempted).toEqual([relay]);
+      }),
+  );
+
+  it.effect("falls back from a manually preferred relay to a reachable direct route", () =>
+    Effect.gen(function* () {
+      const attempted: ConnectionRoute[] = [];
+      const result = yield* connectOverRoutes(
+        { ...relay, enabled: true, alternateRoutes: [lan] },
+        () => Effect.succeed("answered"),
+        (route) =>
+          Effect.gen(function* () {
+            attempted.push(route);
+            if (route.target === relay.target) return yield* transient();
+            return lease(route);
+          }),
+      );
+      expect(result.prepared.target).toEqual(lan.target);
+      expect(attempted).toEqual([relay, lan]);
+    }),
+  );
+
   it.effect.each([lan, tailnet])(
-    "uses the reachable direct route without probing or opening an earlier saved relay: %#",
+    "uses a preferred direct route without probing or opening relay: %#",
     (direct) =>
       Effect.gen(function* () {
         const checked: ConnectionRoute[] = [];
         const attempted: ConnectionRoute[] = [];
         const result = yield* connectOverRoutes(
-          { ...relay, enabled: true, alternateRoutes: [direct] },
+          { ...direct, enabled: true, alternateRoutes: [relay] },
           (route) =>
             Effect.sync(() => {
               checked.push(route);
@@ -84,9 +125,9 @@ describe("direct route connection attempts", () => {
       const attempted: ConnectionRoute[] = [];
       const publicRoute = route("public", "https://remote.example.test");
       const fiber = yield* connectOverRoutes(
-        { ...relay, enabled: true, alternateRoutes: [lan, tailnet, publicRoute] },
+        { ...lan, enabled: true, alternateRoutes: [tailnet, publicRoute, relay] },
         (route) => {
-          if (route === lan)
+          if (route.target === lan.target)
             return Deferred.succeed(checked, undefined).pipe(Effect.as("answered" as const));
           if (route === tailnet) return Effect.never;
           return Effect.sleep(500).pipe(Effect.as("answered" as const));
@@ -94,7 +135,7 @@ describe("direct route connection attempts", () => {
         (route) =>
           Effect.gen(function* () {
             attempted.push(route);
-            if (route === lan) return yield* transient();
+            if (route.target === lan.target) return yield* transient();
             return lease(route);
           }),
       ).pipe(Effect.forkChild);
@@ -110,7 +151,7 @@ describe("direct route connection attempts", () => {
       const checking = yield* Deferred.make<void>();
       const attempted: ConnectionRoute[] = [];
       const fiber = yield* connectOverRoutes(
-        { ...relay, enabled: true, alternateRoutes: [lan] },
+        { ...lan, enabled: true, alternateRoutes: [relay] },
         () => Deferred.succeed(checking, undefined).pipe(Effect.andThen(Effect.never)),
         (route) =>
           Effect.sync(() => {
@@ -131,7 +172,7 @@ describe("direct route connection attempts", () => {
     Effect.gen(function* () {
       const attempted: ConnectionRoute[] = [];
       const result = yield* connectOverRoutes(
-        { ...relay, enabled: true, alternateRoutes: [lan, tailnet] },
+        { ...lan, enabled: true, alternateRoutes: [tailnet, relay] },
         () => Effect.succeed("silent"),
         (route) =>
           Effect.sync(() => {
@@ -148,7 +189,7 @@ describe("direct route connection attempts", () => {
     Effect.gen(function* () {
       const attempted: ConnectionRoute[] = [];
       const result = yield* connectOverRoutes(
-        { ...relay, enabled: true, alternateRoutes: [lan] },
+        { ...lan, enabled: true, alternateRoutes: [relay] },
         () => Effect.succeed("silent"),
         (route) =>
           Effect.gen(function* () {
@@ -166,11 +207,11 @@ describe("direct route connection attempts", () => {
     Effect.gen(function* () {
       const lifecycle: string[] = [];
       const result = yield* connectOverRoutes(
-        { ...relay, enabled: true, alternateRoutes: [lan] },
+        { ...lan, enabled: true, alternateRoutes: [relay] },
         () => Effect.succeed("answered"),
         (route) =>
           Effect.gen(function* () {
-            if (route === lan) {
+            if (route.target === lan.target) {
               yield* Effect.addFinalizer(() =>
                 Effect.sync(() => {
                   lifecycle.push("closed LAN");
