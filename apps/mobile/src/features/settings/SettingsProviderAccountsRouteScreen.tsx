@@ -5,11 +5,22 @@ import {
 } from "@supacode/client-runtime/state/runtime";
 import type { ProviderAuthResponse, ServerProvider } from "@supacode/contracts";
 import { useRef, useState } from "react";
-import { Alert, Linking, Pressable, ScrollView, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
+import { MaterialButton } from "../../components/MaterialButton";
+import { ProviderIcon } from "../../components/ProviderIcon";
 import { ScreenScrollView } from "../../components/ScreenScrollView";
+import { cn } from "../../lib/cn";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -40,35 +51,43 @@ export function SettingsProviderAccountsRouteScreen() {
           contentContainerClassName="gap-6 px-5 pt-4"
           contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
         >
+          <Text className="px-2 text-sm text-foreground-muted">
+            Accounts are saved on the environment that runs your agents.
+          </Text>
           {selectedTargets.length === 0 ? (
-            <Text className="text-foreground-muted">Select a connected environment.</Text>
+            <Text className="px-2 text-sm text-foreground-muted">
+              Select a connected environment with the filter above.
+            </Text>
           ) : (
-            selectedTargets.map((environment) => (
-              <SettingsSection key={environment.environmentId} title={environment.label}>
-                {environment.serverConfig.providers
-                  .filter(
-                    (provider) =>
-                      provider.setup?.canAuthenticate ||
-                      (provider.driver === "acpRegistry" && provider.installed),
-                  )
-                  .map((provider) => (
+            selectedTargets.map((environment) => {
+              const providers = environment.serverConfig.providers.filter(
+                (provider) =>
+                  provider.setup?.canAuthenticate ||
+                  (provider.driver === "acpRegistry" && provider.installed),
+              );
+              return (
+                <SettingsSection key={environment.environmentId} title={environment.label}>
+                  {providers.map((provider, index) => (
                     <ProviderAccount
                       key={provider.instanceId}
                       environment={environment}
                       provider={provider}
+                      isLast={index === providers.length - 1}
                     />
                   ))}
-                {!environment.serverConfig.providers.some(
-                  (provider) =>
-                    provider.setup?.canAuthenticate ||
-                    (provider.driver === "acpRegistry" && provider.installed),
-                ) ? (
-                  <Text className="p-4 text-foreground-muted">
-                    Configure a provider with in-app sign-in in web or desktop Settings.
-                  </Text>
-                ) : null}
-              </SettingsSection>
-            ))
+                  {providers.length === 0 ? (
+                    <View className="gap-1 p-4">
+                      <Text className="text-base font-supacode-medium text-foreground">
+                        No accounts to connect
+                      </Text>
+                      <Text className="text-sm text-foreground-muted">
+                        Add a provider in web or desktop Settings → Providers.
+                      </Text>
+                    </View>
+                  ) : null}
+                </SettingsSection>
+              );
+            })
           )}
         </ScreenScrollView>
       </SettingsScreen>
@@ -79,9 +98,11 @@ export function SettingsProviderAccountsRouteScreen() {
 function ProviderAccount({
   environment,
   provider,
+  isLast,
 }: {
   readonly environment: SettingsTarget;
   readonly provider: ServerProvider;
+  readonly isLast: boolean;
 }) {
   const environmentId = environment.environmentId;
   const instanceId = provider.instanceId;
@@ -123,6 +144,37 @@ function ProviderAccount({
       ? interaction.url
       : state?.authorizationUrl;
   const disabled = pending || auth.error !== null || isDiscovering;
+  const unavailable = !provider.enabled || !provider.installed;
+  const loading = !unavailable && !auth.error && (state === null || isDiscovering);
+  const showSignIn =
+    !active &&
+    !unavailable &&
+    !needsExternalSetup &&
+    provider.setup?.canAuthenticate !== false &&
+    !choosingMethod &&
+    !loading &&
+    !auth.error;
+
+  function signInLabel() {
+    if (pending) return "Working…";
+    if (signedIn) return "Change account";
+    if (state?.phase === "failed" || state?.phase === "cancelled") return "Retry sign-in";
+    return "Sign in";
+  }
+
+  function accountDescription() {
+    if (active) return state.message;
+    if (!provider.enabled) return "Enable in web or desktop Settings → Providers.";
+    if (!provider.installed)
+      return "Install on this environment in web or desktop Settings → Providers.";
+    if (auth.error) return "Couldn’t load account status.";
+    if (loading) return isDiscovering ? "Finding sign-in methods…" : "Loading account…";
+    if (state?.phase === "failed" || state?.phase === "cancelled") return state.message;
+    if (signedIn) return "Signed in.";
+    if (needsExternalSetup) return "Follow the provider’s setup guide to sign in.";
+    if (choosingMethod) return "Choose how to sign in below.";
+    return "Not signed in.";
+  }
   async function run(command: () => Promise<AtomCommandResult<unknown, unknown>>) {
     if (pendingRef.current) return false;
     pendingRef.current = true;
@@ -154,19 +206,22 @@ function ProviderAccount({
   }
   function field(name: string, label: string, secret: boolean) {
     return (
-      <TextInput
-        accessibilityLabel={label}
-        className="rounded-lg border border-border-subtle px-3 py-2 text-base text-foreground"
-        placeholderTextColorClassName="accent-foreground-muted"
-        placeholder={label}
-        secureTextEntry={secret}
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={!disabled}
-        maxLength={secret && interaction?.type === "terminal" ? 4_095 : 16_384}
-        value={values[name] ?? ""}
-        onChangeText={(value) => setDraft({ id: draftId, values: { ...values, [name]: value } })}
-      />
+      <View className="gap-1.5">
+        <Text className="text-sm font-supacode-medium text-foreground">{label}</Text>
+        <TextInput
+          accessibilityLabel={label}
+          className="min-h-11 rounded-lg border border-border-subtle px-3 py-2 text-base text-foreground"
+          placeholderTextColorClassName="accent-foreground-muted"
+          secureTextEntry={secret}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType={name === "callback" ? "url" : "default"}
+          editable={!disabled}
+          maxLength={secret && interaction?.type === "terminal" ? 4_095 : 16_384}
+          value={values[name] ?? ""}
+          onChangeText={(value) => setDraft({ id: draftId, values: { ...values, [name]: value } })}
+        />
+      </View>
     );
   }
   function chooseMethod() {
@@ -178,21 +233,39 @@ function ProviderAccount({
     setChoosingMethod(true);
   }
   return (
-    <View className="border-b border-border-subtle">
+    <View className={isLast ? undefined : "border-b border-border-subtle"}>
       <View className="gap-2 p-4">
-        <Text className="text-lg font-semibold text-foreground">
-          {provider.displayName ?? provider.driver}
-        </Text>
+        <View
+          className={cn(
+            "flex-row items-center gap-3",
+            unavailable && !active ? "min-h-6" : "min-h-12",
+          )}
+        >
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <ProviderIcon provider={provider.driver} iconUrl={provider.iconUrl} size={24} />
+          </View>
+          <Text className="min-w-0 flex-1 text-base font-supacode-medium text-foreground">
+            {provider.displayName ?? provider.driver}
+          </Text>
+          {showSignIn ? (
+            <MaterialButton
+              label={signInLabel()}
+              disabled={disabled}
+              loading={pending}
+              onPress={chooseMethod}
+            />
+          ) : loading ? (
+            <ActivityIndicator accessibilityLabel="Loading account" colorClassName="accent-icon" />
+          ) : !active && unavailable ? (
+            <Text className="text-sm text-foreground-muted">
+              {provider.enabled ? "Not installed" : "Disabled"}
+            </Text>
+          ) : !active && auth.error ? (
+            <MaterialButton label="Retry" onPress={auth.refresh} />
+          ) : null}
+        </View>
         <Text accessibilityLiveRegion="polite" className="text-sm text-foreground-muted">
-          {active || state?.phase === "failed" || state?.phase === "cancelled"
-            ? state.message
-            : signedIn
-              ? "Signed in."
-              : isDiscovering
-                ? "Discovering sign-in methods…"
-                : needsExternalSetup
-                  ? "No in-app sign-in advertised. Follow the provider's docs to finish setup."
-                  : "Connect this provider."}
+          {accountDescription()}
         </Text>
         {signedIn && !active && provider.auth.email?.trim() ? (
           <ProviderAccountEmail key={provider.auth.email} email={provider.auth.email} />
@@ -241,7 +314,10 @@ function ProviderAccount({
         ) : null}
         {url && (interaction?.type === "browser" ? interaction.acceptsCallback : !interaction) ? (
           <>
-            {field("callback", "Final localhost URL", false)}
+            <Text className="text-sm text-foreground-muted">
+              If the browser can’t open the final page, paste its full address below.
+            </Text>
+            {field("callback", "Return URL", false)}
             <SettingsActionRow
               icon="arrow.right"
               label="Continue"
@@ -321,14 +397,6 @@ function ProviderAccount({
           onPress={() => {
             void run(() => cancel({ environmentId, input: { instanceId, flowId: state.flowId! } }));
           }}
-        />
-      ) : !active && !needsExternalSetup && provider.setup?.canAuthenticate !== false ? (
-        <SettingsActionRow
-          icon="person.crop.circle"
-          label={signedIn ? "Change account" : "Sign in"}
-          disabled={disabled || !provider.enabled || !provider.installed || state === null}
-          loading={pending}
-          onPress={chooseMethod}
         />
       ) : null}
       {!active && signedIn && (provider.auth.canLogout ?? provider.setup?.canAuthenticate) ? (
