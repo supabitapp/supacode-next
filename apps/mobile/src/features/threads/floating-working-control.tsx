@@ -170,7 +170,6 @@ export function FloatingWorkingControl(props: {
     hasAgents ||
     hasQueue ||
     (props.devicePreview !== null && props.browserPreview !== null);
-  // Working opens the sole companion action; multiple actions keep their own targets.
   const companionActions = [
     hasQueue
       ? {
@@ -191,11 +190,11 @@ export function FloatingWorkingControl(props: {
       ? { onPress: props.browserPreview.onPress, accessibilityLabel: "View browser" }
       : null,
   ].filter((action) => action !== null);
-  const workingAction =
-    props.status?.kind === "working" && companionActions.length === 1
+  const statusAction =
+    props.status !== null && props.status.kind !== "connection" && companionActions.length === 1
       ? companionActions[0]
       : undefined;
-  const StatusContainer = workingAction ? Pressable : View;
+  const StatusContainer = statusAction ? Pressable : View;
   const statusInteractive = props.status?.kind === "connection";
   const capsuleInteractive = statusInteractive || hasQueue || hasAgents || hasPreview;
   // The host stays centered on the capsule, but its measurement constraint
@@ -203,12 +202,12 @@ export function FloatingWorkingControl(props: {
   const statusContent =
     props.status !== null ? (
       <StatusContainer
-        onPress={workingAction?.onPress}
-        accessibilityRole={workingAction ? "button" : undefined}
-        accessibilityLabel={workingAction?.accessibilityLabel}
-        pointerEvents={workingAction ? "auto" : statusInteractive ? "box-none" : "none"}
+        onPress={statusAction?.onPress}
+        accessibilityRole={statusAction ? "button" : undefined}
+        accessibilityLabel={statusAction?.accessibilityLabel}
+        pointerEvents={statusAction ? "auto" : statusInteractive ? "box-none" : "none"}
         className={
-          workingAction
+          statusAction
             ? "h-11 items-center justify-center active:opacity-70"
             : "h-11 items-center justify-center"
         }
