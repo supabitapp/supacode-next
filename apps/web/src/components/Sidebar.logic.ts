@@ -886,17 +886,23 @@ export type SidebarThreadStatus =
   | "limited"
   | "ready";
 
+/**
+ * Background work recedes when it is not selected: an unread parent completion
+ * must not pull a still-working thread back into the foreground, while ready
+ * and action-required rows keep their unread and wake prominence. Pinned rows
+ * stay at full strength and recede only while their environment is unreachable.
+ */
 export function shouldRecedeSidebarThread(input: {
   status: SidebarThreadStatus;
   isUnread: boolean;
   isWoke: boolean;
   isActive: boolean;
   isSelected: boolean;
-  isPinned: boolean;
+  inPinnedSection: boolean;
   environmentConnected: boolean;
 }): boolean {
   if (input.isActive || input.isSelected) return false;
-  if (input.isPinned) return !input.environmentConnected;
+  if (input.inPinnedSection) return !input.environmentConnected;
   if (input.status === "input") return false;
   if (input.status === "working" || input.status === "waiting") return true;
   if (input.status === "ready" || input.status === "approval") {
