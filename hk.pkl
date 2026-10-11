@@ -27,6 +27,15 @@ steps {
 }
 
 hooks {
+  ["commit-msg"] {
+    steps {
+      ["no-ai-attribution"] {
+        check = new Command {
+          argv = List("node", "scripts/check-commit-message.ts", "{{commit_msg_file}}")
+        }
+      }
+    }
+  }
   ["pre-commit"] {
     fix = true
     stash = "git"
