@@ -1172,7 +1172,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // Hide unsupported actions on environments with older servers.
   pinningSupported: boolean;
   isPinned: boolean;
-  inPinnedSection: boolean;
   // Present on rows whose server supports every drop outcome: dnd-kit
   // sortable bag applied to the row root so the whole row drags (the
   // pointer sensor's distance constraint keeps plain clicks working).
@@ -1343,8 +1342,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     isWoke,
     isActive: props.isActive,
     isSelected,
-    inPinnedSection: props.inPinnedSection,
-    environmentConnected,
   });
   // Status hues follow the system-wide convention set by sidebar v1 and the
   // mobile widgets (amber approval, indigo input, sky working) so a thread
@@ -4926,7 +4923,6 @@ export default function Sidebar() {
                               .threadPinning === true
                           }
                           isPinned={thread.pinnedAt != null}
-                          inPinnedSection={section === "pinned"}
                           sortable={sortable}
                           dropVerb={
                             dragState?.activeKey === threadKey
