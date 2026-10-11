@@ -29,7 +29,7 @@ steps {
 hooks {
   ["commit-msg"] {
     steps {
-      ["screw-u-claude"] {
+      ["screw-claude"] {
         check = new Command {
           argv = List("node", "scripts/check-commit-message.ts", "{{commit_msg_file}}")
         }
