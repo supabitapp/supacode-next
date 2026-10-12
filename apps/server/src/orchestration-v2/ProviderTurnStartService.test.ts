@@ -171,8 +171,12 @@ function makeLocalCommandHarness(input: {
   readonly writeFailure?: unknown;
   /** Loads the thread and starts the run, then fails every later state read. */
   readonly failReadsAfterRunning?: boolean;
+  readonly missingWorktree?: boolean;
 }) {
   const now = DateTime.makeUnsafe("2026-09-04T12:00:00Z");
+  const nativeSessionCwd = input.missingWorktree
+    ? "/tmp/missing-native-account-command"
+    : "/tmp/native-account-command";
   const threadId = ThreadId.make("thread-native-account-command");
   const runId = RunId.make("run-native-account-command");
   const rootNodeId = NodeId.make("root-native-account-command");
@@ -184,6 +188,7 @@ function makeLocalCommandHarness(input: {
   const newInstanceId = ProviderInstanceId.make("codex-personal");
   const checkpointScopeId = CheckpointScopeId.make("scope-native-account-command");
   const messageId = MessageId.make("message-native-account-command");
+  const projectId = ProjectId.make("project-native-account-command");
   const run: OrchestrationV2ThreadProjection["runs"][number] = {
     id: runId,
     threadId,
@@ -236,8 +241,9 @@ function makeLocalCommandHarness(input: {
     thread: {
       id: threadId,
       activeProviderThreadId: providerThreadId,
-      branch: null,
-      worktreePath: null,
+      projectId,
+      branch: input.missingWorktree === true ? "feature/restore" : null,
+      worktreePath: input.missingWorktree === true ? "/tmp/missing-native-account-command" : null,
     } as OrchestrationV2ThreadProjection["thread"],
     runs: [
       ...(input.previousNativeSession
@@ -414,7 +420,7 @@ function makeLocalCommandHarness(input: {
                   ),
                 ),
               )
-            : input.failReadsAfterRunning === true
+            : input.failReadsAfterRunning === true || input.missingWorktree === true
               ? Effect.succeed({
                   driver: providerThread.driver,
                   providerSession: {
@@ -422,7 +428,7 @@ function makeLocalCommandHarness(input: {
                     driver: providerThread.driver,
                     providerInstanceId: newInstanceId,
                     status: "ready",
-                    cwd: "/tmp/native-account-command",
+                    cwd: nativeSessionCwd,
                     model: null,
                     capabilities: CodexProviderCapabilitiesV2,
                     createdAt: now,
@@ -436,7 +442,7 @@ function makeLocalCommandHarness(input: {
   const startRootRun = vi.fn<
     (input: RunExecutionService.RunExecutionServiceV2StartRootRunInput) => Effect.Effect<void>
   >(() =>
-    input.failReadsAfterRunning === true
+    input.failReadsAfterRunning === true || input.missingWorktree === true
       ? Effect.void
       : Effect.die("A local command must not start a native turn."),
   );
@@ -483,6 +489,23 @@ function makeLocalCommandHarness(input: {
           return { committed, storedEvents: [] };
         }),
   );
+  const pruneWorktrees = vi.fn(() => Effect.void);
+  const createWorktree = vi.fn(() => Effect.succeed({} as never));
+  const filesystemLayer =
+    input.missingWorktree === true
+      ? Layer.succeed(FileSystem.FileSystem, { exists: () => Effect.succeed(false) } as never)
+      : FileSystem.layerNoop({});
+  const gitWorkflowLayer = Layer.mock(GitWorkflow.GitWorkflowService)(
+    input.missingWorktree === true ? { pruneWorktrees, createWorktree } : {},
+  );
+  const projectServiceLayer = Layer.mock(ProjectService.ProjectService)(
+    input.missingWorktree === true
+      ? {
+          getById: () =>
+            Effect.succeed(Option.some({ workspaceRoot: "/tmp/native-account-command" } as never)),
+        }
+      : {},
+  );
   const layer = ProviderTurnStart.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
@@ -491,9 +514,9 @@ function makeLocalCommandHarness(input: {
         }),
         Layer.mock(EventSink.EventSinkV2)({ writeIfRunCurrent }),
         IdAllocator.layer,
-        FileSystem.layerNoop({}),
-        Layer.mock(GitWorkflow.GitWorkflowService)({}),
-        Layer.mock(ProjectService.ProjectService)({}),
+        filesystemLayer,
+        gitWorkflowLayer,
+        projectServiceLayer,
         Layer.mock(ProjectionStore.ProjectionStoreV2)({
           getTurnStartContext: () =>
             Effect.succeed({
@@ -539,6 +562,8 @@ function makeLocalCommandHarness(input: {
     oldInstanceId,
     newInstanceId,
     attemptId,
+    pruneWorktrees,
+    createWorktree,
     projection: () => projection,
     start: Effect.gen(function* () {
       yield* (yield* ProviderTurnStart.ProviderTurnStartServiceV2).start({ threadId, runId });
@@ -552,6 +577,30 @@ function makeLocalCommandHarness(input: {
     }).pipe(Effect.provide(layer)),
   };
 }
+
+effectIt.effect("recreates a deleted worktree before starting its next turn", () =>
+  Effect.gen(function* () {
+    const harness = makeLocalCommandHarness({ text: "Continue", missingWorktree: true });
+
+    yield* harness.start;
+
+    expect(harness.pruneWorktrees).toHaveBeenCalledWith({ cwd: "/tmp/native-account-command" });
+    expect(harness.createWorktree).toHaveBeenCalledWith({
+      cwd: "/tmp/native-account-command",
+      refName: "feature/restore",
+      path: "/tmp/missing-native-account-command",
+    });
+    expect(harness.open).toHaveBeenCalledOnce();
+    expect(harness.startRootRun).toHaveBeenCalledOnce();
+    expect(harness.createWorktree.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.open.mock.invocationCallOrder[0]!,
+    );
+    expect(harness.open.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.startRootRun.mock.invocationCallOrder[0]!,
+    );
+    expect(harness.projection().runs.at(-1)).toMatchObject({ status: "running" });
+  }),
+);
 
 effectIt.effect("terminalizes a starting run when its provider session cannot open", () =>
   Effect.gen(function* () {
