@@ -3,6 +3,7 @@ import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
 import * as TerminalManager from "../terminal/Manager.ts";
 import { resolveProjectSettings } from "@supacode/shared/projectSettings";
 import {
+  branchNamingChoiceOf,
   CommandId,
   type ChatAttachment,
   type MessageId,
@@ -285,17 +286,21 @@ const make = Effect.gen(function* () {
                   settings,
                   yield* providerRegistry.getProviders,
                 );
+          const prefix =
+            branchNamingChoiceOf(
+              settings.branchNamingMode,
+              settings.branchNamePrefixFromRepository,
+            ) === "repository"
+              ? repositoryBranchPrefix(
+                  yield* repositoryIdentities.resolve(project.workspaceRoot),
+                  project.workspaceRoot,
+                )
+              : settings.branchNamePrefix;
           return yield* textGeneration
             .generateBranchName({
               naming: {
                 mode: settings.branchNamingMode,
-                prefix:
-                  settings.branchNamingMode === "static" && settings.branchNamePrefixFromRepository
-                    ? repositoryBranchPrefix(
-                        yield* repositoryIdentities.resolve(project.workspaceRoot),
-                        project.workspaceRoot,
-                      )
-                    : settings.branchNamePrefix,
+                prefix,
                 instructions: settings.branchNameInstructions,
               },
               cwd,

@@ -131,7 +131,7 @@ export function BranchNamingSettings() {
           }
         />
       ) : null}
-      {!modeMixed && settings.branchNamingMode === "custom" ? (
+      {!modeMixed && choice === "custom" ? (
         <SettingsRow
           serverScoped
           settingKeys={["branchNameInstructions"]}

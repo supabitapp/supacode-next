@@ -49,6 +49,9 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
               ? "Inherit"
               : "Not set";
   }
+  if (key === "branchNamePrefixFromRepository") {
+    return value ? "Repository name prefix" : "Static prefix";
+  }
   if (typeof value === "boolean") return value ? "On" : "Off";
   if (typeof value === "number") {
     return key === "sidebarAutoSettleAfterDays"
@@ -190,12 +193,17 @@ export function SettingInheritance({
       (candidate) => candidate.environmentId === target.environmentId,
     );
     if (!environment?.serverConfig) return [];
+    const explained =
+      keys.find(
+        (candidate) =>
+          !Equal.equals(target.settings[candidate], DEFAULT_SERVER_SETTINGS[candidate]),
+      ) ?? key;
     return [
       {
         target,
         environment: { ...environment, serverConfig: environment.serverConfig },
         machine: resolveEnvironmentMachineKind(environment.serverConfig),
-        layers: settingInheritanceLayers(target, environment.serverConfig.settings, key),
+        layers: settingInheritanceLayers(target, environment.serverConfig.settings, explained),
       },
     ];
   });

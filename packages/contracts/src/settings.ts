@@ -860,8 +860,8 @@ export interface BranchNamingOptions {
 }
 
 /**
- * The naming choices clients offer. Repository naming is static naming whose prefix comes from
- * `branchNamePrefixFromRepository`, so `branchNamingMode` keeps the literal set older clients decode.
+ * The naming choices clients offer. Repository naming is static naming with
+ * `branchNamePrefixFromRepository` set, so `branchNamingMode` keeps the literal set older clients decode.
  */
 export const BRANCH_NAMING_CHOICES = ["static", "repository", "semantic", "custom"] as const;
 export type BranchNamingChoice = (typeof BRANCH_NAMING_CHOICES)[number];
@@ -876,13 +876,10 @@ export function branchNamingChoiceOf(
 export function branchNamingChoicePatch(
   choice: BranchNamingChoice,
 ): Pick<ServerSettingsPatch, "branchNamingMode" | "branchNamePrefixFromRepository"> {
-  if (choice === "repository") {
-    return { branchNamingMode: "static", branchNamePrefixFromRepository: true };
-  }
-  if (choice === "static") {
-    return { branchNamingMode: "static", branchNamePrefixFromRepository: false };
-  }
-  return { branchNamingMode: choice };
+  return {
+    branchNamingMode: choice === "repository" ? "static" : choice,
+    branchNamePrefixFromRepository: choice === "repository",
+  };
 }
 
 export const DEFAULT_AUTOMATIC_GIT_FETCH_INTERVAL = Duration.seconds(30);

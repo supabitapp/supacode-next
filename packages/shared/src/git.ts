@@ -57,14 +57,17 @@ export function sanitizeBranchFragment(raw: string): string {
   return branchFragment.length > 0 ? branchFragment : "update";
 }
 
-/** A fork names its branches after its own remote; a checkout without one uses its folder. */
+/** Names branches after the repository a checkout is grouped under (a fork's own remote), or its folder without a remote. */
 export function repositoryBranchPrefix(
   identity: RepositoryIdentity | null,
   workspaceRoot: string,
 ): string {
   const source = identity ? repositoryGroupingKeyOf(identity) : workspaceRoot;
-  const name = fileBasename(source).split(":").at(-1) ?? "";
-  return name.replace(/\.git$/iu, "").toLowerCase();
+  const basename = fileBasename(source);
+  return basename
+    .slice(basename.lastIndexOf(":") + 1)
+    .replace(/\.git$/iu, "")
+    .toLowerCase();
 }
 
 /** Custom naming preserves the model's complete ref; Git validates it on rename. */
