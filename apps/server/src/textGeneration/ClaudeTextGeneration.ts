@@ -156,6 +156,9 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
       fastModeDescriptor?.type === "boolean" ? fastModeDescriptor.currentValue : undefined;
     const settings = {
       disableAllHooks: true,
+      ...(investigate === undefined
+        ? {}
+        : { permissions: { blockReadsOutsideWorkingDirectories: true } }),
       ...(typeof thinking === "boolean" ? { alwaysThinkingEnabled: thinking } : {}),
       ...(fastMode ? { fastMode: true } : {}),
       ...(ultracode ? { ultracode: true } : {}),
@@ -211,13 +214,13 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           ...(reviewContext === undefined
             ? ["--tools", ""]
             : [
+                "--restricted",
+                "--safe-mode",
                 "--setting-sources",
                 "",
                 "--add-dir",
                 reviewContext.directory,
                 "--tools",
-                CLAUDE_INVESTIGATION_TOOLS,
-                "--allowedTools",
                 CLAUDE_INVESTIGATION_TOOLS,
               ]),
           "--disable-slash-commands",

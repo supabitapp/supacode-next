@@ -39,6 +39,15 @@ const settingsIndex = argv.indexOf("--settings");
 if (settingsIndex === -1 || JSON.parse(argv[settingsIndex + 1]).disableAllHooks !== true) {
   fail("text generation must disable hooks", 10);
 }
+if (
+  argv[toolsIndex + 1] !== "" &&
+  (JSON.parse(argv[settingsIndex + 1]).permissions?.blockReadsOutsideWorkingDirectories !== true ||
+    !argv.includes("--restricted") ||
+    !argv.includes("--safe-mode") ||
+    argv.includes("--allowedTools"))
+) {
+  fail("an investigation must refuse reads outside its working directories", 15);
+}
 const cwdMustNotBe = process.env.SUPACODE_FAKE_CLAUDE_CWD_MUST_NOT_BE;
 if (cwdMustNotBe && NodeFS.realpathSync(process.cwd()) === NodeFS.realpathSync(cwdMustNotBe)) {
   fail("text generation ran in the project directory", 11);

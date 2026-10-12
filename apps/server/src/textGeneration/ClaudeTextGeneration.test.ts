@@ -364,12 +364,12 @@ it.layer(layerClaudeTextGenerationTest)("ClaudeTextGeneration", (it) => {
     ),
   );
 
-  it.effect("investigates a review guide with isolated file tools and complete Git context", () =>
+  it.effect("investigates a review guide with bounded file tools and complete Git context", () =>
     withFakeClaudeEnv(
       {
         output: JSON.stringify({ structured_output: { stops: [] } }),
         argsMustContain: "--setting-sources  --add-dir",
-        argsMustNotContain: "Bash",
+        argsMustNotContain: "--allowedTools",
         stdinMustContain: "The complete Git outputs",
       },
       (textGeneration) =>
