@@ -13,18 +13,8 @@ if (permissionIndex === -1 || argv[permissionIndex + 1] !== "dontAsk") {
   fail("text generation must deny permission prompts", 12);
 }
 const toolsIndex = argv.indexOf("--tools");
-if (toolsIndex === -1) {
-  fail("text generation must receive an explicit tool set", 6);
-}
-const settingSourcesIndex = argv.indexOf("--setting-sources");
-if (
-  argv[toolsIndex + 1] !== "" &&
-  (settingSourcesIndex === -1 || argv[settingSourcesIndex + 1] !== "")
-) {
-  fail("an investigation must not load user or checkout permission settings", 13);
-}
-if (argv[toolsIndex + 1].includes("Bash")) {
-  fail("an investigation must not expose shell tools", 14);
+if (toolsIndex === -1 || argv[toolsIndex + 1] !== "") {
+  fail("text generation must receive an explicit empty tool set", 6);
 }
 if (argv.includes("--dangerously-skip-permissions")) {
   fail("text generation must not bypass permissions", 7);
@@ -38,15 +28,6 @@ if (!argv.includes("--strict-mcp-config")) {
 const settingsIndex = argv.indexOf("--settings");
 if (settingsIndex === -1 || JSON.parse(argv[settingsIndex + 1]).disableAllHooks !== true) {
   fail("text generation must disable hooks", 10);
-}
-if (
-  argv[toolsIndex + 1] !== "" &&
-  (JSON.parse(argv[settingsIndex + 1]).permissions?.blockReadsOutsideWorkingDirectories !== true ||
-    !argv.includes("--restricted") ||
-    !argv.includes("--safe-mode") ||
-    argv.includes("--allowedTools"))
-) {
-  fail("an investigation must refuse reads outside its working directories", 15);
 }
 const cwdMustNotBe = process.env.SUPACODE_FAKE_CLAUDE_CWD_MUST_NOT_BE;
 if (cwdMustNotBe && NodeFS.realpathSync(process.cwd()) === NodeFS.realpathSync(cwdMustNotBe)) {

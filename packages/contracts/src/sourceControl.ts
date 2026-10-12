@@ -15,15 +15,6 @@ export const SourceControlProviderKind = TrimmedNonEmptyString.check(
 ).pipe(Schema.brand("SourceControlProviderKind"));
 export type SourceControlProviderKind = typeof SourceControlProviderKind.Type;
 
-export const isLegacySourceControlProviderKind = Schema.is(
-  Schema.Literals(["github", "gitlab", "forgejo", "azure-devops", "bitbucket", "unknown"]),
-);
-
-export const SourceControlDiscoveryInput = Schema.Struct({
-  acceptOpenProviderKinds: Schema.optional(Schema.Boolean),
-});
-export type SourceControlDiscoveryInput = typeof SourceControlDiscoveryInput.Type;
-
 export const SourceControlProviderInfo = Schema.Struct({
   kind: SourceControlProviderKind,
   name: TrimmedNonEmptyString,
@@ -41,7 +32,7 @@ export const ChangeRequest = Schema.Struct({
   url: Schema.String,
   baseRefName: TrimmedNonEmptyString,
   headRefName: TrimmedNonEmptyString,
-
+  /** The head commit, when the provider's read includes it. */
   headSha: Schema.optional(TrimmedNonEmptyString),
   state: ChangeRequestState,
   /** Present when the provider can tell that an open change request is still a draft. */

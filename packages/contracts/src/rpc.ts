@@ -321,8 +321,8 @@ import {
 import { UsagePricing, UsageReadError, UsageSummary, UsageSummaryInput } from "./usage.ts";
 import {
   StorageCleanupReport,
-  ServerSettingsForClient,
   ServerSettingsError,
+  ServerSettings,
   ServerSettingsPatch,
 } from "./settings.ts";
 import { RelayConnectionInfo, RelayHostStatus, RelayPreparationError } from "./relay.ts";
@@ -350,7 +350,6 @@ import {
   SourceControlCloneRepositoryInput,
   SourceControlCloneRepositoryResult,
   SourceControlDiscoveryResult,
-  SourceControlDiscoveryInput,
   SourceControlPublishRepositoryInput,
   SourceControlPublishRepositoryResult,
   SourceControlRepositoryError,
@@ -768,7 +767,7 @@ const WsServerGetStorageCleanupReportRpc = Rpc.make(WS_METHODS.serverGetStorageC
 
 const WsServerGetSettingsRpc = Rpc.make(WS_METHODS.serverGetSettings, {
   payload: Schema.Struct({}),
-  success: ServerSettingsForClient,
+  success: ServerSettings,
   error: Schema.Union([ServerSettingsError, EnvironmentAuthorizationError]),
 });
 
@@ -777,12 +776,12 @@ const WsServerUpdateSettingsRpc = Rpc.make(WS_METHODS.serverUpdateSettings, {
     patch: ServerSettingsPatch,
     providerInstanceMutation: Schema.optionalKey(ProviderInstanceMutation),
   }),
-  success: ServerSettingsForClient,
+  success: ServerSettings,
   error: Schema.Union([ServerSettingsError, EnvironmentAuthorizationError]),
 });
 
 const WsServerDiscoverSourceControlRpc = Rpc.make(WS_METHODS.serverDiscoverSourceControl, {
-  payload: SourceControlDiscoveryInput,
+  payload: Schema.Struct({}),
   success: SourceControlDiscoveryResult,
   error: EnvironmentAuthorizationError,
 });

@@ -35,7 +35,6 @@ import {
 } from "./runtime.ts";
 import * as EnvironmentRegistry from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
-import { withLegacySourceControlSettingsPatch } from "@supacode/shared/serverSettings";
 import { safeErrorLogAttributes } from "../errors/safeLog.ts";
 import * as Persistence from "../platform/persistence.ts";
 import { runCachePersistence } from "./cachePersistence.ts";
@@ -978,11 +977,6 @@ export function createServerEnvironmentAtoms<R, E>(
   const updateSettings = createEnvironmentRpcCommand(runtime, {
     label: "environment-data:server:update-settings",
     tag: WS_METHODS.serverUpdateSettings,
-    execute: (input) =>
-      request(WS_METHODS.serverUpdateSettings, {
-        ...input,
-        patch: withLegacySourceControlSettingsPatch(input.patch),
-      }),
     scheduler: configScheduler,
     concurrency: configConcurrency,
   });

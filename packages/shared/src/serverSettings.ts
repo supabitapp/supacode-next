@@ -80,48 +80,6 @@ export function isModelSelectionProviderEnabled(
   return isUnconfiguredDefaultInstanceEnabled(selection.instanceId);
 }
 
-const decodeLegacySettingsPatch = Schema.decodeUnknownOption(ServerSettingsPatch);
-
-export function withLegacySourceControlSettingsPatch(
-  patch: ServerSettingsPatch,
-): ServerSettingsPatch {
-  if (
-    patch.sourceControlHosts?.github === undefined &&
-    patch.sourceControlHosts?.bitbucket === undefined
-  )
-    return patch;
-  const aliases = decodeLegacySettingsPatch({
-    ...(patch.sourceControlHosts?.github === undefined
-      ? {}
-      : { github: patch.sourceControlHosts.github }),
-    ...(patch.sourceControlHosts?.bitbucket === undefined
-      ? {}
-      : { bitbucket: patch.sourceControlHosts.bitbucket }),
-  });
-  return Option.isSome(aliases) ? { ...aliases.value, ...patch } : patch;
-}
-
-export function resolveLegacySourceControlSettings<A extends ServerSettings>(
-  settings: A & {
-    readonly github?: Readonly<Record<string, unknown>>;
-    readonly bitbucket?: Readonly<Record<string, unknown>>;
-  },
-): A {
-  if (
-    (settings.github === undefined || settings.sourceControlHosts.github !== undefined) &&
-    (settings.bitbucket === undefined || settings.sourceControlHosts.bitbucket !== undefined)
-  )
-    return settings;
-  return {
-    ...settings,
-    sourceControlHosts: {
-      ...(settings.github === undefined ? {} : { github: settings.github }),
-      ...(settings.bitbucket === undefined ? {} : { bitbucket: settings.bitbucket }),
-      ...settings.sourceControlHosts,
-    },
-  };
-}
-
 const TEXT_GENERATION_FALLBACK_DRIVERS = [
   "codex",
   "claudeAgent",
@@ -469,8 +427,6 @@ export function applyServerSettingsPatch(
     // Merged per entry below; its `null` removals must not reach deepMerge.
     usageLimitSources: usageLimitSourcesPatch,
     sourceControlHosts: hostSettingsPatch,
-    github: legacyGitHubPatch,
-    bitbucket: legacyBitbucketPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
@@ -483,32 +439,6 @@ export function applyServerSettingsPatch(
     projectScriptOverrides: _legacyScripts,
     ...patchForMerge
   } = patch;
-  const isStringRecord = Schema.is(Schema.Record(Schema.String, Schema.String));
-  const currentGitHub = current.sourceControlHosts.github;
-  const sourceControlHostsPatch =
-    hostSettingsPatch !== undefined ||
-    legacyGitHubPatch !== undefined ||
-    legacyBitbucketPatch !== undefined
-      ? {
-          ...(legacyBitbucketPatch === undefined ? {} : { bitbucket: legacyBitbucketPatch }),
-          ...(legacyGitHubPatch === undefined
-            ? {}
-            : {
-                github: {
-                  ...legacyGitHubPatch,
-                  ...(legacyGitHubPatch.tokens === undefined
-                    ? {}
-                    : {
-                        tokens: {
-                          ...(isStringRecord(currentGitHub?.tokens) ? currentGitHub.tokens : {}),
-                          ...legacyGitHubPatch.tokens,
-                        },
-                      }),
-                },
-              }),
-          ...hostSettingsPatch,
-        }
-      : undefined;
   const currentBackgroundActivity = normalizeServerBackgroundActivitySettings(current);
   const backgroundActivityPatch =
     backgroundActivityProfile !== undefined
@@ -646,12 +576,12 @@ export function applyServerSettingsPatch(
         }
       : {}),
     // Per host, a patched field replaces the saved one: deepMerge would keep a cleared account pin.
-    ...(sourceControlHostsPatch !== undefined
+    ...(hostSettingsPatch !== undefined
       ? {
           sourceControlHosts: {
             ...current.sourceControlHosts,
             ...Object.fromEntries(
-              Object.entries(sourceControlHostsPatch).map(([kind, fields]) => [
+              Object.entries(hostSettingsPatch).map(([kind, fields]) => [
                 kind,
                 { ...current.sourceControlHosts[kind], ...fields },
               ]),

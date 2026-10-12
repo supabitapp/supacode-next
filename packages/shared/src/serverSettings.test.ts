@@ -15,8 +15,6 @@ import { createModelSelection } from "./model.ts";
 import { resolveProjectScripts, projectScriptsInheritDefaults } from "./projectScripts.ts";
 import {
   applyServerSettingsPatch,
-  withLegacySourceControlSettingsPatch,
-  resolveLegacySourceControlSettings,
   fallbackTextGenerationModelSelection,
   modelPreferencesMigrationPatch,
   resolveModelPreferences,
@@ -90,32 +88,6 @@ describe("serverSettings helpers", () => {
     expect(unpinned.sourceControlHosts.github).toEqual({
       hosts: { "github.com": { enabled: false } },
       tokens: {},
-    });
-  });
-  it("reads older servers and preserves token entries when older clients save", () => {
-    const legacy = {
-      ...DEFAULT_SERVER_SETTINGS,
-      github: { hosts: {}, tokens: { "github.com": "one", "git.example": "two" } },
-      bitbucket: { email: "me@example.com", apiToken: "three" },
-    };
-    const current = resolveLegacySourceControlSettings(legacy);
-    const updated = applyServerSettingsPatch(current, {
-      github: { hosts: { "github.com": { enabled: false } }, tokens: { "github.com": "" } },
-      bitbucket: { email: "new@example.com" },
-    });
-    expect(updated.sourceControlHosts.github).toEqual({
-      hosts: { "github.com": { enabled: false } },
-      tokens: { "github.com": "", "git.example": "two" },
-    });
-    expect(updated.sourceControlHosts.bitbucket).toEqual({
-      email: "new@example.com",
-      apiToken: "three",
-    });
-    expect(
-      withLegacySourceControlSettingsPatch({ sourceControlHosts: updated.sourceControlHosts }),
-    ).toMatchObject({
-      github: updated.sourceControlHosts.github,
-      bitbucket: updated.sourceControlHosts.bitbucket,
     });
   });
   it("replaces SSH host lists when saving, editing, and removing hosts", () => {

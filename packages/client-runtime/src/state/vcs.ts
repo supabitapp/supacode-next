@@ -284,7 +284,7 @@ export function createVcsEnvironmentAtoms<R, E>(
       label: "environment-data:vcs:status",
       idleTtlMs: VCS_STATUS_IDLE_TTL_MS,
       subscribe: (input: EnvironmentRpcInput<typeof WS_METHODS.subscribeVcsStatus>) =>
-        subscribe(WS_METHODS.subscribeVcsStatus, { ...input, acceptOpenProviderKinds: true }).pipe(
+        subscribe(WS_METHODS.subscribeVcsStatus, input).pipe(
           Stream.mapAccum(
             () => null as VcsStatusResult | null,
             (current, event) => {
@@ -304,8 +304,6 @@ export function createVcsEnvironmentAtoms<R, E>(
     refreshStatus: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:vcs:refresh-status",
       tag: WS_METHODS.vcsRefreshStatus,
-      execute: (input) =>
-        request(WS_METHODS.vcsRefreshStatus, { ...input, acceptOpenProviderKinds: true }),
       scheduler: vcsCommandScheduler,
       concurrency: vcsCommandConcurrency,
       onSettled: invalidateRefs,

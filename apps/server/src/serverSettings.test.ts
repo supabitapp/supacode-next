@@ -1787,23 +1787,13 @@ it.layer(NodeServices.layer)("server settings", (it) => {
 
         const clientSettings = ServerSettingsModule.redactServerSettingsForClient(saved);
         const forClient = clientSettings.sourceControlHosts;
-        assert.deepEqual(clientSettings.github, forClient.github);
-        assert.deepEqual(clientSettings.bitbucket, forClient.bitbucket);
         assert.equal(forClient.bitbucket?.email, "me@example.com");
         assert.notInclude(String(forClient.bitbucket?.accessToken), "bb-access");
         assert.isAbove(String(forClient.bitbucket?.accessToken).length, 0);
 
-        // Echoing the redacted values back keeps them; other fields change on their own.
+        yield* serverSettings.updateSettings({ sourceControlHosts: forClient });
         yield* serverSettings.updateSettings({
-          github: {
-            tokens: {
-              "github.com": (forClient.github!.tokens as Record<string, string>)["github.com"]!,
-            },
-          },
-          bitbucket: { accessToken: String(forClient.bitbucket!.accessToken) },
-        });
-        yield* serverSettings.updateSettings({
-          bitbucket: { email: "other@example.com" },
+          sourceControlHosts: { bitbucket: { email: "other@example.com" } },
         });
         const kept = (yield* serverSettings.getSettings).sourceControlHosts;
         assert.deepEqual(kept.bitbucket, { email: "other@example.com", accessToken: "bb-access" });

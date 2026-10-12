@@ -37,11 +37,19 @@ import {
   resolveClaudeModelSlug,
   scopeClaudeModelCatalog,
 } from "../provider/ClaudeModelCatalog.ts";
-import { prepareClaudeReviewContext } from "./ClaudeReviewContext.ts";
 import { makeClaudeEnvironment } from "../provider/Drivers/ClaudeHome.ts";
 
 const CLAUDE_TIMEOUT_MS = 180_000;
-const CLAUDE_INVESTIGATION_TOOLS = "Read,Grep,Glob";
+const CLAUDE_INVESTIGATION_TOOLS = "Read,Grep,Glob,Bash";
+const CLAUDE_INVESTIGATION_ALLOWED = [
+  "Read",
+  "Grep",
+  "Glob",
+  "Bash(git diff:*)",
+  "Bash(git log:*)",
+  "Bash(git show:*)",
+].join(",");
+const CLAUDE_INVESTIGATION_DENIED = ["Bash(git * --output*)", "Bash(git * -o *)"].join(",");
 
 /**
  * Schema for the wrapper JSON returned by `claude -p --output-format json`.
@@ -156,9 +164,6 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
       fastModeDescriptor?.type === "boolean" ? fastModeDescriptor.currentValue : undefined;
     const settings = {
       disableAllHooks: true,
-      ...(investigate === undefined
-        ? {}
-        : { permissions: { blockReadsOutsideWorkingDirectories: true } }),
       ...(typeof thinking === "boolean" ? { alwaysThinkingEnabled: thinking } : {}),
       ...(fastMode ? { fastMode: true } : {}),
       ...(ultracode ? { ultracode: true } : {}),
@@ -181,23 +186,6 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
                 ),
               )
           : cwd;
-      const reviewContext =
-        investigate === undefined
-          ? undefined
-          : yield* prepareClaudeReviewContext({
-              cwd,
-              baseCommit: investigate.baseCommit,
-              headCommits: investigate.headCommits,
-            }).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new TextGenerationError({
-                    operation,
-                    detail: "Could not prepare read-only review context.",
-                    cause,
-                  }),
-              ),
-            );
       const spawnCommand = yield* resolveSpawnCommand(
         claudeSettings.binaryPath || "claude",
         [
@@ -211,18 +199,16 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           ...(cliEffort ? ["--effort", cliEffort] : []),
           "--settings",
           settingsJson,
-          ...(reviewContext === undefined
-            ? ["--tools", ""]
-            : [
-                "--restricted",
-                "--safe-mode",
-                "--setting-sources",
-                "",
-                "--add-dir",
-                reviewContext.directory,
+          ...(investigate
+            ? [
                 "--tools",
                 CLAUDE_INVESTIGATION_TOOLS,
-              ]),
+                "--allowedTools",
+                CLAUDE_INVESTIGATION_ALLOWED,
+                "--disallowedTools",
+                CLAUDE_INVESTIGATION_DENIED,
+              ]
+            : ["--tools", ""]),
           "--disable-slash-commands",
           "--strict-mcp-config",
           "--permission-mode",
@@ -235,11 +221,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
         cwd: workingDirectory,
         shell: spawnCommand.shell,
         stdin: {
-          stream: Stream.encodeText(
-            Stream.make(
-              reviewContext === undefined ? prompt : `${reviewContext.prompt}\n\n${prompt}`,
-            ),
-          ),
+          stream: Stream.encodeText(Stream.make(prompt)),
         },
       });
 

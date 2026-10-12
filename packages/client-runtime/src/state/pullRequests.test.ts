@@ -212,9 +212,7 @@ for (const scenario of [
         if (switchedAccount) {
           expect(result).toMatchObject({ _tag: "Failure", failure });
           expect(calls.filter((call) => call.endsWith(":mutation"))).toEqual(["origin:mutation"]);
-          expect(inputs).toEqual([
-            { ...input, expectedAccountId: "123", acceptOpenProviderKinds: true },
-          ]);
+          expect(inputs).toEqual([{ ...input, expectedAccountId: "123" }]);
         } else if (ambiguous) {
           expect(result).toMatchObject({ _tag: "Failure", failure });
           expect(calls.filter((call) => call.endsWith(":mutation"))).toEqual(["local:mutation"]);
@@ -237,9 +235,7 @@ for (const scenario of [
           else {
             expect(calls.filter((call) => call.endsWith(":mutation"))).toEqual(["local:mutation"]);
             expect(calls).toContain("origin:invalidate");
-            expect(inputs).toEqual([
-              { ...input, expectedAccountId: "123", acceptOpenProviderKinds: true },
-            ]);
+            expect(inputs).toEqual([{ ...input, expectedAccountId: "123" }]);
           }
         }
       }),
@@ -575,12 +571,12 @@ it.effect.each(["github", "gitlab", "bitbucket", "azure-devops"] as const)(
           {
             environment,
             operation: "read",
-            input: { ...reference, allowStale: false, ...guard, acceptOpenProviderKinds: true },
+            input: { ...reference, allowStale: false, ...guard },
           },
           {
             environment,
             operation: "write",
-            input: { ...reference, files, ...guard, acceptOpenProviderKinds: true },
+            input: { ...reference, files, ...guard },
           },
         ]);
         const invalidations = calls.filter((call) => call.operation === "invalidate");
@@ -1353,7 +1349,7 @@ it.effect("keeps hover previews fresh after edits and turns", () =>
       let reads = 0;
       const read = (input: unknown) =>
         Effect.sync(() => {
-          expect(input).toEqual({ ...reference, acceptOpenProviderKinds: true });
+          expect(input).toEqual({ ...reference });
           reads++;
           return { ...reference, title };
         });

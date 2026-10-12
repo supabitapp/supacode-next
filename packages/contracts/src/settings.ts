@@ -1130,7 +1130,7 @@ export const ServerSettings = Schema.Struct({
   ),
   enableProviderUpdateChecks: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   continueThreadsAfterServerUpdate: Schema.Boolean.pipe(
-    Schema.withDecodingDefault(Effect.succeed(false)),
+    Schema.withDecodingDefault(Effect.succeed(true)),
   ),
   /**
    * Whether agents may drive the in-app preview browser. Turning this off
@@ -1348,12 +1348,6 @@ export const ServerSettings = Schema.Struct({
 });
 export type ServerSettings = typeof ServerSettings.Type;
 
-export const ServerSettingsForClient = Schema.Struct({
-  ...ServerSettings.fields,
-  github: Schema.optionalKey(SourceControlHostSettings),
-  bitbucket: Schema.optionalKey(SourceControlHostSettings),
-});
-
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = Schema.decodeSync(ServerSettings)({});
 
 export const providerInstanceConfigEnabledFlag = (config: unknown): boolean | undefined => {
@@ -1476,27 +1470,6 @@ const ModelSelectionPatch = Schema.Struct({
 });
 
 export const ServerSettingsPatch = Schema.Struct({
-  bitbucket: Schema.optionalKey(
-    Schema.Struct({
-      email: Schema.optionalKey(TrimmedString),
-      accessToken: Schema.optionalKey(TrimmedString),
-      apiToken: Schema.optionalKey(TrimmedString),
-    }),
-  ),
-  github: Schema.optionalKey(
-    Schema.Struct({
-      hosts: Schema.optionalKey(
-        Schema.Record(
-          GitHubHost,
-          Schema.Struct({
-            account: Schema.optionalKey(TrimmedNonEmptyString),
-            enabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-          }),
-        ),
-      ),
-      tokens: Schema.optionalKey(Schema.Record(GitHubHost, TrimmedString)),
-    }),
-  ),
   publicRelayEnabled: Schema.optionalKey(Schema.Boolean),
   publicRelayUrl: Schema.optionalKey(RelayServerUrl),
   setModelFavorites: Schema.optionalKey(

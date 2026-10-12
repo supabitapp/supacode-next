@@ -153,16 +153,11 @@ const normalizeServerSettings = (
   );
 
 export function redactServerSettingsForClient(settings: ServerSettings) {
-  const redacted = mapSettingsSecrets(settings, (secret) =>
+  return mapSettingsSecrets(settings, (secret) =>
     secret.sensitive
       ? { value: "", redacted: secret.redacted || secret.value.length > 0 }
       : { value: secret.value, redacted: false },
   );
-  return {
-    ...redacted,
-    github: redacted.sourceControlHosts.github ?? {},
-    bitbucket: redacted.sourceControlHosts.bitbucket ?? {},
-  };
 }
 
 export function applyProviderInstanceMutation(

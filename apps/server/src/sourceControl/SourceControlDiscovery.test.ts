@@ -155,12 +155,7 @@ it.effect("reports implemented tools separately from locally available executabl
 
   return Effect.gen(function* () {
     const discovery = yield* SourceControlDiscovery.SourceControlDiscovery;
-    const result = yield* discovery.discoverForClient({ acceptOpenProviderKinds: true });
-    const legacy = yield* discovery.discoverForClient({});
-    assert.notInclude(
-      legacy.sourceControlProviders.map((provider) => provider.kind),
-      SourceControlProviderKind.make("gitcafe"),
-    );
+    const result = yield* discovery.discover;
     assert.include(
       result.sourceControlProviders.map((provider) => provider.kind),
       SourceControlProviderKind.make("gitcafe"),

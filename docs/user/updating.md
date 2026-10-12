@@ -29,8 +29,8 @@ below.
 Server updates restart the connection and can interrupt active agents and
 terminal commands. Saved threads, settings, and project files remain.
 
-**Settings → General → Continue threads after restarts** is off by default.
-Enable it to resume supported active threads after an update, crash, or machine
+**Settings → General → Continue threads after restarts** is on by default.
+It resumes supported active threads after an update, crash, or machine
 restart. Changes are saved to connected environments that support this setting;
 update older servers first. If a supported environment was offline or has a
 different value, use **Apply to all** in Settings after it connects.

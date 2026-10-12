@@ -24,9 +24,9 @@ const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 
 describe("restart continuation", () => {
-  it("requires an opt-in for sparse existing settings", () => {
-    expect(decodeServerSettings({}).continueThreadsAfterServerUpdate).toBe(false);
-    expect(DEFAULT_SERVER_SETTINGS.continueThreadsAfterServerUpdate).toBe(false);
+  it("enables continuation for sparse existing settings", () => {
+    expect(decodeServerSettings({}).continueThreadsAfterServerUpdate).toBe(true);
+    expect(DEFAULT_SERVER_SETTINGS.continueThreadsAfterServerUpdate).toBe(true);
   });
 
   it.each([true, false])("preserves an explicit %s preference", (enabled) => {

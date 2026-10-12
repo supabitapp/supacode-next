@@ -579,7 +579,6 @@ export const PullRequestListCursors = Schema.Record(
 export type PullRequestListCursors = typeof PullRequestListCursors.Type;
 
 export const PullRequestListInput = Schema.Struct({
-  acceptOpenProviderKinds: Schema.optional(Schema.Boolean),
   state: PullRequestListState,
   involvement: Schema.optional(PullRequestInvolvement),
   filters: Schema.optional(PullRequestListFilters),
@@ -692,7 +691,6 @@ export type PullRequestListResult = typeof PullRequestListResult.Type;
  */
 export const PullRequestRef = Schema.Struct({
   projectId: ProjectId,
-  acceptOpenProviderKinds: Schema.optional(Schema.Boolean),
   host: Schema.optional(TrimmedNonEmptyString),
   /** Refuse a routed operation unless this GitHub account still owns the active credential. */
   expectedAccountId: Schema.optional(TrimmedNonEmptyString),

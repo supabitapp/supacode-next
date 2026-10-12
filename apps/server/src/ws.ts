@@ -1,10 +1,3 @@
-import {
-  projectClonesForClient,
-  vcsStatusForClient,
-  vcsStatusEventForClient,
-  sourceControlResultForClient,
-  pullRequestErrorForClient,
-} from "./sourceControl/clientCompatibility.ts";
 import { isRelayedRequest } from "./relay/RelayIngress.ts";
 import * as RelayAccess from "./relay/RelayAccess.ts";
 import * as OrchestrationSkills from "./provider/OrchestrationSkills.ts";
@@ -1357,14 +1350,6 @@ const layerWsRpc = (
       );
       const sourceControlRepositories =
         yield* SourceControlRepositoryService.SourceControlRepositoryService;
-      const withPullRequestViewer: typeof pullRequests.withRoutingCredential = (input, effect) =>
-        pullRequests
-          .withRoutingCredential(input, effect)
-          .pipe(
-            Effect.mapError((error) =>
-              pullRequestErrorForClient(error, input.acceptOpenProviderKinds),
-            ),
-          );
       const bootstrapCredentials = yield* PairingGrantStore.PairingGrantStore;
       const sessions = yield* SessionStore.SessionStore;
       const processDiagnostics = yield* ProcessDiagnostics.ProcessDiagnostics;
@@ -2435,8 +2420,7 @@ const layerWsRpc = (
               : serverSettings.updateProviderInstance(providerInstanceMutation, nextPatch);
             return ServerSettings.redactServerSettingsForClient(settings);
           }),
-        [WS_METHODS.serverDiscoverSourceControl]: (input) =>
-          sourceControlDiscovery.discoverForClient(input),
+        [WS_METHODS.serverDiscoverSourceControl]: () => sourceControlDiscovery.discover,
         [WS_METHODS.serverGetTraceDiagnostics]: (_input) =>
           TraceDiagnostics.readTraceDiagnostics({
             traceFilePath: config.serverTracePath,
@@ -2473,23 +2457,11 @@ const layerWsRpc = (
         [WS_METHODS.pullRequestsList]: (input) => pullRequests.list(input),
         [WS_METHODS.pullRequestsListStats]: (input) => pullRequests.listStats(input),
         [WS_METHODS.pullRequestsRoutingIdentity]: (input) => pullRequests.routingIdentity(input),
-        [WS_METHODS.pullRequestsRouting]: (input) =>
-          pullRequests.routing(input).pipe(
-            Effect.map((result) =>
-              sourceControlResultForClient(result, input.acceptOpenProviderKinds),
-            ),
-            Effect.mapError((error) =>
-              pullRequestErrorForClient(error, input.acceptOpenProviderKinds),
-            ),
-          ),
+        [WS_METHODS.pullRequestsRouting]: (input) => pullRequests.routing(input),
         [WS_METHODS.pullRequestsSummary]: (input) =>
-          withPullRequestViewer(input, pullRequests.summary(input)).pipe(
-            Effect.map((result) =>
-              sourceControlResultForClient(result, input.acceptOpenProviderKinds),
-            ),
-          ),
+          pullRequests.withRoutingCredential(input, pullRequests.summary(input)),
         [WS_METHODS.pullRequestsStack]: (input) =>
-          withPullRequestViewer(input, pullRequests.stack(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.stack(input)),
         [WS_METHODS.pullRequestsLinkedThreads]: (input) =>
           resolvePullRequestSyncKey(input).pipe(
             Effect.flatMap((key) =>
@@ -2501,53 +2473,51 @@ const layerWsRpc = (
             ),
           ),
         [WS_METHODS.pullRequestsDetail]: (input) =>
-          withPullRequestViewer(input, pullRequests.detail(input)).pipe(
-            Effect.map((result) =>
-              sourceControlResultForClient(result, input.acceptOpenProviderKinds),
-            ),
-          ),
+          pullRequests.withRoutingCredential(input, pullRequests.detail(input)),
         [WS_METHODS.pullRequestsPreview]: (input) =>
-          withPullRequestViewer(input, pullRequests.preview(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.preview(input)),
         [WS_METHODS.pullRequestsChecks]: (input) =>
-          withPullRequestViewer(input, pullRequests.checks(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.checks(input)),
         [WS_METHODS.pullRequestsActivity]: (input) =>
-          withPullRequestViewer(input, pullRequests.activity(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.activity(input)),
         [WS_METHODS.pullRequestsReviewGuide]: (input) =>
-          withPullRequestViewer(input, reviewGuides.get(input)),
+          pullRequests.withRoutingCredential(input, reviewGuides.get(input)),
         [WS_METHODS.pullRequestsGenerateReviewGuide]: (input) =>
-          withPullRequestViewer(input, reviewGuides.generate(input)),
+          pullRequests.withRoutingCredential(input, reviewGuides.generate(input)),
         [WS_METHODS.pullRequestsThreadComments]: (input) =>
-          withPullRequestViewer(input, pullRequests.threadComments(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.threadComments(input)),
         [WS_METHODS.pullRequestsDiffFileContents]: (input) =>
-          withPullRequestViewer(input, pullRequests.diffFileContents(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.diffFileContents(input)),
         [WS_METHODS.pullRequestsFilesViewed]: (input) =>
-          withPullRequestViewer(input, pullRequests.filesViewed(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.filesViewed(input)),
         [WS_METHODS.pullRequestsSetFilesViewed]: (input) =>
-          withPullRequestViewer(input, pullRequests.setFilesViewed(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setFilesViewed(input)),
         [WS_METHODS.pullRequestsRunAction]: (input) =>
-          withPullRequestViewer(input, pullRequests.runAction(input)).pipe(
-            Effect.tap(() =>
-              resolvePullRequestSyncKey(input).pipe(
-                Effect.flatMap((key) =>
-                  key === null ? Effect.void : pullRequestSync.requestSync(key),
+          pullRequests
+            .withRoutingCredential(input, pullRequests.runAction(input))
+            .pipe(
+              Effect.tap(() =>
+                resolvePullRequestSyncKey(input).pipe(
+                  Effect.flatMap((key) =>
+                    key === null ? Effect.void : pullRequestSync.requestSync(key),
+                  ),
                 ),
               ),
             ),
-          ),
         [WS_METHODS.pullRequestsUpdate]: (input) =>
-          withPullRequestViewer(input, pullRequests.update(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.update(input)),
         [WS_METHODS.pullRequestsComment]: (input) =>
-          withPullRequestViewer(input, pullRequests.comment(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.comment(input)),
         [WS_METHODS.pullRequestsUpdateComment]: (input) =>
-          withPullRequestViewer(input, pullRequests.updateComment(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.updateComment(input)),
         [WS_METHODS.pullRequestsSubmitReview]: (input) =>
-          withPullRequestViewer(input, pullRequests.submitReview(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.submitReview(input)),
         [WS_METHODS.pullRequestsReplyToThread]: (input) =>
-          withPullRequestViewer(input, pullRequests.replyToThread(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.replyToThread(input)),
         [WS_METHODS.pullRequestsSetThreadResolution]: (input) =>
-          withPullRequestViewer(input, pullRequests.setThreadResolution(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setThreadResolution(input)),
         [WS_METHODS.pullRequestsSetReaction]: (input) =>
-          withPullRequestViewer(input, pullRequests.setReaction(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setReaction(input)),
         [WS_METHODS.pullRequestsReportState]: (input) => pullRequests.reportState(input),
         [WS_METHODS.pullRequestsInvalidate]: (input) =>
           pullRequests.invalidate(input, { notifyReaders: true }).pipe(
@@ -2565,13 +2535,13 @@ const layerWsRpc = (
           ),
         [WS_METHODS.pullRequestsSubscribeRefreshes]: () => pullRequests.subscribeRefreshes,
         [WS_METHODS.pullRequestsReviewerCandidates]: (input) =>
-          withPullRequestViewer(input, pullRequests.reviewerCandidates(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.reviewerCandidates(input)),
         [WS_METHODS.pullRequestsRequestReviewers]: (input) =>
-          withPullRequestViewer(input, pullRequests.requestReviewers(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.requestReviewers(input)),
         [WS_METHODS.pullRequestsLabelCandidates]: (input) =>
-          withPullRequestViewer(input, pullRequests.labelCandidates(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.labelCandidates(input)),
         [WS_METHODS.pullRequestsSetLabels]: (input) =>
-          withPullRequestViewer(input, pullRequests.setLabels(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setLabels(input)),
         [WS_METHODS.sourceControlLookupRepository]: (input) =>
           sourceControlRepositories.lookupRepository(input),
         [WS_METHODS.sourceControlCloneRepository]: (input) =>
@@ -2627,10 +2597,7 @@ const layerWsRpc = (
           projectCloneTracker.cancel(input.projectId).pipe(Effect.map((applied) => ({ applied }))),
         [WS_METHODS.projectCloneRetry]: (input) =>
           projectCloneTracker.retry(input.projectId).pipe(Effect.map((applied) => ({ applied }))),
-        [WS_METHODS.subscribeProjectClones]: (input) =>
-          projectCloneTracker.stream.pipe(
-            Stream.map((clones) => projectClonesForClient(clones, input.acceptOpenProviderKinds)),
-          ),
+        [WS_METHODS.subscribeProjectClones]: () => projectCloneTracker.stream,
         [WS_METHODS.sourceControlPublishRepository]: (input) =>
           sourceControlRepositories.publishRepository(input).pipe(
             // A new remote can change the cached identity. Only the `cwd` entry
@@ -2817,24 +2784,15 @@ const layerWsRpc = (
         [WS_METHODS.assetsPersistChatAttachments]: (input) =>
           persistChatAttachments(input).pipe(Effect.map((attachments) => ({ attachments }))),
         [WS_METHODS.subscribeVcsStatus]: (input) =>
-          vcsStatusBroadcaster
-            .streamStatus(input, {
-              automaticRemoteRefreshInterval: automaticGitFetchInterval,
-            })
-            .pipe(
-              Stream.map((event) => vcsStatusEventForClient(event, input.acceptOpenProviderKinds)),
-            ),
+          vcsStatusBroadcaster.streamStatus(input, {
+            automaticRemoteRefreshInterval: automaticGitFetchInterval,
+          }),
         [WS_METHODS.subscribeWorktreeSetup]: (input) => worktreeSetupTracker.stream(input.threadId),
         [WS_METHODS.worktreeSetupCancel]: (input) =>
           worktreeSetupTracker
             .cancel(input.threadId)
             .pipe(Effect.map((cancelled) => ({ cancelled }))),
-        [WS_METHODS.vcsRefreshStatus]: (input) =>
-          vcsStatusBroadcaster
-            .refreshStatus(input.cwd)
-            .pipe(
-              Effect.map((status) => vcsStatusForClient(status, input.acceptOpenProviderKinds)),
-            ),
+        [WS_METHODS.vcsRefreshStatus]: (input) => vcsStatusBroadcaster.refreshStatus(input.cwd),
         [WS_METHODS.vcsPull]: (input) =>
           gitWorkflow.pullCurrentBranch(input.cwd).pipe(
             Effect.matchCauseEffect({

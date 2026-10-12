@@ -73,7 +73,6 @@ import {
   type PullRequestUpdateInput,
   type SourceControlProviderInfo,
   SourceControlProviderKind,
-  isLegacySourceControlProviderKind,
   type ThreadPullRequestKey,
 } from "@supacode/contracts";
 import { resolveProjectSettings } from "@supacode/shared/projectSettings";
@@ -800,9 +799,7 @@ export const make = Effect.gen(function* () {
   };
 
   const listWorkspaceProjects = (
-    filter: Pick<PullRequestListInput, "projectId" | "projectIds" | "host"> & {
-      readonly legacyProvidersOnly?: boolean;
-    },
+    filter: Pick<PullRequestListInput, "projectId" | "projectIds" | "host"> & {},
   ): Effect.Effect<WorkspaceProjects, PullRequestError> =>
     (filter.projectId === undefined
       ? projects.listShells(
@@ -850,7 +847,6 @@ export const make = Effect.gen(function* () {
           let kind = identity?.provider as SourceControlProviderKind | undefined;
           const repository = sourceControlRepositorySelector(project.repositoryIdentity);
           if (!identity || kind === undefined || repository === null) continue;
-          if (filter.legacyProvidersOnly && !isLegacySourceControlProviderKind(kind)) continue;
           // Worktrees of one repository are separate projects; reading the remote once keeps
           // the page from repeating every change request per local checkout. The host is part
           // of the key, so the same `owner/repo` on two hosts stays two repositories.
@@ -1276,7 +1272,6 @@ export const make = Effect.gen(function* () {
         viewerRoots,
       } = yield* listWorkspaceProjects({
         ...input,
-        legacyProvidersOnly: input.acceptOpenProviderKinds !== true,
       });
       const projectCounts = new Map<string, number>();
       for (const { host } of projects) {
@@ -2985,7 +2980,6 @@ export const make = Effect.gen(function* () {
         limit,
         query,
         cursorEntries,
-        acceptOpenProviderKinds,
       ] = JSON.parse(key) as [
         number,
         string,
@@ -2997,11 +2991,9 @@ export const make = Effect.gen(function* () {
         number | null,
         string | null,
         ReadonlyArray<[string, string]> | null,
-        boolean,
       ];
       return listUncached({
         state,
-        acceptOpenProviderKinds,
         ...(involvement === null ? {} : { involvement }),
         ...(filters === null ? {} : { filters: filtersOfKey(filters) }),
         ...(projectId === null ? {} : { projectId }),
@@ -3042,7 +3034,6 @@ export const make = Effect.gen(function* () {
       input.cursors === undefined
         ? null
         : Object.entries(input.cursors).toSorted(([left], [right]) => left.localeCompare(right)),
-      input.acceptOpenProviderKinds === true,
     ]);
     // A replacement reader can join a lookup still finishing its previous reader's cancellation.
     return Cache.get(listCache, key).pipe(

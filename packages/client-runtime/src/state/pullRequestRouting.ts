@@ -25,7 +25,7 @@ import type { ConnectionCatalogEntry } from "../connection/catalog.ts";
 import * as ConnectionProfileStore from "../connection/profileStore.ts";
 import type { RpcSession } from "../rpc/session.ts";
 import {
-  requestGuarded as requestRpc,
+  requestGuarded as request,
   EnvironmentRpcUnavailableError,
   type EnvironmentRpcInput,
   type EnvironmentUnaryRpcTag,
@@ -60,8 +60,6 @@ const writes = new Set<string>([
   WS_METHODS.pullRequestsSetLabels,
 ]);
 const isRef = Schema.is(PullRequestRef);
-const request: typeof requestRpc = (tag, input) =>
-  requestRpc(tag, isRef(input) ? { ...input, acceptOpenProviderKinds: true } : input);
 const hasState = Schema.is(Schema.Struct({ state: PullRequestState }));
 const isInvalidation = Schema.is(PullRequestInvalidateInput);
 const readTimeout = (environmentId: EnvironmentId) =>
@@ -342,7 +340,6 @@ export function createPullRequestRouter() {
 
     const identityProbe = request(WS_METHODS.pullRequestsRouting, {
       ...ref,
-      acceptOpenProviderKinds: true,
     }).pipe(
       Effect.timeout("2 seconds"),
       Effect.catchCause((cause) =>

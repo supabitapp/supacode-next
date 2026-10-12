@@ -27,7 +27,7 @@ import { ModelCapabilities } from "./model.ts";
 import { RuntimeMode } from "./providerPolicy.ts";
 import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
 import { ServerProviderUsageLimits, UsageLimitSourceSnapshots } from "./providerUsageLimits.ts";
-import { ServerSettings, ServerSettingsForClient } from "./settings.ts";
+import { ServerSettings } from "./settings.ts";
 import { RelayConnectionInfo } from "./relay.ts";
 
 const KeybindingsMalformedConfigIssue = Schema.Struct({
@@ -665,7 +665,7 @@ export const ServerDirectEndpoint = Schema.Struct({
 export type ServerDirectEndpoint = typeof ServerDirectEndpoint.Type;
 
 const ServerConfigSettings = Schema.Struct({
-  ...ServerSettingsForClient.fields,
+  ...ServerSettings.fields,
   autoDismissQuestions: Schema.optionalKey(Schema.Boolean),
 });
 

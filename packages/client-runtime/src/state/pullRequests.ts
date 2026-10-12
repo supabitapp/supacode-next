@@ -36,7 +36,6 @@ import {
   createEnvironmentRpcSubscriptionAtomFamily,
   createEnvironmentQueryAtomFamily,
 } from "./runtime.ts";
-import { request } from "../rpc/client.ts";
 import { createPullRequestRouter } from "./pullRequestRouting.ts";
 import * as PullRequestDiffLoader from "./pullRequestDiffHttp.ts";
 import type { EnvironmentRegistry } from "../connection/registry.ts";
@@ -253,8 +252,6 @@ export function createPullRequestEnvironmentAtoms<R, E>(
       label: "environment-data:pull-requests:list",
       persistence: persistQuery(PullRequestListResult),
       tag: WS_METHODS.pullRequestsList,
-      execute: (input) =>
-        request(WS_METHODS.pullRequestsList, { ...input, acceptOpenProviderKinds: true }),
       staleTimeMs: 30_000,
       refreshTrigger: ({ environmentId, input }) =>
         input.cursors === undefined ? refreshes({ environmentId, input: {} }) : undefined,
