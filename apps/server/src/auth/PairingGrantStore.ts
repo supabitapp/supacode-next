@@ -179,6 +179,7 @@ export type BootstrapCredentialError = typeof BootstrapCredentialError.Type;
 export interface IssuedBootstrapCredential {
   readonly id: string;
   readonly credential: string;
+  readonly subject: string;
   readonly label?: string;
   readonly expiresAt: DateTime.Utc;
 }
@@ -396,13 +397,14 @@ export const make = Effect.gen(function* () {
       (isDevStartupToken ? DEV_STARTUP_TTL_HOURS : DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES);
     const now = yield* DateTime.now;
     const expiresAt = DateTime.add(now, { milliseconds: Duration.toMillis(ttl) });
+    const subject = input?.subject ?? `pairing-link:${id}`;
     const issued: IssuedBootstrapCredential = {
       id,
       credential,
+      subject,
       ...(input?.label ? { label: input.label } : {}),
       expiresAt,
     };
-    const subject = input?.subject ?? "one-time-token";
     yield* pairingLinks
       .create({
         id,
@@ -428,7 +430,7 @@ export const make = Effect.gen(function* () {
     yield* emitUpsert({
       id,
       scopes: input?.scopes ?? AuthStandardClientScopes,
-      subject: input?.subject ?? "one-time-token",
+      subject,
       ...(input?.label ? { label: input.label } : {}),
       createdAt: now,
       expiresAt,

@@ -14,18 +14,27 @@ import { QRCodeSvg } from "../ui/qr-code";
 import { Textarea } from "../ui/textarea";
 import { toastManager } from "../ui/toast";
 import type { resolvePairingShareValue } from "./pairingUrls";
-import { type RefObject, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 export function PairingLinkCreatedDialog({
   result,
+  connected,
   onClose,
   finalFocus,
 }: {
   readonly result: ReturnType<typeof resolvePairingShareValue> | null;
+  readonly connected: boolean;
   readonly onClose: () => void;
   readonly finalFocus: RefObject<HTMLButtonElement | null>;
 }) {
   const copyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const notifiedRef = useRef(false);
+  useEffect(() => {
+    if (!result || !connected || notifiedRef.current) return;
+    notifiedRef.current = true;
+    onClose();
+    toastManager.add({ type: "success", title: "Device connected successfully" });
+  }, [connected, onClose, result]);
   const { copyToClipboard, isCopied } = useCopyToClipboard({
     target: "pairing link or code",
     onError: () =>

@@ -15,6 +15,7 @@ import {
   RemoteEnvironmentAuthTimeoutError,
   resolveRemoteWebSocketConnectionUrl,
 } from "./remote.ts";
+import { mapRemoteEnvironmentError } from "../connection/errors.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
 import * as RpcHttp from "../rpc/http.ts";
 
@@ -337,6 +338,42 @@ describe("remote environment authorization", () => {
         "Remote environment endpoint http://remote.example.com/.well-known/supacode/environment timed out after 25ms.",
       );
     }).pipe(Effect.provide(TestClock.layer())),
+  );
+
+  it.effect("explains relay tunnel answers as transient connection failures", () =>
+    Effect.gen(function* () {
+      const relayAnswer = (code: string, status: number) =>
+        new Response(null, { status, headers: { "X-Supacode-Relay-Error": code } });
+      const fetch = recordedFetch(
+        relayAnswer("host-offline", 503),
+        relayAnswer("relay-timeout", 504),
+        relayAnswer("unknown", 503),
+      );
+      const fetchDescriptor = fetchRemoteEnvironmentDescriptor({
+        httpBaseUrl: "http://127.0.0.1:41234/",
+      }).pipe(
+        provideRemoteHttp(fetch.fetchFn),
+        Effect.mapError(mapRemoteEnvironmentError),
+        Effect.flip,
+      );
+
+      expect(yield* fetchDescriptor).toMatchObject({
+        _tag: "ConnectionTransientError",
+        reason: "endpoint-unavailable",
+        detail: "The environment is offline. Make sure Supacode is running on that computer.",
+      });
+      expect(yield* fetchDescriptor).toMatchObject({
+        _tag: "ConnectionTransientError",
+        reason: "timeout",
+        detail: "The relay did not respond in time.",
+      });
+      expect(yield* fetchDescriptor).toMatchObject({
+        _tag: "ConnectionTransientError",
+        reason: "remote-unavailable",
+        detail:
+          "Remote environment endpoint http://127.0.0.1:41234/.well-known/supacode/environment returned undeclared status 503.",
+      });
+    }),
   );
 
   it.effect("revives declared typed errors from remote auth failures", () =>

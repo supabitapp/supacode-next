@@ -38,7 +38,10 @@ describe("restart continuation", () => {
 
 describe("ServerSettings public relay", () => {
   it("enables relay by default for settings without a saved preference", () => {
-    expect(decodeServerSettings({}).publicRelayEnabled).toBe(true);
+    expect(decodeServerSettings({})).toMatchObject({
+      publicRelayEnabled: true,
+      publicRelayUrl: "wss://relay.supaterm.com",
+    });
   });
 
   it.each([true, false])("preserves the saved %s preference and accepts updates", (enabled) => {

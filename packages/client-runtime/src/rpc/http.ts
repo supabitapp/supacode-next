@@ -8,6 +8,7 @@ import {
   type EnvironmentResourceNotFoundError,
   type EnvironmentScopeRequiredError,
 } from "@supacode/contracts";
+import { RELAY_ERROR_HEADER, RelayTunnelFailure } from "@supacode/shared/relay/protocol";
 
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
@@ -15,10 +16,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { FetchHttpClient, HttpClient, HttpClientError } from "effect/http";
+import { FetchHttpClient, Headers, HttpClient, HttpClientError } from "effect/http";
 import * as HttpApiClient from "effect/http-api/HttpApiClient";
 
 const isEnvironmentHttpCommonError = Schema.is(EnvironmentHttpCommonError);
+const isRelayTunnelFailure = Schema.is(RelayTunnelFailure);
 
 class RemoteEnvironmentAuthFetchError extends Data.TaggedError("RemoteEnvironmentAuthFetchError")<{
   readonly message: string;
@@ -38,12 +40,14 @@ export class RemoteEnvironmentAuthUndeclaredStatusError extends Data.TaggedError
   readonly message: string;
   readonly status: number;
   readonly requestUrl: string;
+  readonly relayFailure: RelayTunnelFailure | undefined;
 }> {
-  constructor(requestUrl: string, status: number) {
+  constructor(requestUrl: string, status: number, relayFailure?: RelayTunnelFailure) {
     super({
       message: `Remote environment endpoint ${requestUrl} returned undeclared status ${status}.`,
       requestUrl,
       status,
+      relayFailure,
     });
   }
 }
@@ -135,8 +139,12 @@ const failRemoteRequest = (
   if (HttpClientError.isHttpClientError(cause) && cause.response !== undefined) {
     const response = cause.response;
     if (response.status < 200 || response.status >= 300) {
+      const relayFailure = Headers.get(response.headers, RELAY_ERROR_HEADER).pipe(
+        Option.filter(isRelayTunnelFailure),
+        Option.getOrUndefined,
+      );
       return Effect.fail(
-        new RemoteEnvironmentAuthUndeclaredStatusError(requestUrl, response.status),
+        new RemoteEnvironmentAuthUndeclaredStatusError(requestUrl, response.status, relayFailure),
       );
     }
     return Effect.fail(

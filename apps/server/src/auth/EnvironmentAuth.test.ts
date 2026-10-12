@@ -337,7 +337,39 @@ it.layer(NodeServices.layer)("EnvironmentAuth.layer", (it) => {
 
       expect(verified.sessionId.length).toBeGreaterThan(0);
       expect(verified.scopes).toEqual(AuthStandardClientScopes);
-      expect(verified.subject).toBe("one-time-token");
+      expect(verified.subject).toBe(`pairing-link:${pairingCredential.id}`);
+      expect(pairingCredential.subject).toBe(verified.subject);
+    }).pipe(Effect.provide(layerEnvironmentAuth())),
+  );
+
+  it.effect("identifies the connected device by its pairing link even when labels match", () =>
+    Effect.gen(function* () {
+      const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+      const sessions = yield* SessionStore.SessionStore;
+      const first = yield* serverAuth.issuePairingCredential({ label: "Phone" });
+      const second = yield* serverAuth.issuePairingCredential({ label: "Phone" });
+      const exchanged = yield* serverAuth.exchangeBootstrapCredentialForAccessToken(
+        second.credential,
+        undefined,
+        requestMetadata,
+      );
+      const session = yield* serverAuth.authenticateHttpRequest(
+        makeBearerRequest(exchanged.access_token),
+      );
+
+      expect(first.subject).not.toBe(second.subject);
+      expect(session.subject).toBe(second.subject);
+      expect((yield* serverAuth.listSessions())[0]?.connected).toBe(false);
+
+      yield* sessions.markConnected(session.sessionId);
+      const connected = (yield* serverAuth.listSessions()).filter((client) => client.connected);
+      expect(connected.map((client) => client.subject)).toEqual([second.subject]);
+      expect(connected.some((client) => client.subject === first.subject)).toBe(false);
+
+      yield* serverAuth.revokePairingLink(first.id);
+      expect((yield* serverAuth.listSessions()).map((client) => client.subject)).toEqual([
+        second.subject,
+      ]);
     }).pipe(Effect.provide(layerEnvironmentAuth())),
   );
 
@@ -495,7 +527,7 @@ it.layer(NodeServices.layer)("EnvironmentAuth.layer", (it) => {
       const pairedSession = yield* serverAuth.authenticateHttpRequest(
         makeBearerRequest(paired.access_token),
       );
-      expect(pairedSession.subject).toBe("one-time-token");
+      expect(pairedSession.subject).toBe(pairing.subject);
       expect(active.map((entry) => entry.sessionId)).toContain(pairedSession.sessionId);
     }).pipe(
       Effect.provide(
@@ -516,7 +548,7 @@ it.layer(NodeServices.layer)("EnvironmentAuth.layer", (it) => {
 
       expect(
         listedPairingLinks.find((pairingLink) => pairingLink.id === pairingCredential.id)?.subject,
-      ).toBe("one-time-token");
+      ).toBe(pairingCredential.subject);
     }).pipe(Effect.provide(layerEnvironmentAuth())),
   );
 

@@ -553,6 +553,7 @@ function RevokeButton({
 
 type CreatedPairingCredential = {
   readonly credential: string;
+  readonly subject: string | undefined;
   readonly relay: RelayConnectionInfo | undefined;
 };
 
@@ -1747,7 +1748,11 @@ export function ConnectionsSettings() {
   const handlePairingLinkCreated = useCallback(
     (created: AuthPairingCredentialResult, relay?: RelayConnectionInfo) => {
       setCreatedPairingCredentials((current) =>
-        new Map(current).set(created.id, { credential: created.credential, relay }),
+        new Map(current).set(created.id, {
+          credential: created.credential,
+          subject: created.subject,
+          relay,
+        }),
       );
       setCreatedPairingLinkId(created.id);
     },
@@ -2466,11 +2471,15 @@ export function ConnectionsSettings() {
   const defaultDesktopAdvertisedEndpointKey = defaultDesktopAdvertisedEndpoint
     ? endpointDefaultPreferenceKey(defaultDesktopAdvertisedEndpoint)
     : null;
+  const createdPairingCredential =
+    createdPairingLinkId === null ? undefined : createdPairingCredentials.get(createdPairingLinkId);
+  const createdPairingClientConnected =
+    createdPairingCredential?.subject !== undefined &&
+    desktopClientSessions.some(
+      (session) => session.connected && session.subject === createdPairingCredential.subject,
+    );
   const createdPairingLinkShare = useMemo(() => {
-    const created =
-      createdPairingLinkId === null
-        ? undefined
-        : createdPairingCredentials.get(createdPairingLinkId);
+    const created = createdPairingCredential;
     if (!created) return null;
     const routes = resolvePairingLinkRoutes(
       visibleDesktopAdvertisedEndpoints,
@@ -2493,8 +2502,7 @@ export function ConnectionsSettings() {
       endpoint === null || endpoint.compatibility.hostedHttpsApp === "compatible",
     );
   }, [
-    createdPairingLinkId,
-    createdPairingCredentials,
+    createdPairingCredential,
     visibleDesktopAdvertisedEndpoints,
     pairingHints,
     primaryServerConfig?.settings,
@@ -3370,6 +3378,7 @@ export function ConnectionsSettings() {
             key={createdPairingLinkId}
             finalFocus={pairingLinkTriggerRef}
             result={createdPairingLinkShare}
+            connected={createdPairingClientConnected}
             onClose={() => setCreatedPairingLinkId(null)}
           />
           <AlertDialog

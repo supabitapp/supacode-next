@@ -3,10 +3,53 @@ package expo.modules.supacoderelaytunnel.core
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
+import java.io.IOException
+import java.net.Socket
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
+internal enum class RelayFailure(status: String, val code: String) {
+  HOST_OFFLINE("503 Service Unavailable", "host-offline"),
+  RELAY_BUSY("503 Service Unavailable", "relay-busy"),
+  TIMEOUT("504 Gateway Timeout", "relay-timeout"),
+  UNREACHABLE("502 Bad Gateway", "relay-unreachable");
+
+  val response =
+    (
+      "HTTP/1.1 $status\r\nX-Supacode-Relay-Error: $code\r\nCache-Control: no-store\r\n" +
+        "Connection: close\r\nContent-Length: 0\r\n\r\n"
+      ).toByteArray(Charsets.ISO_8859_1)
+
+  companion object {
+    fun from(relayStatus: Int?) =
+      when (relayStatus) {
+        101, 404 -> HOST_OFFLINE
+        429, 503 -> RELAY_BUSY
+        else -> UNREACHABLE
+      }
+  }
+}
+
 internal object LoopbackHttp {
+  fun answer(socket: Socket, failure: RelayFailure) {
+    try {
+      socket.soTimeout = 5_000
+      socket.getOutputStream().apply {
+        write(failure.response)
+        flush()
+      }
+      socket.shutdownOutput()
+      val input = socket.getInputStream()
+      val buffer = ByteArray(16384)
+      var budget = 1 shl 16
+      while (budget > 0) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        budget -= count
+      }
+    } catch (_: IOException) {}
+  }
+
   private val headerName = Regex("[a-z0-9!#$%&'*+.^_`|~-]+")
   private val decimal = Regex("[0-9]+")
   private val hexadecimal = Regex("[0-9a-fA-F]{1,15}")

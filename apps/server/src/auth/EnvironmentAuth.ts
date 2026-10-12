@@ -849,13 +849,13 @@ export const make = Effect.gen(function* () {
 
   const issuePairingCredentialForSubject = (input: {
     readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
-    readonly subject: string;
+    readonly subject?: string;
     readonly label?: string;
     readonly purpose?: "startup";
   }) =>
     createPairingLink({
       scopes: input.scopes,
-      subject: input.subject,
+      ...(input.subject ? { subject: input.subject } : {}),
       ...(input.label ? { label: input.label } : {}),
       ...(input.purpose ? { purpose: input.purpose } : {}),
     }).pipe(
@@ -864,6 +864,7 @@ export const make = Effect.gen(function* () {
           ({
             id: issued.id,
             credential: issued.credential,
+            subject: issued.subject,
             ...(issued.label ? { label: issued.label } : {}),
             expiresAt: issued.expiresAt,
           }) satisfies AuthPairingCredentialResult,
@@ -877,7 +878,7 @@ export const make = Effect.gen(function* () {
       const createdAt = yield* DateTime.now;
       const issued = yield* bootstrapCredentials.issueOneTimeToken({
         scopes: input?.scopes ?? AuthStandardClientScopes,
-        subject: input?.subject ?? "one-time-token",
+        ...(input?.subject ? { subject: input.subject } : {}),
         ...(input?.ttl ? { ttl: input.ttl } : {}),
         ...(input?.label ? { label: input.label } : {}),
         ...(input?.purpose ? { purpose: input.purpose } : {}),
@@ -886,7 +887,7 @@ export const make = Effect.gen(function* () {
         id: issued.id,
         credential: issued.credential,
         scopes: input?.scopes ?? AuthStandardClientScopes,
-        subject: input?.subject ?? "one-time-token",
+        subject: issued.subject,
         ...(issued.label ? { label: issued.label } : {}),
         createdAt: DateTime.toUtc(createdAt),
         expiresAt: DateTime.toUtc(issued.expiresAt),
@@ -971,7 +972,6 @@ export const make = Effect.gen(function* () {
   const issuePairingCredential: EnvironmentAuth["Service"]["issuePairingCredential"] = (input) =>
     issuePairingCredentialForSubject({
       scopes: input?.scopes ?? AuthStandardClientScopes,
-      subject: "one-time-token",
       ...(input?.label ? { label: input.label } : {}),
     }).pipe(Effect.withSpan("EnvironmentAuth.issuePairingCredential"));
 

@@ -7,6 +7,14 @@ import * as Schema from "effect/Schema";
 
 export const RELAY_COMPANION_META_NAME = "supacode-relay-companion";
 export const RELAY_COMPANION_REQUEST_LIMIT = 64;
+export const RELAY_ERROR_HEADER = "x-supacode-relay-error";
+export const RelayTunnelFailure = Schema.Literals([
+  "host-offline",
+  "relay-busy",
+  "relay-timeout",
+  "relay-unreachable",
+]);
+export type RelayTunnelFailure = typeof RelayTunnelFailure.Type;
 const suffix = ".relay.supacode.invalid";
 const encoder = new TextEncoder();
 export const encodeBase64 = (data: Uint8Array): string => {
