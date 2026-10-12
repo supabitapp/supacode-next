@@ -25,6 +25,7 @@ import {
   type ClientSettingsPatch,
   type ClientSettings,
   DEFAULT_CLIENT_SETTINGS,
+  DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   type EnvironmentIdentificationMode,
   type UnifiedSettings,
 } from "@supacode/contracts/settings";
@@ -363,7 +364,6 @@ export function resolveEnvironmentIdentificationMode(input: {
 
 export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
   const settingsHydrated = useClientSettingsHydrated();
-  const mode = useClientSettingsValue().environmentIdentificationMode;
   const { resolvedTheme, theme, themeHalves } = useTheme();
   const previewAppearance = useSyncExternalStore(
     subscribeToThemePreview,
@@ -373,7 +373,7 @@ export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMod
   const activeTheme = resolveThemeHalf(theme, themeHalves, resolvedTheme);
   const activeThemeDefinition = getThemeDefinition(activeTheme);
   return resolveEnvironmentIdentificationMode({
-    mode,
+    mode: DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
     settingsHydrated,
     appearance: previewAppearance ?? resolvedTheme,
     paletteThemeActive: previewAppearance !== null || activeThemeDefinition !== null,

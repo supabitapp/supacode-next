@@ -5465,7 +5465,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     routeKind === "server" && activeThreadId !== null && !isMobileViewport;
   const canScrollCollapseComposer =
     canTrackComposerScrollGesture &&
-    settings.composerCollapseOnScroll &&
     !hasMultilinePrompt &&
     !composerHasExpandedChrome &&
     !showInlineTasksBadge;

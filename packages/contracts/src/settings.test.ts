@@ -593,21 +593,11 @@ describe("ClientSettings panel animations", () => {
   });
 });
 
-describe("ClientSettings environment identification", () => {
-  it("defaults to artwork and accepts each presentation mode", () => {
-    expect(decodeClientSettings({}).environmentIdentificationMode).toBe("artwork");
-
-    for (const mode of ["artwork", "pill", "none"] as const) {
-      expect(
-        decodeClientSettingsPatch({ environmentIdentificationMode: mode })
-          .environmentIdentificationMode,
-      ).toBe(mode);
-    }
-  });
-
-  it("rejects unsupported presentation modes", () => {
-    expect(() => decodeClientSettings({ environmentIdentificationMode: "badge" })).toThrow();
-    expect(() => decodeClientSettingsPatch({ environmentIdentificationMode: "badge" })).toThrow();
+describe("ClientSettings retired environment identification", () => {
+  it("drops the old presentation preference so artwork remains the default", () => {
+    const stored = { environmentIdentificationMode: "none" };
+    expect(decodeClientSettings(stored)).not.toHaveProperty("environmentIdentificationMode");
+    expect(decodeClientSettingsPatch(stored)).toEqual({});
   });
 });
 
@@ -687,21 +677,6 @@ describe("ClientSettings follow-up behavior", () => {
       );
     }
     expect(() => decodeClientSettingsPatch({ followUpBehavior: "invalid" })).toThrow();
-  });
-});
-
-describe("ClientSettings composer collapse", () => {
-  it("collapses on scroll by default and accepts opting out", () => {
-    expect(decodeClientSettings({}).composerCollapseOnScroll).toBe(true);
-    expect(
-      decodeClientSettingsPatch({ composerCollapseOnScroll: false }).composerCollapseOnScroll,
-    ).toBe(false);
-  });
-
-  it("drops the retired blur trigger key", () => {
-    const decoded = decodeClientSettings({ composerCollapseOnBlur: false });
-    expect(decoded.composerCollapseOnScroll).toBe(true);
-    expect(decoded).not.toHaveProperty("composerCollapseOnBlur");
   });
 });
 
