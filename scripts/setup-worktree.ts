@@ -19,7 +19,7 @@ if (!projectRoot) {
 const worktree = NodePath.dirname(import.meta.dirname);
 
 // Setup has no one answering install prompts. Leave stdin closed so prompts
-// fail instead of hanging, and pass pnpm's confirmation flag through vp.
+// fail instead of hanging.
 const unattended: NodeChildProcess.StdioOptions = ["ignore", "inherit", "inherit"];
 
 const miseInstall = NodeChildProcess.spawnSync("mise", ["install", "--locked"], {
@@ -28,6 +28,7 @@ const miseInstall = NodeChildProcess.spawnSync("mise", ["install", "--locked"], 
 });
 if (miseInstall.status !== 0) process.exit(miseInstall.status ?? 1);
 
+// `-- --yes` passes pnpm's confirmation flag through vp.
 const install = NodeChildProcess.spawnSync("mise", ["exec", "--", "vp", "i", "--", "--yes"], {
   cwd: worktree,
   stdio: unattended,
