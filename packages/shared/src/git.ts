@@ -63,9 +63,8 @@ export function repositoryBranchPrefix(
   workspaceRoot: string,
 ): string {
   const source = identity ? repositoryGroupingKeyOf(identity) : workspaceRoot;
-  return fileBasename(source)
-    .replace(/\.git$/iu, "")
-    .toLowerCase();
+  const name = fileBasename(source).split(":").at(-1) ?? "";
+  return name.replace(/\.git$/iu, "").toLowerCase();
 }
 
 /** Custom naming preserves the model's complete ref; Git validates it on rename. */

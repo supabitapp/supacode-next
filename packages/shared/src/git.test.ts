@@ -363,6 +363,7 @@ describe("repositoryBranchPrefix", () => {
       { ...identity, origin: { canonicalKey: "github.com/khoi/project-fork" } },
       "project-fork",
     ],
+    ["an owner-less scp remote", { ...identity, canonicalKey: "git@host:project" }, "project"],
     ["the folder without a remote", null, "myrepo"],
   ])("names branches after %s", (_case, repositoryIdentity, expected) => {
     expect(repositoryBranchPrefix(repositoryIdentity, "/workspaces/MyRepo.git")).toBe(expected);
