@@ -260,11 +260,6 @@ describe("searchSettings", () => {
       id: "composer-context",
       to: "/settings/appearance",
     });
-    expect(searchSettings("environment identification")[0]).toMatchObject({
-      id: "environment-identification",
-      to: "/settings/appearance",
-      targetId: "appearance-interface",
-    });
   });
 
   it("routes conditional window capture settings to the stable toggle row", () => {

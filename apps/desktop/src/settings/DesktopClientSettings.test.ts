@@ -38,7 +38,6 @@ const clientSettings: ClientSettings = {
   diffFilesCollapsed: true,
   diffIgnoreWhitespace: true,
   diffLayout: "stacked",
-  environmentIdentificationMode: "artwork",
   favorites: [],
   fontFamilyCode: "",
   fontFamilyComposer: "",

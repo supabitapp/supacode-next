@@ -4381,7 +4381,6 @@ export default function ChatView(props: ChatViewProps) {
     isMobileViewport,
     isDraftHero: isDraftHeroState,
     contextStripMounted: mountComposerContextStrip,
-    modelStripMounted: mountComposerModelStrip,
   });
   // A resting composer is a bare input, so the meter's strips close with it.
   const showComposerContextStrip =
@@ -4390,10 +4389,7 @@ export default function ChatView(props: ChatViewProps) {
       hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
     }) ||
     (composerUsageMeterSlot === "context-strip" && !composerResting);
-  const showComposerModelStrip =
-    mountComposerModelStrip &&
-    (restingComposerControlsVisible ||
-      (composerUsageMeterSlot === "model-strip" && !composerResting));
+  const showComposerModelStrip = mountComposerModelStrip && restingComposerControlsVisible;
   const composerUsageMeter = <ComposerUsageMeter windows={composerUsageWindows} />;
   const terminalShortcutLabelOptions = useMemo(
     () => ({
@@ -10698,8 +10694,7 @@ export default function ChatView(props: ChatViewProps) {
                     <ComposerSurface.Shell
                       bottomStrip={
                         (composerContextStripPlacement === "bottom" && showComposerContextStrip) ||
-                        showComposerModelStrip ||
-                        composerUsageMeterSlot === "own-strip"
+                        showComposerModelStrip
                       }
                     >
                       <ComposerSurface.Host
@@ -10949,9 +10944,6 @@ export default function ChatView(props: ChatViewProps) {
                           {mountComposerModelStrip ? (
                             <ComposerSurface.ContextStrip
                               data-composer-model-strip="true"
-                              data-stays-open={
-                                composerUsageMeterSlot === "model-strip" ? "true" : undefined
-                              }
                               aria-hidden={showComposerModelStrip ? undefined : true}
                               inert={showComposerModelStrip ? undefined : true}
                               className={cn(
@@ -10964,15 +10956,9 @@ export default function ChatView(props: ChatViewProps) {
                                 ref={setRestingComposerControlsHost}
                                 className="min-w-0 flex-1"
                               />
-                              {composerUsageMeterSlot === "model-strip" ? composerUsageMeter : null}
                             </ComposerSurface.ContextStrip>
                           ) : null}
                           {composerContextStripPlacement === "bottom" ? composerContextStrip : null}
-                          {composerUsageMeterSlot === "own-strip" ? (
-                            <ComposerSurface.ContextStrip className="justify-end">
-                              {composerUsageMeter}
-                            </ComposerSurface.ContextStrip>
-                          ) : null}
                         </div>
                       </div>
                     </ComposerSurface.Shell>
