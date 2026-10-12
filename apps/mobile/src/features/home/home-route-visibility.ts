@@ -3,8 +3,10 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Atom } from "effect/reactivity";
+import { NativeWorkspaceTabActivityContext } from "../../native/v5-workspace-context";
 
 export function useHomeRouteVisible(): boolean {
+  const tabActivity = useContext(NativeWorkspaceTabActivityContext);
   const navigation =
     useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "Home">>();
 
@@ -25,7 +27,7 @@ export function useHomeRouteVisible(): boolean {
       removeFocus();
     };
   }, [navigation]);
-  return visible;
+  return visible && (tabActivity?.active ?? true);
 }
 
 export function useAtomValueWhileVisible<A>(atom: Atom.Atom<A>, visible: boolean): A {

@@ -4,7 +4,7 @@ import {
   formatComposerContextHref,
   formatComposerContextReference,
 } from "@supacode/shared/composerContextReferences";
-import { markdownWithHtml } from "../lib/markdownDocument";
+import { markdownWithAuthoredWindowsPaths, markdownWithHtml } from "../lib/markdownDocument";
 import { markdownMermaidMedia } from "../lib/markdownMermaidMedia";
 import { NativeMermaidBlock } from "./NativeMermaidBlock";
 import { useCallback, useMemo, useState } from "react";
@@ -143,7 +143,7 @@ function enrichedStyle(
 export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
   const { renderImage, resolveImageSource } = props;
   const { markdown, sources: mermaidSources } = useMemo(
-    () => markdownMermaidMedia(markdownWithHtml(props.markdown)),
+    () => markdownMermaidMedia(markdownWithAuthoredWindowsPaths(markdownWithHtml(props.markdown))),
     [props.markdown],
   );
   const { themeAppearance } = useAppearancePreferences();

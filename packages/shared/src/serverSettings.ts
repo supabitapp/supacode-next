@@ -9,6 +9,7 @@ import {
   resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
   isProviderTextGenerationCapable,
+  isProviderReviewGuideCapable,
   type ModelSelection,
   type ProjectId,
   type ProjectScopedServerSettingKey,
@@ -162,29 +163,39 @@ export function resolveSourceControlWriterModelSelection(
     : settings.textGenerationModelSelection;
 }
 
-/**
- * The model that writes review guides: its own setting when that provider can still run it,
- * otherwise whatever writes source control text.
- */
 export function resolveReviewGuideModelSelection(
   settings: ServerSettings,
   providers: ReadonlyArray<ServerProvider> | undefined,
   projectId: ProjectId | null,
 ): ModelSelection {
-  const selection = settings.reviewGuideModelSelection;
-  if (
-    selection &&
-    resolveProjectProviderInstanceEnabled(settings, projectId, selection.instanceId)
-  ) {
+  const preferences = [
+    settings.reviewGuideModelSelection,
+    resolveSourceControlWriterModelSelection(settings, providers, projectId),
+    settings.textGenerationModelSelection,
+  ];
+  for (const selection of preferences) {
+    if (
+      !selection ||
+      !resolveProjectProviderInstanceEnabled(settings, projectId, selection.instanceId)
+    )
+      continue;
     const provider = providers?.find((candidate) => candidate.instanceId === selection.instanceId);
     if (
       providers === undefined ||
-      (provider?.enabled === true &&
-        isProviderAvailable(provider) &&
-        isProviderTextGenerationCapable(provider))
-    ) {
+      (provider && isProviderAvailable(provider) && isProviderReviewGuideCapable(provider))
+    )
       return selection;
-    }
+  }
+  const fallback = providers?.find(
+    (provider) =>
+      resolveProjectProviderInstanceEnabled(settings, projectId, provider.instanceId) &&
+      isProviderAvailable(provider) &&
+      isProviderReviewGuideCapable(provider) &&
+      provider.models.length > 0,
+  );
+  if (fallback) {
+    const model = fallback.models.find((candidate) => candidate.isDefault) ?? fallback.models[0]!;
+    return createModelSelection(fallback.instanceId, model.slug);
   }
   return resolveSourceControlWriterModelSelection(settings, providers, projectId);
 }

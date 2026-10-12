@@ -261,6 +261,7 @@ export const ServerProvider = Schema.Struct({
   requiresNewThreadForModelChange: Schema.optional(Schema.Boolean),
   supportsConversationRollback: Schema.optional(Schema.Boolean),
   supportsTextGeneration: Schema.optional(Schema.Boolean),
+  supportsReviewGuides: Schema.optional(Schema.Boolean),
   setup: Schema.optional(
     Schema.Struct({
       canAuthenticate: Schema.Boolean,
@@ -338,6 +339,9 @@ export const isProviderAvailable = (snapshot: ServerProvider): boolean =>
  */
 export const isProviderTextGenerationCapable = (snapshot: ServerProvider): boolean =>
   snapshot.supportsTextGeneration !== false;
+
+export const isProviderReviewGuideCapable = (snapshot: ServerProvider): boolean =>
+  isProviderTextGenerationCapable(snapshot) && snapshot.supportsReviewGuides === true;
 
 export const ServerObservability = Schema.Struct({
   logsDirectoryPath: TrimmedNonEmptyString,
@@ -997,6 +1001,7 @@ export type ServerSelfUpdateInput = typeof ServerSelfUpdateInput.Type;
 export const ServerSelfUpdateResult = Schema.Struct({
   targetVersion: TrimmedNonEmptyString,
   method: ServerSelfUpdateMethod,
+  upToDate: Schema.optionalKey(Schema.Boolean),
   /** Launcher-generated correlation ID. Absent when talking to older servers. */
   updateId: Schema.optionalKey(TrimmedNonEmptyString),
   /** Desktop preparation token. Present only for the desktop-app method. */

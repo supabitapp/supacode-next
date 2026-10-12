@@ -2108,6 +2108,7 @@ export const layerWithOptions = (
               // The previous session's agent scope must not explain this
               // session's failures, even when this provider runs without one.
               yield* agentScope.clear(input.threadId);
+              yield* agentScope.clear(input.threadId, input.providerSessionId);
               const runtime = yield* adapter
                 .openSession({
                   threadId: input.threadId,

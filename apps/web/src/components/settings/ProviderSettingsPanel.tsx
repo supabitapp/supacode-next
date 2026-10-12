@@ -23,7 +23,6 @@ import {
   type ProviderInstanceConfig,
   type ProviderInstanceId,
   resolveEnvironmentMachineKind,
-  resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
 } from "@supacode/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@supacode/contracts/settings";
@@ -118,6 +117,7 @@ import {
 import {
   buildProviderEnvironmentOptions,
   buildProviderInstanceOverridePatch,
+  resolveProjectProviderOverride,
   classifyProviderEnvironmentAccess,
   isProviderSettingsEnvironmentAvailable,
   type ProviderEnvironmentAccess,
@@ -938,15 +938,7 @@ export function EnvironmentProviderSettings({
       representativeProjectId === undefined || !supportsProjectProviderOverrides
         ? undefined
         : {
-            value:
-              settings.projectSettingsOverrides[representativeProjectId]?.providerInstances?.[
-                row.instanceId
-              ]?.enabled,
-            effectiveEnabled: resolveProjectProviderInstanceEnabled(
-              settings,
-              representativeProjectId,
-              row.instanceId,
-            ),
+            ...resolveProjectProviderOverride(settings, projectIds, row.instanceId),
             onChange: (next: boolean) => writeProjectOverride(next),
             onReset: () => writeProjectOverride(undefined),
           };

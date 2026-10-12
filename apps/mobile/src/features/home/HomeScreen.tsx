@@ -48,7 +48,10 @@ import { MaterialFloatingActionButton } from "../../components/MaterialFloatingA
 import type { WorkspaceEnvironment, WorkspaceState } from "../../state/workspaceModel";
 import type { SavedRemoteConnection } from "../../lib/connection";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
-import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
+import {
+  NativePrimaryColumnContext,
+  NativeWorkspaceTabActivityContext,
+} from "../../native/v5-workspace-context";
 import { nativeHeaderScrollEdgeEffects } from "../../native/scrollEdgeEffects";
 import {
   useNativeColumnLayoutMetrics,
@@ -272,6 +275,7 @@ function renderHomeScrollView(props: ScrollViewProps) {
 /* ─── Main screen ────────────────────────────────────────────────────── */
 
 export function HomeScreen(props: HomeScreenProps) {
+  const tabActivity = use(NativeWorkspaceTabActivityContext);
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const workspace = useWorkspaceTabs();
   const [initialScrollOffset] = useState(() => workspace?.getScrollOffset("threads") ?? 0);
@@ -323,7 +327,10 @@ export function HomeScreen(props: HomeScreenProps) {
           : [],
     [props.environments, props.selectedEnvironmentId],
   );
-  const threadSearch = useThreadSearch(searchEnvironmentIds, props.searchQuery);
+  const threadSearch = useThreadSearch(
+    searchEnvironmentIds,
+    tabActivity?.active === false ? "" : props.searchQuery,
+  );
   const threadSearchMatchByKey = useMemo(() => {
     const matches = new Map<string, EnvironmentThreadSearchMatch>();
     for (const match of threadSearch.matches) {

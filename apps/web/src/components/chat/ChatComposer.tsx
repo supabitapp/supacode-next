@@ -6863,8 +6863,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       }}
       onBlurCapture={(event) => {
         if (
-          event.target instanceof Element &&
-          event.target.closest('[data-testid="composer-editor"]')
+          !(
+            event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)
+          )
         ) {
           onTypingGuardBlur();
         }

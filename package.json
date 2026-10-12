@@ -66,5 +66,9 @@
   "engines": {
     "node": "^24.13.1"
   },
-  "packageManager": "pnpm@12.10.1"
+  "packageManager": "pnpm@12.10.1",
+  "enriched-markdown": {
+    "enableMath": false,
+    "enableVideo": false
+  }
 }

@@ -5,6 +5,7 @@ import {
   type ProjectId,
   type ProjectSettingsOverrides,
   type ProviderInstanceId,
+  resolveProjectProviderInstanceEnabled,
   sessionGrantsScope,
   type ServerSettings,
   type SessionGrantInput,
@@ -144,6 +145,26 @@ export function buildProviderInstanceOverridePatch(
       Object.keys(rest).length === 0 && Object.keys(instances).length === 0 ? null : nextEntry;
   }
   return patch;
+}
+
+export function resolveProjectProviderOverride(
+  settings: Pick<ServerSettings, "providerInstances" | "projectSettingsOverrides">,
+  projectIds: readonly ProjectId[],
+  instanceId: ProviderInstanceId,
+) {
+  const values = projectIds.map(
+    (id) => settings.projectSettingsOverrides[id]?.providerInstances?.[instanceId]?.enabled,
+  );
+  const effective = projectIds.map((id) =>
+    resolveProjectProviderInstanceEnabled(settings, id, instanceId),
+  );
+  return {
+    value: values[0],
+    valueMixed: values.some((value) => value !== values[0]),
+    hasOverride: values.some((value) => value !== undefined),
+    effectiveEnabled: effective[0] ?? false,
+    mixed: effective.some((value) => value !== effective[0]),
+  };
 }
 
 export function classifyProviderEnvironmentAccess(input: {

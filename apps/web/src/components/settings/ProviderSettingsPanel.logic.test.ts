@@ -3,13 +3,16 @@ import {
   EnvironmentId,
   ProjectId,
   ProviderInstanceId,
+  ProviderDriverKind,
   type ServerSettings,
+  DEFAULT_SERVER_SETTINGS,
 } from "@supacode/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildProviderEnvironmentOptions,
   buildProviderInstanceOverridePatch,
+  resolveProjectProviderOverride,
   classifyProviderEnvironmentAccess,
   isProviderSettingsEnvironmentAvailable,
   resolvePrimaryOperateAccess,
@@ -238,6 +241,36 @@ describe("buildProviderInstanceOverridePatch", () => {
   const projectId = ProjectId.make("project-a");
   const instanceId = ProviderInstanceId.make("codex_work");
   const otherInstanceId = ProviderInstanceId.make("claudeAgent_personal");
+
+  it("reports differing checkout values and finds overrides beyond the first checkout", () => {
+    const siblingId = ProjectId.make("project-a-worktree");
+    const settings = {
+      ...DEFAULT_SERVER_SETTINGS,
+      providerInstances: {
+        [instanceId]: { driver: ProviderDriverKind.make("codex"), enabled: true, config: {} },
+      },
+      projectSettingsOverrides: {
+        [siblingId]: { providerInstances: { [instanceId]: { enabled: false } } },
+      },
+    };
+    expect(resolveProjectProviderOverride(settings, [projectId, siblingId], instanceId)).toEqual({
+      value: undefined,
+      valueMixed: true,
+      hasOverride: true,
+      effectiveEnabled: true,
+      mixed: true,
+    });
+    const reset = {
+      ...settings,
+      projectSettingsOverrides: buildProviderInstanceOverridePatch(
+        settings,
+        [projectId, siblingId],
+        instanceId,
+        undefined,
+      ),
+    };
+    expect(reset.projectSettingsOverrides).toEqual({ [projectId]: null, [siblingId]: null });
+  });
 
   it("writes the same choice to every checkout of the project", () => {
     const siblingId = ProjectId.make("project-a-worktree");

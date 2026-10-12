@@ -9,6 +9,9 @@ import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as Tracer from "effect/Tracer";
 import {
+  DEFAULT_SERVER_SETTINGS,
+  ProviderDriverKind,
+  type ServerProvider,
   ProjectId,
   type PullRequestActivity,
   type PullRequestDetail,
@@ -168,6 +171,8 @@ const makeLayer = (input: {
   readonly currentHead?: Ref.Ref<string>;
   /** The project's own repository; defaults to the one the test reference names. */
   readonly identity?: typeof ACME_APP;
+  readonly providers?: ReadonlyArray<ServerProvider>;
+  readonly notifyReaders?: Effect.Effect<void>;
 }) =>
   PullRequestReviewGuideService.layer.pipe(
     Layer.provide(
@@ -193,7 +198,10 @@ const makeLayer = (input: {
             : Ref.get(input.currentHead)
           ).pipe(Effect.map((head) => detail(input.workspace, head))),
         activity: () => Effect.succeed(activity),
-        invalidate: () => Effect.void,
+        invalidate: ((_reference, options) =>
+          options?.notifyReaders
+            ? (input.notifyReaders ?? Effect.void)
+            : Effect.void) satisfies PullRequestService.PullRequestService["Service"]["invalidate"],
         stack: () => Effect.succeed(stack(input)),
       } as unknown as PullRequestService.PullRequestService["Service"]),
     ),
@@ -209,7 +217,24 @@ const makeLayer = (input: {
     ),
     Layer.provide(
       Layer.succeed(ProviderRegistry.ProviderRegistry, {
-        getProviders: Effect.succeed([]),
+        getProviders: Effect.succeed(
+          input.providers ?? [
+            {
+              instanceId: DEFAULT_SERVER_SETTINGS.textGenerationModelSelection.instanceId,
+              driver: ProviderDriverKind.make("codex"),
+              enabled: true,
+              installed: true,
+              version: null,
+              status: "ready",
+              auth: { status: "authenticated" },
+              checkedAt: "2026-07-27T00:00:00.000Z",
+              models: [],
+              slashCommands: [],
+              skills: [],
+              supportsReviewGuides: true,
+            },
+          ],
+        ),
       } as unknown as ProviderRegistry.ProviderRegistry["Service"]),
     ),
     Layer.provide(
@@ -273,6 +298,30 @@ const layerBase = Layer.mergeAll(
 
 // Runs drive real git, which the test clock does not advance, so waits use real time.
 it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideService", (it) => {
+  it.effect("refuses an unsupported provider before starting a checkout or run", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const repositories = yield* makeRepositories;
+        const stored = yield* Deferred.make<void>();
+        const context = yield* Layer.build(
+          makeLayer({
+            ...repositories,
+            stored,
+            providers: [],
+            generate: () => Effect.die("must not generate"),
+          }),
+        );
+        const service = Context.get(
+          context,
+          PullRequestReviewGuideService.PullRequestReviewGuideService,
+        );
+        const failure = yield* service.generate(reference).pipe(Effect.flip);
+        assert.include(failure.message, "No enabled provider supports review guides");
+        assert.isNull((yield* service.get(reference)).run);
+      }),
+    ),
+  );
+
   it.effect("briefs the change against its own base in a checkout it then removes", () => {
     const runs = makeRunEnds();
     return Effect.scoped(
@@ -293,6 +342,8 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
             Effect.orDie,
           );
         const stored = yield* Deferred.make<void>();
+        const refreshes: string[] = [];
+        let readRun: Effect.Effect<string> = Effect.succeed("unconfigured");
 
         // Built in this test's scope: runs are forked into the service's scope and must outlive
         // the call that obtains the service.
@@ -300,6 +351,10 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
           makeLayer({
             ...repositories,
             stored,
+            notifyReaders: Effect.suspend(() => readRun).pipe(
+              Effect.tap((state) => Effect.sync(() => refreshes.push(state))),
+              Effect.asVoid,
+            ),
             generate: (input) =>
               Effect.gen(function* () {
                 const changed = yield* readCheckout(input.cwd, [
@@ -343,6 +398,10 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
           PullRequestReviewGuideService.PullRequestReviewGuideService,
         );
 
+        readRun = service.get(reference).pipe(
+          Effect.map((result) => result.run?._tag ?? "Complete"),
+          Effect.orDie,
+        );
         // Generate returns while the run is still reading the change.
         const started = yield* service.generate(reference);
         assert.strictEqual(started.run?._tag, "Running");
@@ -374,6 +433,8 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
 
         yield* Deferred.succeed(finish, undefined);
         yield* Deferred.await(stored);
+        yield* Deferred.await(runs.ended(repositories.headSha));
+        assert.deepEqual(refreshes, ["Running", "Complete"]);
         const finished = yield* service.get(reference);
         assert.strictEqual(finished.guide?.headSha, repositories.headSha);
         const guide = finished.guide;

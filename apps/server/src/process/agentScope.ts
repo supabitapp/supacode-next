@@ -89,7 +89,7 @@ const STOPPING_POLL_ATTEMPTS = 20;
 // A stopping scope can wait out TimeoutStopSec (90 s by default) for a stuck process.
 const CLEAR_FAILED_INTERVAL = "1 second";
 const CLEAR_FAILED_ATTEMPTS = 120;
-const MAX_TRACKED_THREADS = 500;
+const MAX_TRACKED_SCOPES = 500;
 
 export const make = Effect.gen(function* () {
   const platform = yield* HostProcess.Platform;
@@ -173,9 +173,7 @@ export const make = Effect.gen(function* () {
     }),
   );
 
-  // The newest scope per thread, oldest thread first. A thread runs one agent
-  // at a time, so only its latest scope can explain a failure.
-  const scopeByThread = new Map<string, { unit: string; oomKilled: boolean }>();
+  const scopeByOwner = new Map<string, { unit: string; oomKilled: boolean }>();
 
   const readCgroupFile = (controlGroup: string, file: string) =>
     fileSystem
@@ -229,16 +227,16 @@ export const make = Effect.gen(function* () {
   // runs moves to the back, so its thread keeps its OOM answer and cleanup.
   const evictOldest = (systemctl: string) =>
     Effect.gen(function* () {
-      const oldest = scopeByThread.entries().next();
+      const oldest = scopeByOwner.entries().next();
       if (oldest.done === true) return;
       const [threadId, tracked] = oldest.value;
       const state = yield* readScope(systemctl, tracked.unit);
       // A newer launch replaced it while we read, and forgets it itself.
-      if (scopeByThread.get(threadId) !== tracked) return;
-      scopeByThread.delete(threadId);
+      if (scopeByOwner.get(threadId) !== tracked) return;
+      scopeByOwner.delete(threadId);
       const status = state === undefined ? "running" : classifyScope(state);
       if (status === "running" || status === "stopping") {
-        scopeByThread.set(threadId, tracked);
+        scopeByOwner.set(threadId, tracked);
         return;
       }
       yield* forget(systemctl, tracked.unit);
@@ -248,16 +246,20 @@ export const make = Effect.gen(function* () {
   // undefined. The replaced scope has its failed state cleared.
   const track = (systemctl: string, threadId: string, unit: string | undefined) =>
     Effect.gen(function* () {
-      const previous = scopeByThread.get(threadId);
-      scopeByThread.delete(threadId);
-      if (unit !== undefined) scopeByThread.set(threadId, { unit, oomKilled: false });
+      const previous = scopeByOwner.get(threadId);
+      scopeByOwner.delete(threadId);
+      if (unit !== undefined) scopeByOwner.set(threadId, { unit, oomKilled: false });
       if (previous !== undefined) yield* forget(systemctl, previous.unit);
-      if (scopeByThread.size > MAX_TRACKED_THREADS) yield* evictOldest(systemctl);
+      if (scopeByOwner.size > MAX_TRACKED_SCOPES) yield* evictOldest(systemctl);
     });
 
-  const oomKilled: AgentScopeShape["oomKilled"] = (threadId) =>
+  const scopeKey = (threadId: string, sessionId?: string) =>
+    sessionId === undefined ? `thread:${threadId}` : `session:${sessionId}`;
+
+  const oomKilled: AgentScopeShape["oomKilled"] = (threadId, sessionId) =>
     Effect.gen(function* () {
-      const tracked = scopeByThread.get(threadId);
+      const tracked =
+        scopeByOwner.get(scopeKey(threadId, sessionId)) ?? scopeByOwner.get(scopeKey(threadId));
       if (tracked === undefined) return false;
       if (tracked.oomKilled) return true;
       const scope = yield* systemd;
@@ -283,30 +285,40 @@ export const make = Effect.gen(function* () {
       return false;
     });
 
-  const clear: AgentScopeShape["clear"] = (threadId) =>
+  const clear: AgentScopeShape["clear"] = (threadId, sessionId) =>
     Effect.gen(function* () {
-      if (!scopeByThread.has(threadId)) return;
+      const key = scopeKey(threadId, sessionId);
+      if (!scopeByOwner.has(key)) return;
       const scope = yield* systemd;
-      if (scope !== undefined) yield* track(scope.systemctl, threadId, undefined);
+      if (scope !== undefined) yield* track(scope.systemctl, key, undefined);
     });
 
   return {
-    wrap: Effect.fn("AgentScope.wrap")(function* ({ command, args, name, threadId, env }) {
+    wrap: Effect.fn("AgentScope.wrap")(function* ({
+      command,
+      args,
+      name,
+      threadId,
+      sessionId,
+      env,
+    }) {
       const resolved = yield* resolve(command, env ?? hostEnvironment);
       // Leave unresolved commands alone so the spawn reports the missing binary.
       if (resolved._tag === "None") return { command, args };
       const scope = yield* systemd;
       if (scope === undefined) return agentScopeCommand({ command: resolved.value, args });
       const unit = `supacode-${name}-${NodeCrypto.randomUUID().slice(0, 8)}.scope`;
-      if (threadId !== undefined) yield* track(scope.systemctl, threadId, unit);
+      if (threadId !== undefined || sessionId !== undefined)
+        yield* track(scope.systemctl, scopeKey(threadId ?? "", sessionId), unit);
       const systemdScope: AgentSystemdScope = {
         systemdRun: scope.systemdRun,
         runtimeDir: scope.runtimeDir,
         slice: AGENT_SLICE,
         unit,
-        // Without a thread nothing reads the result, so let systemd unload
-        // the unit even when it fails.
-        options: threadId === undefined ? [...scope.scopeOptions, "--collect"] : scope.scopeOptions,
+        options:
+          threadId === undefined && sessionId === undefined
+            ? [...scope.scopeOptions, "--collect"]
+            : scope.scopeOptions,
       };
       return agentScopeCommand({ command: resolved.value, args, scope: systemdScope });
     }),

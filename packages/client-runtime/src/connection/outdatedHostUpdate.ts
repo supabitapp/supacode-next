@@ -158,6 +158,7 @@ export const updateOutdatedHost = Effect.fn("clientRuntime.connection.updateOutd
       }),
     );
 
+    if (result.upToDate) return result;
     yield* onStage("resuming");
     // The restarted host may answer on another saved route, so each poll asks
     // every direct address, the one that carried the update first.

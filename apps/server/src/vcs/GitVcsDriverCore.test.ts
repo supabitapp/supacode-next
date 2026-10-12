@@ -2868,6 +2868,23 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
       }),
     );
 
+    it.effect("renames around ancestor and descendant ref collisions", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const { initialBranch } = yield* initRepoWithCommit(cwd);
+        const driver = yield* GitVcsDriver.GitVcsDriver;
+        yield* driver.createRef({ cwd, refName: "myrepo" });
+        yield* driver.createRef({ cwd, refName: "myrepo-1/AddSearch/topic" });
+        const result = yield* driver.renameBranch({
+          cwd,
+          oldBranch: initialBranch,
+          newBranch: "myrepo/AddSearch",
+        });
+        assert.equal(result.branch, "myrepo-1/AddSearch-1");
+        assert.equal(yield* git(cwd, ["branch", "--show-current"]), result.branch);
+      }),
+    );
+
     it.effect("rejects a missing branch without restoring a matching dirty file", () =>
       Effect.gen(function* () {
         const cwd = yield* makeTmpDir();

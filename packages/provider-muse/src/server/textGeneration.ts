@@ -344,6 +344,7 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
   const generateReviewGuide: ProviderTextGeneration["generateReviewGuide"] = () =>
     Effect.fail(investigationUnsupported("generateReviewGuide", "Muse Code"));
   return {
+    supportsReviewGuides: false,
     generateCommitMessage,
     generatePrContent,
     generateBranchName,

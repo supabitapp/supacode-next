@@ -5,6 +5,7 @@ import {
   xAiRateLimitedErrorCode,
 } from "./xaiAcpExtension.ts";
 import * as HostProcess from "@supacode/shared/HostProcess";
+import { getModelSelectionStringOptionValue } from "@supacode/shared/model";
 import { resolveSelfInvocation, type SelfInvocation } from "@supacode/shared/nodeRuntime";
 import {
   defaultInstanceIdForDriver,
@@ -258,16 +259,25 @@ export function makeGrokAcpAdapterFlavor(
         const legacy = startResult.initializeResult.protocolVersion === 1;
         const options = legacy ? [] : yield* runtime.getConfigOptions;
         const configuredModel = options.find((option) => option.category === "model")?.currentValue;
+        const requestedReasoningEffort = options.some((option) => option.id === "reasoningEffort")
+          ? undefined
+          : getModelSelectionStringOptionValue(modelSelection, "reasoningEffort");
         return yield* applyGrokAcpModelSelection({
           runtime: legacy
             ? runtime
-            : { setSessionModel: (model) => runtime.setModel(model).pipe(Effect.as({})) },
+            : {
+                setSessionModel: (model, meta) =>
+                  meta
+                    ? runtime.setSessionModel(model, meta)
+                    : runtime.setModel(model).pipe(Effect.as({})),
+              },
           currentModelId: legacy
             ? currentGrokModelIdFromSessionSetup(startResult.sessionSetupResult)
             : typeof configuredModel === "string"
               ? configuredModel
               : undefined,
           requestedModelId: resolveGrokAcpBaseModelId(modelSelection.model),
+          requestedReasoningEffort,
           mapError: (cause) => cause,
         });
       }),

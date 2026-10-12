@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@supacode/contracts";
+import { AuthSettingsWriteScope, type EnvironmentId } from "@supacode/contracts";
 import type { SourceControlClientDefinition } from "@supacode/client-runtime/source-control-clients";
 import { useState } from "react";
 
@@ -7,6 +7,7 @@ import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { InlineConfirmButton } from "../InlineConfirm";
 import { ProviderSettingsForm } from "./ProviderSettingsForm";
+import { useEnvironmentScope } from "../../state/session";
 
 /**
  * One host's settings, drawn from its definition's settings schema and saved under
@@ -32,6 +33,7 @@ export function SourceControlHostSettings({
     label: `save ${definition.label} settings`,
   });
   const [saving, setSaving] = useState(false);
+  const canWriteSettings = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
   const formDefinition = { settingsSchema: definition.settings };
   const hasSaved = Object.values(saved ?? {}).some((value) => value !== "");
 
@@ -50,7 +52,12 @@ export function SourceControlHostSettings({
 
   return (
     // Locked while saving, so an edit made mid-request is not overwritten by the saved value.
-    <fieldset disabled={saving} className="contents">
+    <fieldset disabled={saving || !canWriteSettings} className="contents">
+      {!canWriteSettings ? (
+        <p className="text-xs text-muted-foreground">
+          This connection cannot change host settings.
+        </p>
+      ) : null}
       <ProviderSettingsForm
         definition={formDefinition}
         value={saved ?? {}}

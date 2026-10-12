@@ -3383,6 +3383,17 @@ export default function ChatView(props: ChatViewProps) {
       ),
     [providerStatuses, settings, activeProject?.id],
   );
+  useEffect(() => {
+    if (!isLocalDraftThread) return;
+    const disabled = new Set(
+      providerInstanceEntries.filter((entry) => !entry.enabled).map((entry) => entry.instanceId),
+    );
+    setMultipleModelSelections((current) => {
+      if (current === null) return current;
+      const next = current.filter((selection) => !disabled.has(selection.instanceId));
+      return next.length === current.length ? current : next;
+    });
+  }, [isLocalDraftThread, providerInstanceEntries, setMultipleModelSelections]);
   const { selectedProviderEntry, requestedDriverKind } = useMemo(
     () =>
       resolveComposerProviderSelection({

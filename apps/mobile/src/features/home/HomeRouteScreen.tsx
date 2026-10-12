@@ -54,21 +54,15 @@ export function HomeRouteScreen() {
   const navigation = useNavigation();
   const workspace = useWorkspaceTabs();
   const [localSearchQuery, setLocalSearchQuery] = useState("");
-  const workspaceSearchQuery = workspace?.state.tabs.threads.query;
   const searchQuery =
-    workspaceSearchQuery ??
-    (Platform.OS === "android" ? primarySidebarSearchQuery : localSearchQuery);
+    Platform.OS === "android"
+      ? primarySidebarSearchQuery
+      : (workspace?.state.tabs.threads.query ?? localSearchQuery);
   const setSearchQuery = (query: string) => {
-    if (workspace) workspace.dispatch({ type: "query", query, tab: "threads" });
-    else if (Platform.OS === "android") setPrimarySidebarSearchQuery(query);
+    if (Platform.OS === "android") setPrimarySidebarSearchQuery(query);
+    else if (workspace) workspace.dispatch({ type: "query", query, tab: "threads" });
     else setLocalSearchQuery(query);
   };
-  // Android's split view searches with the sidebar's query, so a phone carries its search into it.
-  useEffect(() => {
-    if (Platform.OS === "android" && workspaceSearchQuery !== undefined) {
-      setPrimarySidebarSearchQuery(workspaceSearchQuery);
-    }
-  }, [setPrimarySidebarSearchQuery, workspaceSearchQuery]);
   const handleSelectThread = useHomeThreadSelection();
   const startNewTask = useStartNewTask();
   const handleNewThreadOnBranch = useCallback(

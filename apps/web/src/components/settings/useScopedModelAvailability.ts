@@ -1,4 +1,4 @@
-import type { ProviderInstanceId, UnifiedSettings } from "@supacode/contracts";
+import type { ProviderInstanceId, ServerProvider, UnifiedSettings } from "@supacode/contracts";
 import { useCallback } from "react";
 
 import { mergeEnvironmentSettings } from "../../hooks/useSettings";
@@ -20,6 +20,7 @@ import { useSettingsScope } from "./SettingsScopeContext";
 export function useScopedModelDisabledReason(
   settings: UnifiedSettings,
   entries: readonly ProviderInstanceEntry[],
+  supportsCapability?: (provider: ServerProvider) => boolean,
 ) {
   const { targets } = useSettingsScope();
   const { environments } = useEnvironments();
@@ -42,6 +43,10 @@ export function useScopedModelDisabledReason(
           config.providers,
         ).get(instanceId);
         if (
+          (supportsCapability &&
+            !config.providers.some(
+              (provider) => provider.instanceId === instanceId && supportsCapability(provider),
+            )) ||
           !entry?.enabled ||
           !entry.isAvailable ||
           entry.driverKind !== sourceEntry?.driverKind ||
@@ -52,6 +57,6 @@ export function useScopedModelDisabledReason(
       }
       return null;
     },
-    [entries, environments, settings, targets],
+    [entries, environments, settings, targets, supportsCapability],
   );
 }

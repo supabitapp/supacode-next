@@ -1,5 +1,4 @@
-import type { Processor } from "unified";
-import { isWindowsAbsolutePath } from "./path.ts";
+import { remarkKeepWindowsPathDestinations } from "./markdownWindowsPaths.ts";
 import type { PluggableList } from "unified";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -236,31 +235,6 @@ function remarkNormalizeLinksAndTagInlineCode() {
 
     visit(tree, false);
   };
-}
-
-interface DestinationCompileContext {
-  readonly stack: ReadonlyArray<{ readonly type: string; url?: string }>;
-  resume(): string;
-  sliceSerialize(token: unknown): string;
-}
-
-function keepWindowsPathDestination(this: DestinationCompileContext, token: unknown) {
-  const decoded = this.resume();
-  const authored = this.sliceSerialize(token);
-  const node = this.stack.at(-1);
-
-  if (node)
-    node.url = isWindowsAbsolutePath(authored) && !authored.includes("&") ? authored : decoded;
-}
-
-function remarkKeepWindowsPathDestinations(this: Processor) {
-  const data = this.data();
-  (data.fromMarkdownExtensions ??= []).push({
-    exit: {
-      resourceDestinationString: keepWindowsPathDestination,
-      definitionDestinationString: keepWindowsPathDestination,
-    },
-  });
 }
 
 export function shouldPreserveAssistantLineBreaks(text: string): boolean {

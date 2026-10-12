@@ -95,7 +95,7 @@ const encoder = new TextEncoder();
 const TEST_EPOCH = DateTime.makeUnsafe("1970-01-01T00:00:00.000Z");
 const withBundledCompatibility = (snapshot: ServerProvider) =>
   applyProviderCompatibility(
-    snapshot,
+    { ...snapshot, supportsReviewGuides: snapshot.supportsReviewGuides ?? false },
     undefined,
     ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
   );
@@ -1632,7 +1632,9 @@ it.layer(
         ).pipe(Scope.provide(scope));
         yield* Effect.gen(function* () {
           const registry = yield* ProviderRegistry.ProviderRegistry;
-          assert.deepStrictEqual(yield* registry.getProviders, [initialProvider]);
+          assert.deepStrictEqual(yield* registry.getProviders, [
+            { ...initialProvider, supportsReviewGuides: false },
+          ]);
           assert.strictEqual(yield* Ref.get(refreshCalls), 0);
         }).pipe(Effect.provide(runtimeServices));
       }),

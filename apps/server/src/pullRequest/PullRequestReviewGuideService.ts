@@ -24,6 +24,10 @@ import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
 import {
+  isProviderAvailable,
+  resolveProjectProviderInstanceEnabled,
+  isProviderReviewGuideCapable,
+  type ModelSelection,
   PullRequestOperationError,
   type PullRequestDetail,
   type PullRequestRef,
@@ -304,22 +308,16 @@ const make = Effect.gen(function* () {
     headSha: string,
     runId: string,
     owns: Effect.Effect<boolean>,
+    modelSelection: ModelSelection,
+    instructions: string,
   ) {
-    const [activity, settings, providers, stack] = yield* Effect.all(
+    const [activity, stack] = yield* Effect.all(
       [
         pullRequests.activity(input),
-        serverSettings.getSettings,
-        providerRegistry.getProviders,
         // A guide without its stack is still a guide; the stack only adds seams to point at.
         pullRequests.stack(input).pipe(Effect.orElseSucceed(() => null)),
       ],
       { concurrency: "unbounded" },
-    );
-    const projectSettings = resolveProjectSettings(settings, input.projectId).settings;
-    const modelSelection = ServerSettings.resolveReviewGuideModelSelection(
-      projectSettings,
-      providers,
-      input.projectId,
     );
     // The checkout lives only as long as the model is reading it. The change's hunks are read
     // from it too, so the guide can be held to the lines the change actually touched.
@@ -338,7 +336,7 @@ const make = Effect.gen(function* () {
               ...reviewGuideInputFromPullRequest(detail, activity, checkout.baseCommit),
               cwd: checkout.path,
               modelSelection,
-              instructions: projectSettings.reviewGuideInstructions,
+              instructions,
               stack: checkout.stack,
             }),
             change: readChange(checkout.path, checkout.baseCommit),
@@ -394,6 +392,30 @@ const make = Effect.gen(function* () {
     }
     const { key, workspaceRoot, identity } = yield* keyFor(input);
     yield* requireOwnRepository(key, identity);
+    const projectSettings = resolveProjectSettings(settings, input.projectId).settings;
+    const providers = yield* providerRegistry.getProviders;
+    const modelSelection = ServerSettings.resolveReviewGuideModelSelection(
+      projectSettings,
+      providers,
+      input.projectId,
+    );
+    const provider = providers.find((entry) => entry.instanceId === modelSelection.instanceId);
+    if (
+      !provider ||
+      !resolveProjectProviderInstanceEnabled(
+        projectSettings,
+        input.projectId,
+        provider.instanceId,
+      ) ||
+      !isProviderAvailable(provider) ||
+      !isProviderReviewGuideCapable(provider)
+    ) {
+      return yield* new PullRequestOperationError({
+        operation: "generateReviewGuide",
+        detail:
+          "No enabled provider supports review guides. Enable a compatible provider in Settings → Providers.",
+      });
+    }
     const runKey = keyString(key);
     // A press asks for the head as it is now, not a read shared from the last minute, so a guide
     // is never started for a commit the pull request has already moved past.
@@ -442,13 +464,19 @@ const make = Effect.gen(function* () {
     // on this run's completion leaves the newer run's state and guide alone.
     const owns = Ref.get(runs).pipe(Effect.map((current) => current.get(runKey) === running));
     const finish = (next: PullRequestReviewGuideRun | null) =>
-      Ref.update(runs, (current) => {
-        if (current.get(runKey) !== running) return current;
+      Ref.modify(runs, (current) => {
+        if (current.get(runKey) !== running) return [false, current] as const;
         const updated = new Map(current);
         if (next === null) updated.delete(runKey);
         else updated.set(runKey, next);
-        return updated;
-      });
+        return [true, updated] as const;
+      }).pipe(
+        Effect.flatMap((changed) =>
+          changed
+            ? pullRequests.invalidate({ reference: input }, { notifyReaders: true })
+            : Effect.void,
+        ),
+      );
     const runId = `${runCounter++}`;
     yield* write(
       input,
@@ -459,6 +487,8 @@ const make = Effect.gen(function* () {
       currentHeadSha,
       runId,
       owns,
+      modelSelection,
+      projectSettings.reviewGuideInstructions,
     ).pipe(
       Effect.andThen(finish(null)),
       Effect.catchCause((cause) =>
@@ -484,6 +514,7 @@ const make = Effect.gen(function* () {
       }),
       Effect.forkIn(serviceScope),
     );
+    yield* pullRequests.invalidate({ reference: input }, { notifyReaders: true });
     return { guide: stored, run: running, currentHeadSha, started: true };
   });
 

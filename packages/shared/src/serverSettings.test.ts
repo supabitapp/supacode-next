@@ -21,6 +21,7 @@ import {
   isModelSelectionProviderEnabled,
   parsePersistedServerObservabilitySettings,
   resolveSourceControlWriterModelSelection,
+  resolveReviewGuideModelSelection,
   resolveProjectAgentBrowserAccess,
   resolveProjectAutoPull,
 } from "./serverSettings.ts";
@@ -29,6 +30,55 @@ const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 
 /** Settings after the server has folded legacy per-project fields into `projectSettingsOverrides`. */
 const FOLDED_SERVER_SETTINGS = { ...DEFAULT_SERVER_SETTINGS, projectSettingsFolded: true };
+
+describe("resolveReviewGuideModelSelection", () => {
+  const snapshot = (instanceId: string, supportsReviewGuides: boolean): ServerProvider => ({
+    instanceId: ProviderInstanceId.make(instanceId),
+    driver: ProviderDriverKind.make("codex"),
+    enabled: true,
+    installed: true,
+    version: null,
+    status: "ready",
+    auth: { status: "authenticated" },
+    checkedAt: "2026-07-27T00:00:00.000Z",
+    supportsReviewGuides,
+    models: [{ slug: "review-model", name: "Review model", isDefault: true }],
+    slashCommands: [],
+    skills: [],
+  });
+  it("skips incapable defaults and selects a compatible project-enabled provider", () => {
+    const incapable = snapshot("writer", false);
+    const capable = snapshot("reader", true);
+    const projectId = ProjectId.make("project");
+    const settings = {
+      ...DEFAULT_SERVER_SETTINGS,
+      textGenerationModelSelection: createModelSelection(incapable.instanceId, "writer-model"),
+      providerInstances: {
+        [incapable.instanceId]: { driver: incapable.driver, enabled: true, config: {} },
+        [capable.instanceId]: { driver: capable.driver, enabled: true, config: {} },
+      },
+    };
+    expect(resolveReviewGuideModelSelection(settings, [incapable, capable], projectId)).toEqual(
+      createModelSelection(capable.instanceId, "review-model"),
+    );
+    const disabled = {
+      ...settings,
+      projectSettingsOverrides: {
+        [projectId]: { providerInstances: { [capable.instanceId]: { enabled: false } } },
+      },
+    };
+    expect(
+      resolveReviewGuideModelSelection(disabled, [incapable, capable], projectId).instanceId,
+    ).not.toBe(capable.instanceId);
+    const saved = {
+      ...settings,
+      reviewGuideModelSelection: createModelSelection(capable.instanceId, "custom-model"),
+    };
+    expect(resolveReviewGuideModelSelection(saved, [incapable, capable], projectId)).toBe(
+      saved.reviewGuideModelSelection,
+    );
+  });
+});
 
 describe("fallbackTextGenerationModelSelection", () => {
   it("ignores a configured non-default instance at machine scope, matching no fallback", () => {
@@ -69,8 +119,8 @@ describe("serverSettings helpers", () => {
     ).toEqual({
       worktreeAfterDays: null,
       worktreeOnMerge: true,
-      worktreeOnDelete: false,
-      worktreeUnchanged: false,
+      worktreeOnDelete: true,
+      worktreeUnchanged: true,
       worktreeKeepWhen: "uncommitted-changes",
       browserArtifactsAfterDays: null,
       logsAfterDays: 30,

@@ -1,6 +1,9 @@
 import {
   repositoryGroupingKeyOf,
   type ModelSelection,
+  type ProjectId,
+  type ServerSettings,
+  resolveProjectProviderInstanceEnabled,
   type RepositoryIdentity,
   type ServerProvider,
   type ThreadLinkedPullRequest,
@@ -78,12 +81,22 @@ export function resolvePromptLinkModelSelection(
     }
   >,
   request: { readonly provider: string; readonly model: string | null },
+  context?: {
+    readonly settings: Pick<ServerSettings, "providerInstances" | "projectSettingsOverrides">;
+    readonly projectId: ProjectId | null;
+  },
 ): { readonly selection: ModelSelection; readonly exact: boolean } | null {
   const driver = PROVIDER_ALIASES[request.provider] ?? request.provider;
   const usable = providers.filter(
     (provider) =>
       provider.driver.toLowerCase() === driver &&
-      provider.enabled &&
+      (context
+        ? resolveProjectProviderInstanceEnabled(
+            context.settings,
+            context.projectId,
+            provider.instanceId,
+          )
+        : provider.enabled) &&
       provider.availability !== "unavailable",
   );
   const instance =

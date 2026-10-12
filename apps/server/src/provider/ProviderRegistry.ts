@@ -369,7 +369,10 @@ const correlateSnapshotWithSource = (
       ),
     );
   }
-  return Effect.succeed(snapshot);
+  return Effect.succeed({
+    ...snapshot,
+    supportsReviewGuides: source.supportsReviewGuides === true,
+  });
 };
 
 /**
@@ -387,6 +390,7 @@ const snapshotInstanceKey = (provider: ServerProvider): ProviderInstanceId => {
 // its settings changed), a fresh source rides the new PubSub instead
 // of a closed one.
 const buildSnapshotSource = (instance: ProviderInstance): ProviderSnapshotSource => ({
+  supportsReviewGuides: instance.textGeneration.supportsReviewGuides === true,
   instanceId: instance.instanceId,
   driverKind: instance.driverKind,
   getSnapshot: instance.snapshot.getSnapshot,

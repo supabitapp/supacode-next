@@ -1,6 +1,11 @@
-import type { EnvironmentId, SourceControlProviderAuth } from "@supacode/contracts";
+import {
+  AuthSettingsWriteScope,
+  type EnvironmentId,
+  type SourceControlProviderAuth,
+} from "@supacode/contracts";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useState } from "react";
+import * as Option from "effect/Option";
 
 import { useEnvironmentSettings } from "../../hooks/useSettings";
 import { serverEnvironment } from "../../state/server";
@@ -11,6 +16,7 @@ import { Switch } from "../ui/switch";
 import { groupGitHubAccounts, nextGitHubHosts } from "./GitHubAccountSettings.logic";
 import { readGitHubSettings } from "@supacode/client-runtime/source-control-clients";
 import { redactedPlaceholder } from "./RedactedSensitiveText";
+import { useEnvironmentScope } from "../../state/session";
 
 /** Sentinel select value for "follow gh's active login"; logins never contain spaces. */
 const ACTIVE_ACCOUNT = "active gh account";
@@ -57,7 +63,12 @@ export function GitHubAccountSettings({
   });
   const [saving, setSaving] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const groups = groupGitHubAccounts(auth.accounts ?? []);
+  const canWriteSettings = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
+  const groups = groupGitHubAccounts(auth.accounts ?? [], [
+    ...Object.keys(hosts),
+    ...Object.keys(github.tokens),
+    ...(Option.isSome(auth.host) ? [auth.host.value] : []),
+  ]);
 
   const save = async (
     host: string,
@@ -125,7 +136,7 @@ export function GitHubAccountSettings({
               </div>
               <Switch
                 checked={enabled}
-                disabled={saving}
+                disabled={saving || !canWriteSettings}
                 aria-label={`Use GitHub on ${group.host}`}
                 onCheckedChange={(checked) => void save(group.host, { enabled: checked })}
               />
@@ -136,7 +147,7 @@ export function GitHubAccountSettings({
                 <div className="w-64 max-w-full">
                   <Select
                     value={pinned}
-                    disabled={saving || !enabled}
+                    disabled={saving || !enabled || !canWriteSettings}
                     onValueChange={(value) => {
                       if (typeof value !== "string") return;
                       void save(group.host, {
@@ -200,7 +211,7 @@ export function GitHubAccountSettings({
                 <Button
                   size="xs"
                   variant="outline"
-                  disabled={saving}
+                  disabled={saving || !canWriteSettings}
                   onClick={() => void save(group.host, { account: null })}
                 >
                   Use active login

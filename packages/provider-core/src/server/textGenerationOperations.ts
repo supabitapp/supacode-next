@@ -27,7 +27,7 @@ import {
   sanitizeThreadTitle,
 } from "./textGenerationUtils.ts";
 
-export type Operation = keyof ProviderTextGeneration;
+export type Operation = Exclude<keyof ProviderTextGeneration, "supportsReviewGuides">;
 
 /** One prompt for a provider to run. */
 export interface Request<S extends Schema.Top> {
@@ -100,7 +100,11 @@ export const decodeJsonReply = <S extends Schema.Top>(
 };
 
 /** The text generation service over `run`. `name` prefixes each operation's span. */
-export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
+export function fromRunner(
+  name: string,
+  run: Runner,
+  options: { readonly supportsReviewGuides?: boolean } = {},
+): ProviderTextGeneration {
   const generateCommitMessage: ProviderTextGeneration["generateCommitMessage"] = Effect.fn(
     `${name}.generateCommitMessage`,
   )(function* (input) {
@@ -202,6 +206,7 @@ export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
   });
 
   return {
+    supportsReviewGuides: options.supportsReviewGuides ?? false,
     generateCommitMessage,
     generatePrContent,
     generateBranchName,

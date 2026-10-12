@@ -1,6 +1,8 @@
 import {
   ProviderDriverKind,
   ProviderInstanceId,
+  DEFAULT_SERVER_SETTINGS,
+  ProjectId,
   type RepositoryIdentity,
   type ThreadPullRequestLink,
 } from "@supacode/contracts";
@@ -115,5 +117,38 @@ describe("resolvePromptLinkModelSelection", () => {
     expect(
       resolvePromptLinkModelSelection(providers, { provider: "cursor", model: null }),
     ).toBeNull();
+  });
+
+  it("respects the destination project's enablement rather than machine enablement", () => {
+    const projectId = ProjectId.make("project-a");
+    const instanceId = ProviderInstanceId.make("codex");
+    const settings = {
+      ...DEFAULT_SERVER_SETTINGS,
+      providerInstances: {
+        [instanceId]: { driver: ProviderDriverKind.make("codex"), config: {}, enabled: true },
+      },
+      projectSettingsOverrides: {
+        [projectId]: { providerInstances: { [instanceId]: { enabled: false } } },
+      },
+    };
+    const providers = [provider("codex", "codex")];
+    const request = { provider: "codex", model: "small" };
+    expect(resolvePromptLinkModelSelection(providers, request, { settings, projectId })).toBeNull();
+    expect(
+      resolvePromptLinkModelSelection(providers, request, { settings, projectId: null }),
+    ).toMatchObject({
+      selection: { instanceId, model: "small" },
+      exact: true,
+    });
+    settings.projectSettingsOverrides[projectId]!.providerInstances[instanceId]!.enabled = true;
+    expect(
+      resolvePromptLinkModelSelection([{ ...providers[0]!, enabled: false }], request, {
+        settings,
+        projectId,
+      }),
+    ).toMatchObject({
+      selection: { instanceId, model: "small" },
+      exact: true,
+    });
   });
 });

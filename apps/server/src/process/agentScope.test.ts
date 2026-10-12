@@ -106,6 +106,35 @@ const unitOf = (launch: { readonly args: ReadonlyArray<string> }) =>
   launch.args.find((arg) => arg.startsWith("--unit="))?.slice("--unit=".length) ?? "";
 
 describe("AgentScope service", () => {
+  it.effect("keeps a shared runtime's OOM attribution through joins and reattachments", () =>
+    withFakeSystemd(({ scope, units }) =>
+      Effect.gen(function* () {
+        const launch = yield* scope.wrap({
+          command: "agent",
+          args: [],
+          name: "t",
+          threadId: "owner",
+          sessionId: "shared",
+        });
+        units.set(unitOf(launch), { activeState: "failed", result: "oom-kill" });
+        yield* scope.clear("owner");
+        yield* scope.clear("joiner");
+        expect(yield* scope.oomKilled("joiner", "shared")).toBe(true);
+        expect(yield* scope.oomKilled("owner", "shared")).toBe(true);
+        yield* scope.clear("owner", "shared");
+        expect(yield* scope.oomKilled("joiner", "shared")).toBe(false);
+        const replacement = yield* scope.wrap({
+          command: "agent",
+          args: [],
+          name: "t",
+          threadId: "joiner",
+          sessionId: "shared",
+        });
+        units.set(unitOf(replacement), { activeState: "active", result: "success" });
+        expect(yield* scope.oomKilled("owner", "shared")).toBe(false);
+      }),
+    ),
+  );
   it.effect("labels a thread from its newest scope until its next session clears it", () =>
     withFakeSystemd(({ scope, units }) =>
       Effect.gen(function* () {

@@ -301,6 +301,12 @@ describe("server state projection", () => {
   it("projects streamed update milestones into the shared operation state", () => {
     expect(
       serverUpdateStateForProgressEvent("0.0.30", "0.0.31", {
+        type: "complete",
+        result: { targetVersion: "0.0.30", method: "desktop-app", upToDate: true },
+      }),
+    ).toEqual({ status: "idle" });
+    expect(
+      serverUpdateStateForProgressEvent("0.0.30", "0.0.31", {
         type: "progress",
         stage: "installing",
       }),

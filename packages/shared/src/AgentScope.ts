@@ -24,6 +24,7 @@ export interface AgentScopeShape {
     readonly args: ReadonlyArray<string>;
     readonly name: string;
     readonly threadId?: string | undefined;
+    readonly sessionId?: string | undefined;
     readonly env?: NodeJS.ProcessEnv | undefined;
   }) => Effect.Effect<AgentScopeCommand>;
   /**
@@ -31,13 +32,13 @@ export interface AgentScopeShape {
    * machine or the agents slice ran out of memory. The answer holds until the
    * thread launches its next agent, so a retried failure reads the same.
    */
-  readonly oomKilled: (threadId: string) => Effect.Effect<boolean>;
+  readonly oomKilled: (threadId: string, sessionId?: string) => Effect.Effect<boolean>;
   /**
    * Forgets the thread's scope. The session manager calls it before it opens
    * a provider session, so a scope only answers for the session that launched
    * it, even when the next session runs without one (Cursor, OpenCode).
    */
-  readonly clear: (threadId: string) => Effect.Effect<void>;
+  readonly clear: (threadId: string, sessionId?: string) => Effect.Effect<void>;
 }
 
 export interface AgentScopeCommand {

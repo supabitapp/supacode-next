@@ -605,11 +605,7 @@ export function SourceControlSettingsPanel() {
           {result.sourceControlProviders.length > 0 ? (
             <SettingsSection
               id={hasVersionControlSystems ? undefined : searchableSetting("source-control").id}
-              title={
-                hasVersionControlSystems
-                  ? "Source Control Providers"
-                  : `Source Control Providers${environmentSuffix}`
-              }
+              title={`Source Control Providers${environmentSuffix}`}
               headerAction={hasVersionControlSystems ? null : scanButton}
             >
               {result.sourceControlProviders.map((item) => (
@@ -623,14 +619,12 @@ export function SourceControlSettingsPanel() {
                           environmentId={environmentId}
                           onSaved={handleScan}
                         />
-                        {item.status === "available" ? (
-                          <GitHubAccountSettings
-                            key={environmentId}
-                            environmentId={environmentId}
-                            auth={item.auth}
-                            onSaved={handleScan}
-                          />
-                        ) : null}
+                        <GitHubAccountSettings
+                          key={environmentId}
+                          environmentId={environmentId}
+                          auth={item.auth}
+                          onSaved={handleScan}
+                        />
                       </div>
                     </SettingsSearchTarget>
                   ) : (

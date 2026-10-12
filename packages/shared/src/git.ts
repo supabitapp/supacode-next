@@ -111,19 +111,27 @@ export function resolveAutoFeatureBranchName(
   const resolvedBase = sanitizeFeatureBranchName(
     preferred && preferred.length > 0 ? preferred : AUTO_FEATURE_BRANCH_FALLBACK,
   );
+  return resolveAvailableGitBranchName(existingBranchNames, resolvedBase);
+}
+
+export function resolveAvailableGitBranchName(
+  existingBranchNames: readonly string[],
+  preferredBranch: string,
+  firstSuffix = 2,
+): string {
   const existingNames = existingBranchNames.map((refName) => refName.toLowerCase());
   const existingRefs = new Set(existingNames);
-  const parts = resolvedBase.split("/");
+  const parts = preferredBranch.split("/");
   let resolved = "";
 
   for (const [index, part] of parts.entries()) {
     const base = resolved ? `${resolved}/${part}` : part;
     let candidate = base;
-    let suffix = 2;
+    let suffix = firstSuffix;
     while (
-      existingRefs.has(candidate) ||
+      existingRefs.has(candidate.toLowerCase()) ||
       (index === parts.length - 1 &&
-        existingNames.some((refName) => refName.startsWith(`${candidate}/`)))
+        existingNames.some((refName) => refName.startsWith(`${candidate.toLowerCase()}/`)))
     ) {
       candidate = `${base}-${suffix}`;
       suffix += 1;

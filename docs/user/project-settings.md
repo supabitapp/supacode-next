@@ -95,9 +95,10 @@ are, and cleanup covers both the default folder and the custom one.
 
 ## Storage cleanup
 
-Open **Settings → Storage** to enable automatic cleanup on one machine or all connected
-environments. Policies are off by default and run on the server at startup, when changed, and
-hourly. Offline machines keep their existing policies.
+Open **Settings → Storage** to configure automatic cleanup on one machine or all connected
+environments. Cleanup rules for merged, unchanged, and deleted-thread worktrees are on by default;
+inactive-worktree cleanup remains disabled until you choose an age. Policies run on the server at
+startup, when changed, and hourly. Offline machines keep their existing policies.
 
 Select a project to set **Automatic worktree cleanup** to **Inherit**, **Off**, or **Custom**.
 Inherit follows each machine's rules; Off keeps that project's worktrees until you remove them
@@ -115,10 +116,10 @@ Merge cleanup requires a merged pull request whose commits are included in the r
 branch. A squash or rebase merge on GitHub also counts when the pull request targeted the default
 branch and the worktree is still at the pull request's last commit.
 
-Enable **Delete worktrees with deleted threads** to remove safe worktrees after their last
-thread is deleted, including archived threads and worktrees left by earlier deletions. The
-server waits for sessions and terminals to stop and retries skipped worktrees after restart.
-Existing prompts for deleting a worktree manually remain available when this policy is off.
+**Delete worktrees with deleted threads** removes safe worktrees after their last thread is
+deleted, including archived threads and worktrees left by earlier deletions. The server waits for
+sessions and terminals to stop and retries skipped worktrees after restart. Turn this policy off to
+keep those worktrees and retain the existing prompts for deleting one manually.
 
 Choose **Delete now**, then click again to confirm, to run the enabled rules immediately. The
 latest results show which worktrees were removed or kept and why, plus any failures.

@@ -336,7 +336,9 @@ export function PullRequestsScreen(
                         ? query
                           ? "No results"
                           : "No matching pull requests"
-                        : "Connect an environment"
+                        : environments.length
+                          ? "Pull requests unavailable"
+                          : "Connect an environment"
                 }
                 detail={
                   result.error ??
@@ -344,7 +346,9 @@ export function PullRequestsScreen(
                     ? "Reconnect to load pull requests that aren't saved on this device."
                     : targets.length
                       ? "Pull requests from the selected environments' projects appear here."
-                      : "Add an environment in Settings to browse its pull requests.")
+                      : environments.length
+                        ? "No selected environment supports pull request browsing. Connect a supported environment or update its server."
+                        : "Add an environment in Settings to browse its pull requests.")
                 }
                 variant="plain"
               />

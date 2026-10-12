@@ -1,6 +1,8 @@
 // @effect-diagnostics nodeBuiltinImport:off - pre-ready Electron setup reads settings and prepares the Linux desktop entry synchronously before app services are available.
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
+import * as Config from "effect/Config";
+import * as Option from "effect/Option";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -12,6 +14,8 @@ import * as DesktopEarlyElectronStartup from "./DesktopEarlyElectronStartup.ts";
 import { resolveDesktopAppBranding } from "./DesktopEnvironment.ts";
 import { renderUrlHandlerDesktopEntry } from "./DesktopLinuxUrlHandler.ts";
 import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
+import * as ElectronApp from "../electron/ElectronApp.ts";
+import * as DesktopOpenEvents from "./DesktopOpenEvents.ts";
 
 export interface DesktopPreReadyCommandLineReader {
   readonly hasSwitch: (switchName: string) => boolean;
@@ -126,4 +130,13 @@ export const make = Effect.gen(function* () {
 export const layer = Layer.mergeAll(
   ElectronProtocol.layerSchemePrivileges,
   Layer.effect(DesktopPreReadyElectronOptions, make),
+).pipe(
+  Layer.provideMerge(
+    Layer.unwrap(
+      Config.URL("VITE_DEV_SERVER_URL").pipe(
+        Config.option,
+        Effect.map((url) => DesktopOpenEvents.layer(Option.isSome(url))),
+      ),
+    ).pipe(Layer.provide(ElectronApp.layer)),
+  ),
 );

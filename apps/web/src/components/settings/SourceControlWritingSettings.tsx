@@ -6,6 +6,7 @@ import type {
   SourceControlWritingStyleMode,
 } from "@supacode/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@supacode/contracts/settings";
+import { isProviderReviewGuideCapable } from "@supacode/contracts";
 import { createModelSelection } from "@supacode/shared/model";
 import {
   resolveReviewGuideModelSelection,
@@ -155,26 +156,39 @@ export function SourceControlWritingSettingsSection() {
     (entry) => entry.instanceId === activeSelection.instanceId,
   );
   const usesReviewGuideModel = settings.reviewGuideModelSelection !== null;
+  const reviewGuideProviders = projectEffectiveTextGenerationProviders.filter(
+    isProviderReviewGuideCapable,
+  );
+  const reviewGuideEntries = instanceEntries.filter((entry) =>
+    reviewGuideProviders.some((provider) => provider.instanceId === entry.instanceId),
+  );
+  const canEnableReviewGuideModel = reviewGuideEntries.some(
+    (entry) => entry.enabled && entry.isAvailable,
+  );
   const reviewGuideSelection = resolveAppModelSelectionState(
     {
       ...settings,
       textGenerationModelSelection: resolveReviewGuideModelSelection(
         settings,
-        textGenerationProviders,
+        reviewGuideProviders,
         target?.projectId ?? null,
       ),
     },
-    textGenerationProviders,
+    reviewGuideProviders,
   );
-  // Its own list: a custom model chosen for guides is not among the writer model's options.
   const reviewGuideModelOptionsByInstance = getCustomModelOptionsByInstance(
     settings,
-    textGenerationProviders,
+    reviewGuideProviders,
     reviewGuideSelection.instanceId,
     reviewGuideSelection.model,
   );
-  const reviewGuideInstanceEntry = instanceEntries.find(
+  const reviewGuideInstanceEntry = reviewGuideEntries.find(
     (entry) => entry.instanceId === reviewGuideSelection.instanceId,
+  );
+  const reviewGuideModelDisabledReason = useScopedModelDisabledReason(
+    settings,
+    reviewGuideEntries,
+    isProviderReviewGuideCapable,
   );
 
   return (
@@ -460,7 +474,7 @@ export function SourceControlWritingSettingsSection() {
             serverScoped
             settingKeys={["reviewGuideModelSelection"]}
             {...searchableSetting("review-guide-model")}
-            description="Model that reads a pull request to write its review guide. It reads the change itself over many steps, so a stronger model helps. Off uses the source control writer model."
+            description="Model that reads a pull request to write its review guide. It reads the change itself over many steps, so a stronger model helps. Off uses a compatible source control writer or default model."
             control={
               !hasServerTargets ? (
                 <span className="text-sm text-muted-foreground">
@@ -468,20 +482,25 @@ export function SourceControlWritingSettingsSection() {
                 </span>
               ) : (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  {(usesReviewGuideModel || mixedReviewGuideModel) && canEnableDedicatedModel ? (
+                  {!canEnableReviewGuideModel ? (
+                    <span className="text-sm text-muted-foreground">
+                      Enable a provider that supports review guides.
+                    </span>
+                  ) : null}
+                  {(usesReviewGuideModel || mixedReviewGuideModel) && canEnableReviewGuideModel ? (
                     <ProviderModelPicker
                       environmentId={environmentId}
                       activeInstanceId={reviewGuideSelection.instanceId}
                       model={reviewGuideSelection.model}
                       lockedProvider={null}
-                      instanceEntries={instanceEntries}
+                      instanceEntries={reviewGuideEntries}
                       modelOptionsByInstance={reviewGuideModelOptionsByInstance}
                       triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
                       triggerAriaLabel="Review guide model"
                       {...(mixedReviewGuideModel ? { triggerLabel: "Mixed" } : {})}
-                      getModelDisabledReason={writerModelDisabledReason}
+                      getModelDisabledReason={reviewGuideModelDisabledReason}
                       onInstanceModelChange={(instanceId, model) => {
-                        const reason = writerModelDisabledReason(instanceId, model);
+                        const reason = reviewGuideModelDisabledReason(instanceId, model);
                         if (reason) {
                           toastManager.add({
                             type: "error",
@@ -497,7 +516,7 @@ export function SourceControlWritingSettingsSection() {
                     />
                   ) : null}
                   {usesReviewGuideModel &&
-                  canEnableDedicatedModel &&
+                  canEnableReviewGuideModel &&
                   !mixedReviewGuideModel &&
                   reviewGuideInstanceEntry ? (
                     <TraitsPicker
@@ -526,16 +545,16 @@ export function SourceControlWritingSettingsSection() {
                   <Switch
                     mixed={mixedReviewGuideModel}
                     checked={mixedReviewGuideModel ? false : usesReviewGuideModel}
-                    disabled={!usesReviewGuideModel && !canEnableDedicatedModel}
+                    disabled={!usesReviewGuideModel && !canEnableReviewGuideModel}
                     onCheckedChange={(checked) => {
                       if (!checked) {
                         updateSettings({ reviewGuideModelSelection: null });
                         return;
                       }
                       // Every selected target gets this model, so it must run on all of them.
-                      const reason = writerModelDisabledReason(
-                        activeSelection.instanceId,
-                        activeSelection.model,
+                      const reason = reviewGuideModelDisabledReason(
+                        reviewGuideSelection.instanceId,
+                        reviewGuideSelection.model,
                       );
                       if (reason) {
                         toastManager.add({
@@ -547,9 +566,9 @@ export function SourceControlWritingSettingsSection() {
                       }
                       updateSettings({
                         reviewGuideModelSelection: createModelSelection(
-                          activeSelection.instanceId,
-                          activeSelection.model,
-                          activeSelection.options,
+                          reviewGuideSelection.instanceId,
+                          reviewGuideSelection.model,
+                          reviewGuideSelection.options,
                         ),
                       });
                     }}

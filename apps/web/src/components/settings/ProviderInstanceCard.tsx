@@ -580,6 +580,9 @@ function ProjectOverrideInheritance({
 
 interface ProjectOverrideControl {
   readonly value: boolean | undefined;
+  readonly valueMixed: boolean;
+  readonly hasOverride: boolean;
+  readonly mixed: boolean;
   readonly effectiveEnabled: boolean;
   readonly onChange: (next: boolean) => void;
   readonly onReset: () => void;
@@ -1091,12 +1094,18 @@ export function ProviderInstanceCard({
           </span>
         </div>
         <span className="flex h-5 shrink-0 items-center gap-1">
-          {projectOverride?.value !== undefined ? (
+          {projectOverride?.hasOverride ? (
             <span className="flex items-center">
-              <ProjectOverrideInheritance
-                projectEnabled={projectOverride.value}
-                deviceEnabled={resolveProviderInstanceEnabled(instance)}
-              />
+              {projectOverride.valueMixed ? (
+                <Badge size="sm" variant="secondary">
+                  Mixed
+                </Badge>
+              ) : (
+                <ProjectOverrideInheritance
+                  projectEnabled={projectOverride.value ?? projectOverride.effectiveEnabled}
+                  deviceEnabled={resolveProviderInstanceEnabled(instance)}
+                />
+              )}
               <SettingResetButton
                 label={`${displayName} enablement`}
                 tooltip="Reset to the device setting"
@@ -1106,7 +1115,8 @@ export function ProviderInstanceCard({
             </span>
           ) : null}
           <Switch
-            checked={enabled}
+            checked={projectOverride?.mixed ? false : enabled}
+            mixed={projectOverride?.mixed ?? false}
             disabled={readOnly || (projectOverride !== undefined && !canWriteSettings)}
             onCheckedChange={(checked) => updateEnabled(Boolean(checked))}
             aria-label={`Enable ${displayName}`}

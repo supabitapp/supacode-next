@@ -3,6 +3,24 @@ import { describe, expect, it } from "vite-plus/test";
 import { groupGitHubAccounts, nextGitHubHosts } from "./GitHubAccountSettings.logic";
 
 describe("groupGitHubAccounts", () => {
+  it("keeps token-only and disabled hosts available without CLI accounts", () => {
+    expect(groupGitHubAccounts([], ["github.com", "ghe.acme.test", "github.com"])).toEqual([
+      {
+        host: "github.com",
+        activeAccount: null,
+        selectable: [],
+        broken: [],
+        environmentVariable: null,
+      },
+      {
+        host: "ghe.acme.test",
+        activeAccount: null,
+        selectable: [],
+        broken: [],
+        environmentVariable: null,
+      },
+    ]);
+  });
   it("groups logins by host, keeping broken and environment logins out of the picker", () => {
     expect(
       groupGitHubAccounts([

@@ -29,7 +29,11 @@ import {
   type ReviewDiffPreviewSource,
   type VcsRef,
 } from "@supacode/contracts";
-import { dedupeRemoteBranchesWithLocalMatches, normalizeGitRemoteUrl } from "@supacode/shared/git";
+import {
+  dedupeRemoteBranchesWithLocalMatches,
+  normalizeGitRemoteUrl,
+  resolveAvailableGitBranchName,
+} from "@supacode/shared/git";
 import * as HostProcess from "@supacode/shared/HostProcess";
 import * as KeyedLock from "@supacode/shared/KeyedLock";
 import { compactTraceAttributes } from "@supacode/shared/observability";
@@ -1239,27 +1243,8 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     cwd: string,
     desiredBranch: string,
   ) {
-    const isDesiredTaken = yield* branchExists(cwd, desiredBranch);
-    if (!isDesiredTaken) {
-      return desiredBranch;
-    }
-
-    for (let suffix = 1; suffix <= 100; suffix += 1) {
-      const candidate = `${desiredBranch}-${suffix}`;
-      const isCandidateTaken = yield* branchExists(cwd, candidate);
-      if (!isCandidateTaken) {
-        return candidate;
-      }
-    }
-
-    return yield* new GitCommandError({
-      ...gitCommandContext({
-        operation: "GitVcsDriver.renameBranch",
-        cwd,
-        args: ["branch", "-m", "--", desiredBranch],
-      }),
-      detail: `Could not find an available branch name for '${desiredBranch}'.`,
-    });
+    const branches = yield* listLocalBranchNames(cwd);
+    return resolveAvailableGitBranchName(branches, desiredBranch, 1);
   });
 
   const resolveCurrentUpstream = Effect.fn("resolveCurrentUpstream")(function* (cwd: string) {

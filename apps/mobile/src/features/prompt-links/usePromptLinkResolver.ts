@@ -88,12 +88,15 @@ export function usePromptLinkResolver(params: Readonly<Record<string, unknown>> 
     draftKey: string,
     environmentId: EnvironmentId,
     request: LinkedDraftRequest,
+    projectId: EnvironmentProject["id"],
   ): boolean => {
     if (request.prompt) setComposerDraftText(draftKey, request.prompt.text);
     if (request.provider === null) return false;
+    const config = serverConfigs.get(environmentId);
     const resolved = resolvePromptLinkModelSelection(
-      serverConfigs.get(environmentId)?.providers ?? [],
+      config?.providers ?? [],
       { provider: request.provider, model: request.model },
+      config ? { settings: config.settings, projectId } : undefined,
     );
     if (resolved) updateComposerDraftSettings(draftKey, { modelSelection: resolved.selection });
     return resolved?.exact !== true;
@@ -138,7 +141,7 @@ export function usePromptLinkResolver(params: Readonly<Record<string, unknown>> 
         pullRequestUnavailable = request.pullRequest.number;
       }
     }
-    const modelUnavailable = writeDraft(draftKey, project.environmentId, request);
+    const modelUnavailable = writeDraft(draftKey, project.environmentId, request, project.id);
     navigation.dispatch(
       StackActions.push("NewTaskDraft", {
         draftId: draftKey,

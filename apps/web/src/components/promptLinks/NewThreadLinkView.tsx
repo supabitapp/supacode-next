@@ -105,13 +105,14 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
     setState({ status: "opened" });
     const notes: Array<string> = [];
     if (link.kind === "new" && link.provider !== null) {
-      const providers =
-        environments.find((environment) => environment.environmentId === project.environmentId)
-          ?.serverConfig?.providers ?? [];
-      const resolved = resolvePromptLinkModelSelection(providers, {
-        provider: link.provider,
-        model: link.model,
-      });
+      const config = environments.find(
+        (environment) => environment.environmentId === project.environmentId,
+      )?.serverConfig;
+      const resolved = resolvePromptLinkModelSelection(
+        config?.providers ?? [],
+        { provider: link.provider, model: link.model },
+        config ? { settings: config.settings, projectId: project.id } : undefined,
+      );
       if (resolved !== null) {
         useComposerDraftStore.getState().setModelSelection(opened.draftId, resolved.selection, {
           explicit: true,
@@ -121,7 +122,7 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
       if (resolved === null || !resolved.exact) {
         notes.push(
           resolved === null
-            ? `The link asked for ${link.provider}, which is not set up here, so your default model is used.`
+            ? `The link asked for ${link.provider}, which is unavailable in this project, so your default model is used.`
             : `The link asked for ${link.model}, which ${link.provider} does not offer here, so its default model is used.`,
         );
       }

@@ -18,6 +18,7 @@ import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopUserData from "./DesktopUserData.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
+import * as DesktopOpenEvents from "./DesktopOpenEvents.ts";
 
 export class DesktopDeepLinks extends Context.Service<
   DesktopDeepLinks,
@@ -29,6 +30,7 @@ export class DesktopDeepLinks extends Context.Service<
       | ElectronWindow.ElectronWindow
       | DesktopWebLinks.DesktopWebLinks
       | Scope.Scope
+      | DesktopOpenEvents.DesktopOpenEvents
     >;
   }
 >()("@supacode/desktop/app/DesktopDeepLinks") {}
@@ -124,23 +126,24 @@ export const make = Effect.gen(function* () {
         if (startProviderAuthHandoff(value) || openAppLink(value)) continue;
         openWebLink(value);
       }
-      yield* electronApp.on("open-url", (event: { preventDefault: () => void }, url: string) => {
+      const openEvents = yield* DesktopOpenEvents.DesktopOpenEvents;
+      yield* openEvents.subscribe((event) => {
+        if (event.type === "url") {
+          if (
+            startProviderAuthHandoff(event.url) ||
+            resumeProviderAuth(event.url) ||
+            openAppLink(event.url)
+          )
+            return;
+          openWebLink(event.url);
+          return;
+        }
+        if (event.type === "file") {
+          void runPromise(webLinks.receive(NodeURL.pathToFileURL(event.path).href));
+          return;
+        }
         if (
-          startProviderAuthHandoff(url) ||
-          resumeProviderAuth(url) ||
-          openAppLink(url) ||
-          openWebLink(url)
-        )
-          event.preventDefault();
-      });
-      yield* electronApp.on("open-file", (event: { preventDefault: () => void }, path: string) => {
-        if (environment.platform !== "darwin" || !DesktopWebLinks.isWebPageFile(path)) return;
-        event.preventDefault();
-        void runPromise(webLinks.receive(NodeURL.pathToFileURL(path).href));
-      });
-      yield* electronApp.on("second-instance", (_event: unknown, argv: readonly string[]) => {
-        if (
-          argv?.some(
+          event.argv.some(
             (value) =>
               startProviderAuthHandoff(value) ||
               resumeProviderAuth(value) ||

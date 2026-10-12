@@ -15,6 +15,7 @@ import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopWebLinks from "./DesktopWebLinks.ts";
+import * as DesktopOpenEvents from "./DesktopOpenEvents.ts";
 import * as DesktopDeepLinks from "./DesktopDeepLinks.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
@@ -81,8 +82,18 @@ const makeDesktopDeepLinksLayer = ({
         NodePath.layerPosix,
       ),
     ),
+    Layer.provideMerge(Layer.succeed(DesktopEnvironment.DesktopEnvironment, environment)),
   );
 };
+
+const earlyEventsLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const environment = yield* DesktopEnvironment.DesktopEnvironment;
+    return DesktopOpenEvents.layer(environment.isDevelopment).pipe(
+      Layer.provide(Layer.succeed(HostProcess.Platform, environment.platform)),
+    );
+  }),
+);
 
 const makeListenerApp = (listeners: Map<string, (...args: unknown[]) => void>) =>
   ({
@@ -139,6 +150,7 @@ describe("DesktopDeepLinks", () => {
       const exit = yield* Effect.exit(
         Effect.scoped(
           deepLinks.configure.pipe(
+            Effect.provide(earlyEventsLayer),
             Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
           ),
         ),
@@ -150,7 +162,7 @@ describe("DesktopDeepLinks", () => {
         "requestSingleInstanceLock",
         "quit",
       ]);
-      assert.deepEqual([...listeners.keys()], []);
+      assert.deepEqual([...listeners.keys()], ["open-url", "open-file", "second-instance"]);
     }).pipe(
       Effect.provide(makeDesktopDeepLinksLayer({ hasSingleInstanceLock: false, events })),
       Effect.provideService(ElectronApp.ElectronApp, makeListenerApp(listeners)),
@@ -169,6 +181,7 @@ describe("DesktopDeepLinks", () => {
       const exit = yield* Effect.exit(
         Effect.scoped(
           deepLinks.configure.pipe(
+            Effect.provide(earlyEventsLayer),
             Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
           ),
         ),
@@ -198,6 +211,7 @@ describe("DesktopDeepLinks", () => {
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
       yield* deepLinks.configure.pipe(
+        Effect.provide(earlyEventsLayer),
         Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
       );
       listeners.get("second-instance")!({}, ["supacode", "--some-flag"]);
@@ -225,6 +239,7 @@ describe("DesktopDeepLinks", () => {
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
       yield* deepLinks.configure.pipe(
+        Effect.provide(earlyEventsLayer),
         Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
       );
       const event = { preventDefault: vi.fn() };
@@ -301,6 +316,7 @@ describe("DesktopDeepLinks", () => {
         yield* Effect.gen(function* () {
           const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
           yield* deepLinks.configure.pipe(
+            Effect.provide(earlyEventsLayer),
             Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
           );
           if (entry === "open-url") {
@@ -342,7 +358,7 @@ it.effect("queues web, file, prompt and thread links and leaves other schemes al
     });
     yield* Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
-      yield* deepLinks.configure;
+      yield* deepLinks.configure.pipe(Effect.provide(earlyEventsLayer));
       for (const url of [
         "https://example.com/page",
         "http://localhost:3000",

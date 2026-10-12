@@ -287,7 +287,8 @@ export function serverUpdateStateForProgressEvent(
   fromVersion: string,
   targetVersion: string,
   event: ServerSelfUpdateProgressEvent,
-): Extract<ServerUpdateState, { status: "running" }> {
+): ServerUpdateState {
+  if (event.type === "complete" && event.result.upToDate) return IDLE_SERVER_UPDATE_STATE;
   return {
     status: "running",
     stage: event.type === "complete" ? "resuming" : event.stage,
@@ -816,6 +817,8 @@ export function createServerEnvironmentAtoms<R, E>(
 
             targetVersion = updateResult.targetVersion;
 
+            if (updateResult.upToDate) return updateResult;
+
             currentStage = "resuming";
             atomRegistry.set(stateAtom, {
               status: "running",
@@ -826,6 +829,11 @@ export function createServerEnvironmentAtoms<R, E>(
             return updateResult;
           }),
         );
+
+        if (result.upToDate) {
+          atomRegistry.set(stateAtom, IDLE_SERVER_UPDATE_STATE);
+          return result;
+        }
 
         // The update restart is intentional and the server stays unreachable
         // for the whole restart, so hold the retry cadence flat instead of

@@ -203,7 +203,8 @@ class SupacodeWorkspaceNavigationView(
       onClick = onClick,
       modifier = Modifier.size(56.dp),
       colors = IconButtonDefaults.filledTonalIconButtonColors(
-        contentColor = Color(if (customized) selectedColor else unselectedColor)
+        containerColor = Color(if (customized) selectedColor else indicatorColor),
+        contentColor = Color(if (customized) indicatorColor else selectedColor)
       )
     ) {
       Icon(painter = painterResource(drawable), contentDescription = label)

@@ -18,8 +18,9 @@ export interface GitHubHostGroup {
 /** Groups gh's logins by host, in the order gh reported the hosts. */
 export function groupGitHubAccounts(
   accounts: ReadonlyArray<GitHubDiscoveredAccount>,
+  additionalHosts: readonly string[] = [],
 ): ReadonlyArray<GitHubHostGroup> {
-  const hosts = [...new Set(accounts.map((entry) => entry.host))];
+  const hosts = [...new Set([...accounts.map((entry) => entry.host), ...additionalHosts])];
   return hosts.map((host) => {
     const entries = accounts.filter((entry) => entry.host === host);
     const stored = entries.filter((entry) => entry.environmentVariable === undefined);
