@@ -298,6 +298,11 @@ function SendActionButton(props: {
       accessibilityLabel="Choose how to send this message"
       shouldOpenOnLongPress
       preservesKeyboard
+      onOpenMenu={() => {
+        if (Platform.OS === "ios") {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+        }
+      }}
       actions={actions.map((action) => ({
         id: action,
         title: FOLLOW_UP_ACTION_LABEL[action],
