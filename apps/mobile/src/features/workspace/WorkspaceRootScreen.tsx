@@ -89,7 +89,7 @@ function WorkspaceRootContent() {
   const bottomClearance =
     Platform.OS === "ios"
       ? Math.max(insets.bottom, keyboardHeight, 12) +
-        (keyboardHeight > 0 ? 16 : WORKSPACE_DOCK.height + WORKSPACE_DOCK.bottomGap + 16)
+        (keyboardHeight > 0 ? 16 : workspace.dockHeight + WORKSPACE_DOCK.bottomGap + 16)
       : keyboardHeight > 0 && tab.searchMode !== "resting"
         ? keyboardHeight + 64
         : Math.max(insets.bottom, 12) + workspaceToolbarHeight(tab.searchMode) + 16;

@@ -1,5 +1,3 @@
-import { ControlPillMenu } from "../../components/ControlPillMenu";
-import { SidebarFilterButton } from "../threads/sidebar-filter-button";
 import type { ControlPillMenuProps } from "../../components/ControlPillMenu.types";
 import type { PullRequestListControls } from "./pullRequestList";
 
@@ -28,7 +26,7 @@ function choices(field: string, options: Readonly<Record<string, string>>, selec
   }));
 }
 
-export function PullRequestListFilters(props: {
+export function createPullRequestListFilterMenu(props: {
   readonly environments: readonly { id: string; label: string }[];
   readonly environmentId: string | null;
   readonly onEnvironmentChange: (id: string | null) => void;
@@ -242,20 +240,14 @@ export function PullRequestListFilters(props: {
     ...more,
   ];
   const customized = count > 0 || props.environmentId !== null || value.sort !== "updated";
-  return (
-    <ControlPillMenu
-      title="Pull request filters"
-      actions={actions}
-      onPressAction={({ nativeEvent }) => select(nativeEvent.event)}
-    >
-      <SidebarFilterButton
-        accessibilityLabel="Filter pull requests"
-        icon={
-          customized
-            ? "line.3.horizontal.decrease.circle.fill"
-            : "line.3.horizontal.decrease.circle"
-        }
-      />
-    </ControlPillMenu>
-  );
+  return {
+    title: "Pull request filters",
+    accessibilityLabel: "Filter pull requests",
+    actions,
+    onPressAction: ({
+      nativeEvent,
+    }: Parameters<NonNullable<ControlPillMenuProps["onPressAction"]>>[0]) =>
+      select(nativeEvent.event),
+    customized,
+  };
 }

@@ -25,7 +25,7 @@ import { useWorkspaceState } from "../../state/workspace";
 import { useProjects } from "../../state/entities";
 import { environmentServerConfigsAtom } from "../../state/server";
 import { PullRequestListRow } from "./PullRequestListRow";
-import { PullRequestListFilters } from "./PullRequestListFilters";
+import { createPullRequestListFilterMenu } from "./pullRequestListFilterMenu";
 import { usePullRequestList } from "./usePullRequestList";
 import { usePullRequestListControls } from "./usePullRequestListControls";
 import { usePullRequestListActions } from "./usePullRequestListActions";
@@ -208,6 +208,20 @@ export function PullRequestsScreen(
     ? entries.findIndex((entry) => pullRequestKey(entry) === initialAnchor.key)
     : -1;
 
+  const filterMenu = createPullRequestListFilterMenu({
+    environments: environments.map((item) => ({
+      id: String(item.environmentId),
+      label: item.environmentLabel,
+    })),
+    environmentId,
+    onEnvironmentChange: listControls.setEnvironmentId,
+    onReset: listControls.reset,
+    value: controls,
+    onChange: (next) => listControls.setControls(environmentId, next),
+    authors: knownFacets.environmentId === environmentId ? knownFacets.authors : facets.authors,
+    labels: knownFacets.environmentId === environmentId ? knownFacets.labels : facets.labels,
+    projects,
+  });
   return (
     <View className={sidebar ? "flex-1 bg-drawer" : "flex-1 bg-screen"}>
       <LegendList
@@ -342,32 +356,16 @@ export function PullRequestsScreen(
         floating
         showTabs={!props.sidebar}
         onNewTask={startNewTask}
-        filter={
-          <PullRequestListFilters
-            environments={environments.map((item) => ({
-              id: String(item.environmentId),
-              label: item.environmentLabel,
-            }))}
-            environmentId={environmentId}
-            onEnvironmentChange={listControls.setEnvironmentId}
-            onReset={listControls.reset}
-            value={controls}
-            onChange={(next) => {
-              listControls.setControls(environmentId, next);
-              void listRef.current?.scrollToOffset({
-                offset: Platform.OS === "ios" ? -insets.top : 0,
-                animated: false,
-              });
-            }}
-            authors={
-              knownFacets.environmentId === environmentId ? knownFacets.authors : facets.authors
-            }
-            labels={
-              knownFacets.environmentId === environmentId ? knownFacets.labels : facets.labels
-            }
-            projects={projects}
-          />
-        }
+        filterMenu={{
+          ...filterMenu,
+          onPressAction: (event) => {
+            filterMenu.onPressAction(event);
+            void listRef.current?.scrollToOffset({
+              offset: Platform.OS === "ios" ? -insets.top : 0,
+              animated: false,
+            });
+          },
+        }}
       />
     </View>
   );

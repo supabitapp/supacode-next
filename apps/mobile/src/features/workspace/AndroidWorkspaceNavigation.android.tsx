@@ -14,6 +14,9 @@ export const ANDROID_WORKSPACE_RAIL_WIDTH = 80;
 
 interface NativeNavigationProps extends ViewProps {
   readonly rail: boolean;
+  readonly dock: boolean;
+  readonly showTabs: boolean;
+  readonly filterCustomized: boolean;
   readonly selectedTab: WorkspaceTab;
   readonly dark: boolean;
   readonly textScale: number;
@@ -22,6 +25,8 @@ interface NativeNavigationProps extends ViewProps {
   readonly indicatorColor: number;
   readonly unselectedColor: number;
   readonly onTabSelected: (event: NativeSyntheticEvent<{ readonly tab: WorkspaceTab }>) => void;
+  readonly onFilterPressed?: () => void;
+  readonly onCompose?: () => void;
 }
 
 const NativeNavigation = requireNativeView<NativeNavigationProps>("SupacodeWorkspaceNavigation");
@@ -34,6 +39,12 @@ function nativeColor(value: string) {
 export function AndroidWorkspaceNavigation(props: {
   readonly rail?: boolean;
   readonly onSelect?: () => void;
+  readonly dock?: {
+    readonly showTabs: boolean;
+    readonly filterCustomized: boolean;
+    readonly onFilter: () => void;
+    readonly onCompose: () => void;
+  };
 }) {
   const workspace = useWorkspaceTabs()!;
   const selectTab = useWorkspaceTabSelection();
@@ -57,11 +68,14 @@ export function AndroidWorkspaceNavigation(props: {
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
             }
-          : { paddingBottom: insets.bottom }),
+          : { paddingBottom: props.dock ? 0 : insets.bottom }),
       }}
     >
       <NativeNavigation
         rail={rail}
+        dock={props.dock !== undefined}
+        showTabs={props.dock?.showTabs ?? true}
+        filterCustomized={props.dock?.filterCustomized ?? false}
         selectedTab={workspace.state.selectedTab}
         dark={themeAppearance === "dark"}
         textScale={scale}
@@ -73,6 +87,8 @@ export function AndroidWorkspaceNavigation(props: {
           selectTab(event.nativeEvent.tab);
           props.onSelect?.();
         }}
+        onFilterPressed={props.dock?.onFilter}
+        onCompose={props.dock?.onCompose}
         style={rail ? { flex: 1 } : { height: 80 * Math.max(1, scale) }}
       />
     </View>

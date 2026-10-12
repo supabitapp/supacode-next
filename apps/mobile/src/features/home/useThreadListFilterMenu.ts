@@ -1,7 +1,5 @@
 import { useMemo } from "react";
-import { ControlPillMenu } from "../../components/ControlPillMenu";
 import type { ControlPillMenuProps } from "../../components/ControlPillMenu.types";
-import { SidebarFilterButton } from "../threads/sidebar-filter-button";
 import { buildHomeListFilterMenu } from "./home-list-filter-menu";
 import type { HomeHeaderProps } from "./HomeHeader.types";
 
@@ -64,22 +62,7 @@ export function useThreadListFilterMenu(props: ThreadListFilterProps) {
   ]);
   return {
     ...menu,
+    accessibilityLabel: "Filter threads",
     customized: props.selectedEnvironmentId !== null || props.selectedProjectKey !== null,
   };
-}
-
-export function ThreadListFilters(props: ThreadListFilterProps) {
-  const { customized, ...menu } = useThreadListFilterMenu(props);
-  return (
-    <ControlPillMenu {...menu}>
-      <SidebarFilterButton
-        accessibilityLabel="Filter threads"
-        icon={
-          customized
-            ? "line.3.horizontal.decrease.circle.fill"
-            : "line.3.horizontal.decrease.circle"
-        }
-      />
-    </ControlPillMenu>
-  );
 }

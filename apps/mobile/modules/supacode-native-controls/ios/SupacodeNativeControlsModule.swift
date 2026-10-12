@@ -24,6 +24,18 @@ public final class SupacodeNativeControlsModule: Module {
       Events("onMetricsChange")
     }
 
+    View(SupacodeWorkspaceDockView.self) {
+      ViewName("WorkspaceDock")
+      Events("onTabSelected", "onCompose", "onFilterAction", "onHeightChange")
+      Prop("selectedTab") { (view: SupacodeWorkspaceDockView, value: String) in view.selectedTab = value }
+      Prop("showTabs") { (view: SupacodeWorkspaceDockView, value: Bool) in view.showTabs = value }
+      Prop("filterCustomized") { (view: SupacodeWorkspaceDockView, value: Bool) in view.filterCustomized = value }
+      Prop("filterLabel") { (view: SupacodeWorkspaceDockView, value: String) in view.filterLabel = value }
+      Prop("filterTitle") { (view: SupacodeWorkspaceDockView, value: String) in view.filterTitle = value }
+      Prop("filterActions") { (view: SupacodeWorkspaceDockView, value: [[String: Any]]) in view.filterActions = value }
+      Prop("appearance") { (view: SupacodeWorkspaceDockView, value: String) in view.appearance = value }
+    }
+
     AsyncFunction("presentVideo") { (url: URL, title: String, sourceIdentifier: String, identifier: String, promise: Promise) in
       try self.presentVideo(
         url: url,

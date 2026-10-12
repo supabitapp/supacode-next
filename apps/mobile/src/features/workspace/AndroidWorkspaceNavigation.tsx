@@ -2,6 +2,12 @@
 export function AndroidWorkspaceNavigation(_props: {
   readonly rail?: boolean;
   readonly onSelect?: () => void;
+  readonly dock?: {
+    readonly showTabs: boolean;
+    readonly filterCustomized: boolean;
+    readonly onFilter: () => void;
+    readonly onCompose: () => void;
+  };
 }) {
   return null;
 }

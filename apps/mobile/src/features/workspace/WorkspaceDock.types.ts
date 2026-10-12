@@ -1,0 +1,16 @@
+import type { ControlPillMenuProps } from "../../components/ControlPillMenu.types";
+
+export interface WorkspaceDockFilterMenu {
+  readonly title: string;
+  readonly accessibilityLabel: string;
+  readonly actions: ControlPillMenuProps["actions"];
+  readonly onPressAction: NonNullable<ControlPillMenuProps["onPressAction"]>;
+  readonly customized: boolean;
+}
+
+export interface WorkspaceDockProps {
+  readonly onNewTask: () => void;
+  readonly filterMenu?: WorkspaceDockFilterMenu;
+  readonly floating?: boolean;
+  readonly showTabs?: boolean;
+}

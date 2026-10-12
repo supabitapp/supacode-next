@@ -2,7 +2,7 @@ import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { WorkspaceDock } from "../workspace/WorkspaceDock";
 import { MaterialThreadListToolbar } from "./MaterialThreadListToolbar";
-import { ThreadListFilters, useThreadListFilterMenu } from "./ThreadListFilters";
+import { useThreadListFilterMenu } from "./useThreadListFilterMenu";
 import type { HomeHeaderProps } from "./HomeHeader.types";
 
 export type { HomeHeaderEnvironment } from "./HomeHeader.types";
@@ -15,11 +15,7 @@ export function HomeHeader(props: HomeHeaderProps) {
     <>
       <NativeStackScreenOptions options={{ headerShown: false }} />
       {usesDock ? (
-        <WorkspaceDock
-          floating
-          onNewTask={props.onStartNewTask}
-          filter={<ThreadListFilters {...props} />}
-        />
+        <WorkspaceDock floating onNewTask={props.onStartNewTask} filterMenu={menu} />
       ) : null}
       <MaterialThreadListToolbar
         showFloatingFilter={!usesDock}

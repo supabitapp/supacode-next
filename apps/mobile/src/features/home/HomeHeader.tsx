@@ -1,5 +1,5 @@
 import { WorkspaceDock } from "../workspace/WorkspaceDock";
-import { ThreadListFilters } from "./ThreadListFilters";
+import { useThreadListFilterMenu } from "./useThreadListFilterMenu";
 import { useSidebarWorkspaceTabs } from "../workspace/useSidebarWorkspaceTabs";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { use, useCallback, useEffect, useRef } from "react";
@@ -60,6 +60,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   }, [primaryColumn, panes.primarySidebarVisible, togglePrimarySidebar]);
   useHardwareKeyboardCommand("focusSearch", focusSearch);
   const filterMenu = buildHomeListFilterMenu(props);
+  const dockFilterMenu = useThreadListFilterMenu(props);
 
   if (props.usesWorkspaceToolbar) {
     return (
@@ -67,7 +68,7 @@ export function HomeHeader(props: HomeHeaderProps) {
         floating
         showTabs={!sidebarTabs}
         onNewTask={props.onStartNewTask}
-        filter={<ThreadListFilters {...props} />}
+        filterMenu={dockFilterMenu}
       />
     );
   }

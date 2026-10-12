@@ -2,9 +2,13 @@ package expo.modules.supacodenativecontrols
 
 import android.content.Context
 import android.view.ViewGroup
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -20,11 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.modules.Module
@@ -38,6 +44,13 @@ class SupacodeWorkspaceNavigationModule : Module() {
     View(SupacodeWorkspaceNavigationView::class) {
       Prop("selectedTab") { view: SupacodeWorkspaceNavigationView, value: String ->
         view.selectedTab = value
+      }
+      Prop("dock") { view: SupacodeWorkspaceNavigationView, value: Boolean -> view.dock = value }
+      Prop("showTabs") { view: SupacodeWorkspaceNavigationView, value: Boolean ->
+        view.showTabs = value
+      }
+      Prop("filterCustomized") { view: SupacodeWorkspaceNavigationView, value: Boolean ->
+        view.filterCustomized = value
       }
       Prop("rail") { view: SupacodeWorkspaceNavigationView, value: Boolean -> view.rail = value }
       Prop("dark") { view: SupacodeWorkspaceNavigationView, value: Boolean -> view.dark = value }
@@ -56,7 +69,7 @@ class SupacodeWorkspaceNavigationModule : Module() {
       Prop("unselectedColor") { view: SupacodeWorkspaceNavigationView, value: Int ->
         view.unselectedColor = value
       }
-      Events("onTabSelected")
+      Events("onTabSelected", "onFilterPressed", "onCompose")
     }
   }
 }
@@ -70,6 +83,11 @@ class SupacodeWorkspaceNavigationView(
   override val shouldUseAndroidLayout = true
 
   private val onTabSelected by EventDispatcher()
+  private val onFilterPressed by EventDispatcher()
+  private val onCompose by EventDispatcher()
+  var dock by mutableStateOf(false)
+  var showTabs by mutableStateOf(true)
+  var filterCustomized by mutableStateOf(false)
   var selectedTab by mutableStateOf("threads")
   var rail by mutableStateOf(false)
   var dark by mutableStateOf(false)
@@ -110,7 +128,34 @@ class SupacodeWorkspaceNavigationView(
         setContent {
           MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
             val tabs = listOf("threads", "pullRequests")
-            if (rail) {
+            if (dock) {
+              Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                dockButton(
+                  drawable = R.drawable.supacode_filter,
+                  label = if (selectedTab ==
+                    "threads"
+                  ) {
+                    "Filter threads"
+                  } else {
+                    "Filter pull requests"
+                  },
+                  customized = filterCustomized
+                ) {
+                  onFilterPressed(emptyMap<String, String>())
+                }
+                if (showTabs) {
+                  tabBar(Modifier.weight(1f))
+                } else {
+                  Spacer(Modifier.weight(1f))
+                }
+                dockButton(R.drawable.supacode_compose, "New chat") {
+                  onCompose(emptyMap<String, String>())
+                }
+              }
+            } else if (rail) {
               NavigationRail(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = Color(containerColor),
@@ -138,37 +183,60 @@ class SupacodeWorkspaceNavigationView(
                 Spacer(Modifier.weight(1f))
               }
             } else {
-              NavigationBar(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = Color(containerColor),
-                tonalElevation = androidx.compose.ui.unit.Dp(0f),
-                windowInsets = WindowInsets(0),
-              ) {
-                tabs.forEach { tab ->
-                  NavigationBarItem(
-                    selected = selectedTab == tab,
-                    onClick = { onTabSelected(mapOf("tab" to tab)) },
-                    icon = { tabIcon(tab) },
-                    label = {
-                      val title = if (tab == "threads") "Chats" else "Pull requests"
-                      Text(title, fontSize = (12 * textScale).sp)
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                      selectedIconColor = Color(selectedColor),
-                      selectedTextColor = Color(selectedColor),
-                      indicatorColor = Color(indicatorColor),
-                      unselectedIconColor = Color(unselectedColor),
-                      unselectedTextColor = Color(unselectedColor),
-                    ),
-                  )
-                }
-              }
+              tabBar(Modifier.fillMaxSize())
             }
           }
         }
       },
       LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     )
+  }
+
+  @Composable
+  private fun dockButton(
+    drawable: Int,
+    label: String,
+    customized: Boolean = false,
+    onClick: () -> Unit
+  ) {
+    FilledTonalIconButton(
+      onClick = onClick,
+      modifier = Modifier.size(56.dp),
+      colors = IconButtonDefaults.filledTonalIconButtonColors(
+        contentColor = Color(if (customized) selectedColor else unselectedColor)
+      )
+    ) {
+      Icon(painter = painterResource(drawable), contentDescription = label)
+    }
+  }
+
+  @Composable
+  private fun tabBar(modifier: Modifier) {
+    NavigationBar(
+      modifier = modifier,
+      containerColor = Color(containerColor),
+      tonalElevation = androidx.compose.ui.unit.Dp(0f),
+      windowInsets = WindowInsets(0),
+    ) {
+      listOf("threads", "pullRequests").forEach { tab ->
+        NavigationBarItem(
+          selected = selectedTab == tab,
+          onClick = { onTabSelected(mapOf("tab" to tab)) },
+          icon = { tabIcon(tab) },
+          label = {
+            val title = if (tab == "threads") "Threads" else "Pulls"
+            Text(title, fontSize = (12 * textScale).sp)
+          },
+          colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = Color(selectedColor),
+            selectedTextColor = Color(selectedColor),
+            indicatorColor = Color(indicatorColor),
+            unselectedIconColor = Color(unselectedColor),
+            unselectedTextColor = Color(unselectedColor),
+          ),
+        )
+      }
+    }
   }
 
   @Composable
@@ -180,7 +248,7 @@ class SupacodeWorkspaceNavigationView(
     }
     Icon(
       painter = painterResource(drawable),
-      contentDescription = if (tab == "threads") "Chats" else "Pull requests",
+      contentDescription = if (tab == "threads") "Threads" else "Pull requests",
     )
   }
 }
