@@ -39,6 +39,7 @@ import * as Effect from "effect/Effect";
 import { DeepMutable } from "effect/Types";
 import { createModelSelection, normalizeModelSlug } from "@supacode/shared/model";
 import { useMemo } from "react";
+import { readThreadPreviewState } from "./previewStateStore";
 import { getLocalStorageItem } from "./hooks/useLocalStorage";
 import { resolveAppModelSelection, resolveAppModelSelectionForInstance } from "./modelSelection";
 import {
@@ -1557,6 +1558,18 @@ function getComposerDraftState(
   return state.draftsByThreadKey[threadKey] ?? null;
 }
 
+export function draftThreadHasOpenPreview(
+  draftThread: DraftThreadState | null | undefined,
+): boolean {
+  if (draftThread == null) return false;
+  return (
+    Object.keys(
+      readThreadPreviewState(scopeThreadRef(draftThread.environmentId, draftThread.threadId))
+        .sessions,
+    ).length > 0
+  );
+}
+
 function isComposerThreadKeyInUse(mappings: Record<string, string>, threadKey: string): boolean {
   return Object.values(mappings).includes(threadKey);
 }
@@ -2188,7 +2201,8 @@ export function partializeComposerDraftStoreState(
         ([threadKey, draftThread]) =>
           mappedDraftKeys.has(threadKey) ||
           isDraftThreadPromoting(draftThread) ||
-          composerDraftHasUserContent(state.draftsByThreadKey[threadKey]),
+          composerDraftHasUserContent(state.draftsByThreadKey[threadKey]) ||
+          draftThreadHasOpenPreview(draftThread),
       )
       .map(([threadKey]) => threadKey),
   );
@@ -2793,7 +2807,8 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               !isDraftThreadPromoting(previousDraftThread) &&
               !composerDraftHasUserContent(
                 state.draftsByThreadKey[previousThreadKeyForLogicalProject],
-              )
+              ) &&
+              !draftThreadHasOpenPreview(previousDraftThread)
             ) {
               delete nextDraftThreadsByThreadKey[previousThreadKeyForLogicalProject];
               if (state.draftsByThreadKey[previousThreadKeyForLogicalProject] !== undefined) {

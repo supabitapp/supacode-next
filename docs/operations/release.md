@@ -4,6 +4,20 @@
 
 This document covers the unified release workflow for stable and nightly desktop releases.
 
+## Browser Touch ID passkeys
+
+Signed macOS builds enable the in-app browser's device-bound Touch ID passkeys only when a
+Developer ID provisioning profile grants `<TEAM_ID>.com.supaterm.supacode.webauthn` in
+`keychain-access-groups`. Set the optional `MACOS_PROVISIONING_PROFILE` release secret to the
+base64-encoded profile. The release and macOS preview workflows share this setting. Local
+packaging accepts the profile path through `SUPACODE_MACOS_PROVISIONING_PROFILE`.
+
+The packager logs whether Touch ID is enabled and records the authorized group in the signed
+package. Verify the installed app with `codesign -d --entitlements :- <app-path>` and create,
+then use, a passkey in its Browser panel. Unsigned builds and profiles without the group leave
+Touch ID disabled. These credentials stay on that Mac; system credential-provider ceremonies
+are not enabled by this configuration.
+
 ## Version numbers
 
 Public releases use `YY.MINOR.PATCH`, starting at `26.0.0` in 2026. Maintainers manually bump

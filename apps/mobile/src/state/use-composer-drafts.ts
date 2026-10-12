@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "../lib/expoFileSystem";
 import { acknowledgedThreadMessagesAtom } from "./acknowledged-thread-messages";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -23,7 +24,7 @@ import {
   type ScopedProjectRef,
 } from "@supacode/contracts";
 import * as Schema from "effect/Schema";
-import type * as ExpoFileSystem from "expo-file-system";
+
 import { useEffect } from "react";
 import { Atom } from "effect/reactivity";
 
@@ -62,11 +63,6 @@ const COMPOSER_DRAFTS_SCHEMA_VERSION = 1;
 const COMPOSER_DRAFTS_DIRECTORY = "composer-drafts";
 const COMPOSER_DRAFTS_FILE = "drafts.json";
 const PERSIST_DEBOUNCE_MS = 200;
-
-const expoFileSystem = async (): Promise<typeof ExpoFileSystem> => {
-  if (process.env.NODE_ENV === "test") return import("expo-file-system");
-  return require("expo-file-system");
-};
 
 export const composerContextImportsAtom = Atom.make<Record<string, boolean>>({}).pipe(
   Atom.keepAlive,
@@ -362,6 +358,8 @@ export interface ComposerDraftWorkspaceSelection {
   readonly branch: string | null;
   readonly worktreePath: string | null;
   readonly startFromOrigin?: boolean;
+  /** Resolve and check out this PR when the queued task is sent. */
+  readonly pullRequestReference?: string;
 }
 
 export type ComposerDraftSettingsUpdate = Pick<
@@ -374,6 +372,7 @@ const ComposerDraftWorkspaceSelectionSchema = Schema.Struct({
   branch: Schema.NullOr(Schema.String),
   worktreePath: Schema.NullOr(Schema.String),
   startFromOrigin: Schema.optional(Schema.Boolean),
+  pullRequestReference: Schema.optional(Schema.String),
 });
 
 const ComposerDraftProjectSchema = Schema.Struct({
@@ -656,7 +655,7 @@ export function decodePersistedComposerState(value: unknown): {
 }
 
 async function getComposerDraftsFile() {
-  const { Directory, File, Paths } = await expoFileSystem();
+  const { Directory, File, Paths } = await loadExpoFileSystem();
   const directory = new Directory(Paths.document, COMPOSER_DRAFTS_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
   return new File(directory, COMPOSER_DRAFTS_FILE);

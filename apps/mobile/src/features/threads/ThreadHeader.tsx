@@ -1,10 +1,10 @@
-import { StackActions, useNavigation } from "@react-navigation/native";
 import { useMemo } from "react";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { ScreenHeaderButton } from "../../components/ScreenHeaderButton";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
+import { useWorkspaceListNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 
 import type { ScreenHeaderMenu, ScreenHeaderMenuItem } from "../../components/ScreenHeader.types";
 
@@ -19,7 +19,7 @@ export function ThreadHeader(
     readonly onOpenFilesInspector: () => void;
   },
 ) {
-  const navigation = useNavigation();
+  const returnToList = useWorkspaceListNavigation("threads");
   const { layout, panes, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
   const native = useThreadHeaderOptions(props);
@@ -88,14 +88,7 @@ export function ThreadHeader(
             />
           ) : null
         }
-        onBack={
-          layout.usesSplitView
-            ? undefined
-            : () => {
-                if (navigation.canGoBack()) navigation.goBack();
-                else navigation.dispatch(StackActions.replace("Home"));
-              }
-        }
+        onBack={layout.usesSplitView ? undefined : returnToList}
         actions={
           props.onReturnToThread
             ? [

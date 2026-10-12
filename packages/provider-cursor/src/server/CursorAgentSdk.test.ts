@@ -2,11 +2,14 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import { ProviderSessionId, ThreadId } from "@supacode/contracts";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import { vi } from "vite-plus/test";
+import { createAgentPlatform } from "./sdk.ts";
 
 import * as ProviderEventLoggers from "@supacode/provider-core/server/ProviderEventLoggers";
 import * as CursorAgentSdk from "./CursorAgentSdk.ts";
+import * as CursorSdk from "./CursorSdk.ts";
 
 const cursorSdkMock = vi.hoisted(() => {
   const closeExecutionOrder: Array<string> = [];
@@ -102,6 +105,7 @@ vi.mock("./sdk.ts", () => ({
       list: vi.fn(async () => []),
     },
   },
+  createAgentPlatform: vi.fn(),
 }));
 
 const layerTest = CursorAgentSdk.layer.pipe(
@@ -124,10 +128,58 @@ const layerTest = CursorAgentSdk.layer.pipe(
       canonical: undefined,
     }),
   ),
+  Layer.provide(CursorSdk.layer),
   Layer.provide(NodeServices.layer),
 );
 
 describe("CursorAgentSdkRunner", () => {
+  it.effect("keeps sandbox priming alive when its first waiter is interrupted", () =>
+    Effect.gen(function* () {
+      const started = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let primed = false;
+      vi.mocked(createAgentPlatform).mockImplementationOnce(
+        async () =>
+          ({
+            prewarmLocalWorkspace: async () => {
+              started.resolve();
+              await release.promise;
+              return () => {
+                primed = true;
+              };
+            },
+          }) as unknown as Awaited<ReturnType<typeof createAgentPlatform>>,
+      );
+      cursorSdkMock.create.mockImplementationOnce(async () => {
+        assert.isTrue(primed);
+        return {
+          agentId: "agent-cursor-agent-sdk-test",
+          send: cursorSdkMock.send,
+          close: cursorSdkMock.agentClose,
+        };
+      });
+      const runner = yield* CursorAgentSdk.CursorAgentSdkRunner;
+      const input: CursorAgentSdk.CursorAgentSdkOpenInput = {
+        operation: "create",
+        threadId: ThreadId.make("thread-cursor-prime"),
+        providerSessionId: ProviderSessionId.make("session-cursor-prime"),
+        options: {
+          model: { id: "default" },
+          mode: "agent",
+          local: { cwd: process.cwd(), sandboxOptions: { enabled: false } },
+        },
+      };
+      const first = yield* runner.open(input).pipe(Effect.forkChild);
+      yield* Effect.promise(() => started.promise);
+      yield* Fiber.interrupt(first);
+      const second = yield* runner.open(input).pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      assert.isFalse(primed);
+      release.resolve();
+      assert.equal((yield* Fiber.join(second)).agentId, "agent-cursor-agent-sdk-test");
+      assert.isTrue(primed);
+    }).pipe(Effect.provide(layerTest)),
+  );
   it.effect("leaves a resumed agent alone when its next send succeeds", () =>
     Effect.gen(function* () {
       cursorSdkMock.runOperations.length = 0;

@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "../../lib/expoFileSystem";
 import Constants from "expo-constants";
 import * as Crypto from "expo-crypto";
 import { PROVIDER_SEND_TURN_MAX_FILE_BYTES } from "@supacode/contracts";
@@ -83,12 +84,12 @@ async function incomingShareIdForPayloads(payloads: ReadonlyArray<SharePayload>)
 }
 
 async function readBase64(uri: string): Promise<string> {
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   return new File(uri).base64();
 }
 
 async function readFileSize(uri: string): Promise<number | null> {
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   return new File(uri).size ?? null;
 }
 
@@ -97,7 +98,7 @@ async function removeOwnedFile(uri: string): Promise<void> {
     return;
   }
   try {
-    const { File, Paths } = await import("expo-file-system");
+    const { File, Paths } = await loadExpoFileSystem();
     // Only delete files in directories this app owns: its documents and cache
     // sandbox and its share-extension App Group container. An iOS
     // open-in-place share points at the sender's own storage; deleting that

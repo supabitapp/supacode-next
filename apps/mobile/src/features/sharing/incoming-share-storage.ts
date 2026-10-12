@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "../../lib/expoFileSystem";
 import * as Schema from "effect/Schema";
 
 import { decodeIncomingShareDraft, type IncomingShareDraft } from "./incoming-share-model";
@@ -22,14 +23,14 @@ function fileName(shareId: string): string {
 }
 
 async function getDirectory() {
-  const { Directory, Paths } = await import("expo-file-system");
+  const { Directory, Paths } = await loadExpoFileSystem();
   const directory = new Directory(Paths.document, INCOMING_SHARE_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
   return directory;
 }
 
 async function getFile(shareId: string) {
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   return new File(await getDirectory(), fileName(shareId));
 }
 
@@ -37,7 +38,7 @@ export async function loadIncomingShareDrafts(options?: {
   readonly strict?: boolean;
 }): Promise<ReadonlyArray<IncomingShareDraft>> {
   try {
-    const { File } = await import("expo-file-system");
+    const { File } = await loadExpoFileSystem();
     const drafts: IncomingShareDraft[] = [];
     for (const entry of (await getDirectory()).list()) {
       if (!(entry instanceof File) || !entry.name.endsWith(".json")) {

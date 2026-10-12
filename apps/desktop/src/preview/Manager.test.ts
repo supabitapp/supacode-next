@@ -5,7 +5,7 @@ import type {
   DesktopPreviewRecordingFrame,
   DesktopPreviewRecordingInputEvent,
 } from "@supacode/contracts";
-import { HostProcessPlatform } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import { parseKeybindingShortcut } from "@supacode/shared/keybindings";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
@@ -25,6 +25,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
+import * as PreviewPasskeys from "./Passkeys.ts";
 import * as BrowserSession from "./BrowserSession.ts";
 import * as DesktopBrowserHost from "./DesktopBrowserHost.ts";
 import * as PreviewManager from "./Manager.ts";
@@ -284,13 +285,19 @@ const layerFileSystem = FileSystem.layerNoop({
 
 const managerLayer = (platform: NodeJS.Platform = "darwin") =>
   PreviewManager.layer.pipe(
+    Layer.provide(
+      Layer.succeed(PreviewPasskeys.PreviewPasskeys, {
+        configure: Effect.void,
+        installSessionHandlers: () => {},
+      }),
+    ),
     Layer.provideMerge(DesktopBrowserHost.layer),
     Layer.provideMerge(layerBrowserSession),
     Layer.provideMerge(layerEnvironment),
     Layer.provideMerge(layerFileSystem),
     Layer.provideMerge(Path.layer),
     Layer.provideMerge(NodeCrypto.layer),
-    Layer.provideMerge(Layer.succeed(HostProcessPlatform, platform)),
+    Layer.provideMerge(Layer.succeed(HostProcess.Platform, platform)),
   );
 
 const withManager = <A>(

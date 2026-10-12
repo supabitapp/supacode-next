@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "./expoFileSystem";
 import { requireNativeModule } from "expo";
 import {
   type ComposerContextClipboardFragment,
@@ -189,7 +190,7 @@ async function persistImportedAttachment(
     await removePersistedComposerAttachmentFile(fileUri);
     checkAborted(signal);
   }
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   const common = {
     id: uuidv4(),
     fileUri,

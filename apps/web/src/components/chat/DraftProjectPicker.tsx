@@ -1,5 +1,9 @@
 import type { DraftId } from "~/composerDraftStore";
-import { useComposerDraftStore } from "~/composerDraftStore";
+import {
+  useComposerDraftStore,
+  composerDraftHasUserContent,
+  draftThreadHasOpenPreview,
+} from "~/composerDraftStore";
 import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@supacode/contracts";
 import { scopedProjectKey, scopeProjectRef } from "@supacode/client-runtime/environment";
 import { isScratchProject } from "@supacode/client-runtime/state/projects";
@@ -11,6 +15,7 @@ import { openCommandPalette } from "~/commandPaletteBus";
 import { useComposerHandleContext } from "~/composerHandleContext";
 import { shortcutLabelForCommand } from "~/keybindings";
 import { primaryServerKeybindingsAtom } from "~/state/server";
+import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { useScratchProject } from "~/hooks/useScratchProject";
 import { useClientSettings } from "~/hooks/useSettings";
 import { usePickerShortcuts } from "~/hooks/usePickerShortcuts";
@@ -185,6 +190,7 @@ export function DraftProjectPicker({
   // Project selection changes the target of the open draft in place. The
   // prompt stays in the same composer session, so the sidebar only gets a
   // draft row if the user later navigates away.
+  const openProjectDraft = useNewThreadHandler();
   const selectProject = (project: (typeof projects)[number], logicalProjectKey: string) => {
     if (!draftId) {
       return;
@@ -195,6 +201,13 @@ export function DraftProjectPicker({
       scratchTargetEnvironmentId: project.environmentId,
     };
     const currentDraft = getComposerDraft(draftId);
+    if (
+      !composerDraftHasUserContent(currentDraft) &&
+      draftThreadHasOpenPreview(useComposerDraftStore.getState().getDraftSession(draftId))
+    ) {
+      void openProjectDraft(scopeProjectRef(project.environmentId, project.id));
+      return;
+    }
     setLogicalProjectDraftThreadId(
       logicalProjectKey,
       scopeProjectRef(project.environmentId, project.id),

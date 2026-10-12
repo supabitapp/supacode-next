@@ -35,6 +35,7 @@ import {
 } from "./runtime.ts";
 import * as EnvironmentRegistry from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
+import { withLegacySourceControlSettingsPatch } from "@supacode/shared/serverSettings";
 import { safeErrorLogAttributes } from "../errors/safeLog.ts";
 import * as Persistence from "../platform/persistence.ts";
 import { runCachePersistence } from "./cachePersistence.ts";
@@ -977,12 +978,27 @@ export function createServerEnvironmentAtoms<R, E>(
   const updateSettings = createEnvironmentRpcCommand(runtime, {
     label: "environment-data:server:update-settings",
     tag: WS_METHODS.serverUpdateSettings,
+    execute: (input) =>
+      request(WS_METHODS.serverUpdateSettings, {
+        ...input,
+        patch: withLegacySourceControlSettingsPatch(input.patch),
+      }),
     scheduler: configScheduler,
     concurrency: configConcurrency,
   });
 
   return {
     configValueAtom,
+    runStorageCleanup: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:run-storage-cleanup",
+      tag: WS_METHODS.serverRunStorageCleanup,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
+    storageCleanupReport: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:server:storage-cleanup-report",
+      tag: WS_METHODS.serverGetStorageCleanupReport,
+      idleTtlMs: 0,
+    }),
     updateStateAtom,
     settingsValueAtom,
     providersValueAtom,
@@ -1333,6 +1349,10 @@ export function createServerEnvironmentAtoms<R, E>(
         mode: "singleFlight",
         key: ({ environmentId }) => environmentId,
       },
+    }),
+    checkOtlpEndpoint: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:check-otlp-endpoint",
+      tag: WS_METHODS.serverCheckOtlpEndpoint,
     }),
     retryResourceTelemetry: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:retry-resource-telemetry",

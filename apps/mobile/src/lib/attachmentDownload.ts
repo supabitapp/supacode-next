@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "./expoFileSystem";
 import type { ChatFileAttachment } from "@supacode/contracts";
 import type { Directory } from "expo-file-system";
 import type { SharingOptions } from "expo-sharing";
@@ -73,7 +74,7 @@ async function availableSharing(signal: AbortSignal) {
 }
 
 async function createCachedAttachmentFile(attachment: AttachmentFileMetadata) {
-  const { Directory, File, Paths } = await import("expo-file-system");
+  const { Directory, File, Paths } = await loadExpoFileSystem();
   const cache = new Directory(Paths.cache, ATTACHMENT_DOWNLOAD_DIRECTORY);
   cache.create({ idempotent: true, intermediates: true });
   const now = Date.now();
@@ -174,7 +175,7 @@ export async function openAttachmentInViewer(input: {
   readonly attachment: AttachmentFileMetadata;
   readonly signal: AbortSignal;
 }): Promise<void> {
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   const { requireNativeModule } = await import("expo");
   if (input.signal.aborted) return;
   const cached = await createCachedAttachmentFile(input.attachment);
@@ -209,7 +210,7 @@ export async function downloadAttachmentForPreview(input: {
   readonly signal: AbortSignal;
 }): Promise<AttachmentPreviewFile | null> {
   if (input.signal.aborted) return null;
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   const cached = await createCachedAttachmentFile(input.attachment);
   try {
     if (input.signal.aborted) {
@@ -257,7 +258,7 @@ export async function shareLocalAttachment(input: {
   readonly sourceIdentifier?: string;
 }): Promise<void> {
   if ((await availableSharing(input.signal)) === null) return;
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   const cached = await createCachedAttachmentFile(input.attachment);
   try {
     if (input.signal.aborted) return;

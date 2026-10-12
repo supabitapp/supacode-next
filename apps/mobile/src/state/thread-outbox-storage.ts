@@ -1,6 +1,6 @@
+import { loadExpoFileSystem } from "../lib/expoFileSystem";
 import { EnvironmentId, MessageId, ThreadId } from "@supacode/contracts";
 import * as Schema from "effect/Schema";
-import type * as ExpoFileSystem from "expo-file-system";
 
 import { writeFileAtomically } from "../lib/atomic-file";
 import {
@@ -10,11 +10,6 @@ import {
 } from "./thread-outbox-model";
 
 const THREAD_OUTBOX_DIRECTORY = "thread-outbox";
-
-const expoFileSystem = async (): Promise<typeof ExpoFileSystem> => {
-  if (process.env.NODE_ENV === "test") return import("expo-file-system");
-  return require("expo-file-system");
-};
 
 const inFlightWrites = new Set<Promise<void>>();
 
@@ -66,14 +61,14 @@ function messageFileName(messageId: MessageId): string {
 }
 
 async function getOutboxDirectory() {
-  const { Directory, Paths } = await expoFileSystem();
+  const { Directory, Paths } = await loadExpoFileSystem();
   const directory = new Directory(Paths.document, THREAD_OUTBOX_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
   return directory;
 }
 
 async function getMessageFile(messageId: MessageId) {
-  const { File } = await expoFileSystem();
+  const { File } = await loadExpoFileSystem();
   return new File(await getOutboxDirectory(), messageFileName(messageId));
 }
 
@@ -82,7 +77,7 @@ export const expoThreadOutboxStorage: ThreadOutboxStorage = {
     const messages: QueuedThreadMessage[] = [];
     const errors: ThreadOutboxStorageError[] = [];
     try {
-      const { File } = await expoFileSystem();
+      const { File } = await loadExpoFileSystem();
       const directory = await getOutboxDirectory();
 
       for (const entry of directory.list()) {

@@ -4,6 +4,7 @@ import { vi } from "vite-plus/test";
 import {
   EnvironmentId,
   AuthSourceControlWriteScope,
+  AuthOrchestrationOperateScope,
   ProjectId,
   PullRequestOperationError,
   WS_METHODS,
@@ -211,7 +212,9 @@ for (const scenario of [
         if (switchedAccount) {
           expect(result).toMatchObject({ _tag: "Failure", failure });
           expect(calls.filter((call) => call.endsWith(":mutation"))).toEqual(["origin:mutation"]);
-          expect(inputs).toEqual([{ ...input, expectedAccountId: "123" }]);
+          expect(inputs).toEqual([
+            { ...input, expectedAccountId: "123", acceptOpenProviderKinds: true },
+          ]);
         } else if (ambiguous) {
           expect(result).toMatchObject({ _tag: "Failure", failure });
           expect(calls.filter((call) => call.endsWith(":mutation"))).toEqual(["local:mutation"]);
@@ -234,7 +237,9 @@ for (const scenario of [
           else {
             expect(calls.filter((call) => call.endsWith(":mutation"))).toEqual(["local:mutation"]);
             expect(calls).toContain("origin:invalidate");
-            expect(inputs).toEqual([{ ...input, expectedAccountId: "123" }]);
+            expect(inputs).toEqual([
+              { ...input, expectedAccountId: "123", acceptOpenProviderKinds: true },
+            ]);
           }
         }
       }),
@@ -567,8 +572,16 @@ it.effect.each(["github", "gitlab", "bitbucket", "azure-devops"] as const)(
         const environment = provider === "github" ? "local" : "origin";
         const guard = provider === "github" ? { expectedAccountId: "123" } : {};
         expect(calls.filter((call) => call.operation !== "invalidate")).toEqual([
-          { environment, operation: "read", input: { ...reference, allowStale: false, ...guard } },
-          { environment, operation: "write", input: { ...reference, files, ...guard } },
+          {
+            environment,
+            operation: "read",
+            input: { ...reference, allowStale: false, ...guard, acceptOpenProviderKinds: true },
+          },
+          {
+            environment,
+            operation: "write",
+            input: { ...reference, files, ...guard, acceptOpenProviderKinds: true },
+          },
         ]);
         const invalidations = calls.filter((call) => call.operation === "invalidate");
         if (provider === "github") expect(invalidations.length).toBeGreaterThan(0);
@@ -996,6 +1009,7 @@ it.effect.each(
 it.live("keeps source workspace metadata when an alternate answers a detail read", () =>
   Effect.scoped(
     Effect.gen(function* () {
+      const noted = yield* Deferred.make<unknown>();
       const clientFor = (local: boolean) =>
         ({
           [local ? WS_METHODS.pullRequestsRoutingIdentity : WS_METHODS.pullRequestsRouting]: () =>
@@ -1014,8 +1028,12 @@ it.live("keeps source workspace metadata when an alternate answers a detail read
                   projectTitle: "local project",
                   workspaceRoot: "/Users/local/repo",
                   title: "github title",
+                  state: "closed",
+                  updatedAt: "2026-10-10T01:52:36Z",
                 })
               : Effect.never,
+          [WS_METHODS.pullRequestsReportState]: (input: unknown) =>
+            Deferred.succeed(noted, input).pipe(Effect.asVoid),
         }) as unknown as WsRpcProtocolClient;
       const { environmentRegistry, supervisor } = yield* makeTestRuntime(
         clientFor(false),
@@ -1036,6 +1054,12 @@ it.live("keeps source workspace metadata when an alternate answers a detail read
         projectTitle: "source project",
         workspaceRoot: "/srv/source/repo",
         title: "github title",
+        state: "closed",
+        updatedAt: "2026-10-10T01:52:36Z",
+      });
+      expect(yield* Deferred.await(noted)).toEqual({
+        reference: { projectId: "project-1", repository: "acme/web", number: 7 },
+        state: "closed",
       });
     }),
   ),
@@ -1329,7 +1353,7 @@ it.effect("keeps hover previews fresh after edits and turns", () =>
       let reads = 0;
       const read = (input: unknown) =>
         Effect.sync(() => {
-          expect(input).toEqual(reference);
+          expect(input).toEqual({ ...reference, acceptOpenProviderKinds: true });
           reads++;
           return { ...reference, title };
         });
@@ -2069,6 +2093,51 @@ it.effect("denies a routed write when only the origin has source-control permiss
       );
       expect(error._tag).toBe("EnvironmentAuthorizationError");
       expect(writes).toBe(0);
+    }),
+  ),
+);
+
+it.effect("publishes the accepted guide run before the follow-up read finishes", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const accepted = {
+        guide: null,
+        currentHeadSha: "head",
+        run: { _tag: "Running" as const, headSha: "head", startedAt: "2026-10-11T00:00:00.000Z" },
+      };
+      let reads = 0;
+      const refreshStarted = yield* Latch.make();
+      const client = {
+        [WS_METHODS.pullRequestsSubscribeRefreshes]: () => Stream.never,
+        [WS_METHODS.pullRequestsReviewGuide]: () =>
+          Effect.gen(function* () {
+            if (++reads > 1) {
+              yield* refreshStarted.open;
+              return yield* Effect.never;
+            }
+            return { guide: null, run: null, currentHeadSha: "head" };
+          }),
+        [WS_METHODS.pullRequestsGenerateReviewGuide]: () => Effect.succeed(accepted),
+      } as unknown as WsRpcProtocolClient;
+      const { atoms, registry } = yield* makeTestRuntime(client);
+      const target = {
+        environmentId: TARGET.environmentId,
+        input: { projectId: ProjectId.make("project-1"), repository: "acme/web", number: 1 },
+      };
+      registry.update(
+        grantedSessions(target.environmentId),
+        AsyncResult.map((session) => ({
+          ...session,
+          scopes: [...(session.scopes ?? []), AuthOrchestrationOperateScope],
+        })),
+      );
+      const query = atoms.reviewGuide(target);
+      registry.mount(query);
+      yield* AtomRegistry.getResult(registry, query, { suspendOnWaiting: true });
+      const result = yield* Effect.promise(() => atoms.generateReviewGuide.run(registry, target));
+      expect(result._tag).toBe("Success");
+      yield* refreshStarted.await;
+      expect(Option.getOrNull(AsyncResult.value(registry.get(query)))).toEqual(accepted);
     }),
   ),
 );

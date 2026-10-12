@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "../lib/expoFileSystem";
 import type { EnvironmentId } from "@supacode/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -22,6 +23,7 @@ export const ClientCacheKind = Schema.Literals([
   "server-config",
   "vcs-refs",
   "project-favicon",
+  "pull-request",
 ]);
 export type ClientCacheKind = typeof ClientCacheKind.Type;
 
@@ -150,7 +152,7 @@ export function decodeLegacyCacheRecord(
 
 async function migrateLegacyFileCaches(database: SQLiteDatabase): Promise<boolean> {
   try {
-    const { Directory, File, Paths } = await import("expo-file-system");
+    const { Directory, File, Paths } = await loadExpoFileSystem();
     let complete = true;
     const listFiles = (
       directory: InstanceType<typeof Directory>,
@@ -241,7 +243,8 @@ const makeAvailable = Effect.gen(function* () {
   const database = yield* Effect.acquireRelease(
     Effect.tryPromise({
       try: async () => {
-        const SQLite = await import("expo-sqlite");
+        const SQLite: typeof import("expo-sqlite") =
+          process.env.NODE_ENV === "test" ? await import("expo-sqlite") : require("expo-sqlite");
         return SQLite.openDatabaseAsync(DATABASE_NAME);
       },
       catch: databaseError("open"),
@@ -294,10 +297,12 @@ const makeAvailable = Effect.gen(function* () {
           database.getFirstAsync<{ readonly payload: string }>(
             `SELECT payload
                      FROM client_cache
-                     WHERE environment_id = ? AND kind = ? AND cache_key = ?`,
+                     WHERE environment_id = ? AND kind = ? AND cache_key = ?
+                       AND (kind != 'pull-request' OR updated_at >= ?)`,
             environmentId,
             kind,
             cacheKey,
+            Date.now() - 30 * 24 * 60 * 60_000,
           ),
         catch: databaseError("load-cache"),
       }).pipe(Effect.map((row) => Option.fromNullishOr(row?.payload))),
@@ -315,22 +320,51 @@ const makeAvailable = Effect.gen(function* () {
     saveCache: Effect.fn("MobileDatabase.saveCache")(
       (environmentId, kind, cacheKey, schemaVersion, payload) =>
         Effect.tryPromise({
-          try: () =>
-            database.runAsync(
-              `INSERT INTO client_cache
-                      (environment_id, kind, cache_key, schema_version, payload, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?)
-                     ON CONFLICT (environment_id, kind, cache_key) DO UPDATE SET
-                       schema_version = excluded.schema_version,
-                       payload = excluded.payload,
-                       updated_at = excluded.updated_at`,
-              environmentId,
-              kind,
-              cacheKey,
-              schemaVersion,
-              payload,
-              Date.now(),
-            ),
+          try: async () => {
+            // Diffs can be large. Keep the offline PR cache within 32 MiB and 256
+            // responses per environment, and don't let one huge diff evict it all.
+            if (
+              kind === "pull-request" &&
+              new TextEncoder().encode(payload).length > 4 * 1024 * 1024
+            )
+              return;
+            const save = async (transaction: SQLiteDatabase) => {
+              await transaction.runAsync(
+                `INSERT INTO client_cache
+                  (environment_id, kind, cache_key, schema_version, payload, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT (environment_id, kind, cache_key) DO UPDATE SET
+                   schema_version = excluded.schema_version,
+                   payload = excluded.payload,
+                   updated_at = excluded.updated_at`,
+                environmentId,
+                kind,
+                cacheKey,
+                schemaVersion,
+                payload,
+                Date.now(),
+              );
+              if (kind === "pull-request") {
+                await transaction.runAsync(
+                  `DELETE FROM client_cache WHERE environment_id = ? AND kind = 'pull-request'
+                   AND cache_key IN (
+                     SELECT cache_key FROM (
+                       SELECT cache_key, updated_at,
+                         ROW_NUMBER() OVER (ORDER BY updated_at DESC, cache_key) AS position,
+                         SUM(LENGTH(CAST(payload AS BLOB))) OVER (
+                           ORDER BY updated_at DESC, cache_key
+                         ) AS total_bytes
+                       FROM client_cache WHERE environment_id = ? AND kind = 'pull-request'
+                     ) WHERE position > 256 OR total_bytes > 33554432 OR updated_at < ?
+                   )`,
+                  environmentId,
+                  environmentId,
+                  Date.now() - 30 * 24 * 60 * 60_000,
+                );
+              }
+            };
+            await save(database);
+          },
           catch: databaseError("save-cache"),
         }).pipe(Effect.asVoid),
     ),

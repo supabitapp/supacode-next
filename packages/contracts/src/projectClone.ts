@@ -50,7 +50,9 @@ export const ProjectCloneSnapshot = Schema.Struct({
 });
 export type ProjectCloneSnapshot = typeof ProjectCloneSnapshot.Type;
 
-export const ProjectCloneSubscribeInput = Schema.Struct({});
+export const ProjectCloneSubscribeInput = Schema.Struct({
+  acceptOpenProviderKinds: Schema.optional(Schema.Boolean),
+});
 export type ProjectCloneSubscribeInput = typeof ProjectCloneSubscribeInput.Type;
 
 /** Every tracked clone on the environment. Sent first, then after every change. */

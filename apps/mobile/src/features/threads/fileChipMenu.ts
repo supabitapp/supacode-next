@@ -1,7 +1,7 @@
 import { fileBasename } from "@supacode/shared/path";
 import type { ThreadId } from "@supacode/contracts";
-import { resolveMarkdownLinkPresentation } from "@supacode/mobile-markdown-text/links";
-import type { MarkdownFileContextMenu } from "@supacode/mobile-markdown-text/types";
+import { resolveMarkdownLinkPresentation } from "../../lib/markdownLinks";
+import type { MarkdownFileContextMenu } from "../../native/SelectableMarkdownText.types";
 import { hostPreviewMimeTypeFromExtension } from "@supacode/shared/filePreview";
 
 import {

@@ -1,5 +1,7 @@
 import {
   type SourceControlDiscoveryResult,
+  type SourceControlDiscoveryInput,
+  isLegacySourceControlProviderKind,
   type VcsDiscoveryItem,
   type VcsDriverKind,
 } from "@supacode/contracts";
@@ -10,7 +12,7 @@ import * as Option from "effect/Option";
 
 import * as ServerConfig from "../config.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
-import { detailFromCause, firstNonEmptyLine } from "./SourceControlProviderDiscovery.ts";
+import { detailFromCause, firstNonEmptyLine } from "@supacode/source-control-core/server/discovery";
 import * as SourceControlProviderRegistry from "./SourceControlProviderRegistry.ts";
 
 interface DiscoveryProbe {
@@ -61,6 +63,9 @@ export class SourceControlDiscovery extends Context.Service<
   SourceControlDiscovery,
   {
     readonly discover: Effect.Effect<SourceControlDiscoveryResult>;
+    readonly discoverForClient: (
+      input: SourceControlDiscoveryInput,
+    ) => Effect.Effect<SourceControlDiscoveryResult>;
   }
 >()("supacode/sourceControl/SourceControlDiscovery") {}
 
@@ -129,14 +134,28 @@ export const make = Effect.gen(function* () {
       );
   };
 
+  const discover = Effect.all({
+    versionControlSystems: Effect.all(
+      VCS_PROBES.map((entry) => probe(entry)) as ReadonlyArray<Effect.Effect<VcsDiscoveryItem>>,
+      { concurrency: "unbounded" },
+    ),
+    sourceControlProviders: sourceControlProviders.discover,
+  });
   return SourceControlDiscovery.of({
-    discover: Effect.all({
-      versionControlSystems: Effect.all(
-        VCS_PROBES.map((entry) => probe(entry)) as ReadonlyArray<Effect.Effect<VcsDiscoveryItem>>,
-        { concurrency: "unbounded" },
+    discover,
+    discoverForClient: (input) =>
+      discover.pipe(
+        Effect.map((result) =>
+          input.acceptOpenProviderKinds === true
+            ? result
+            : {
+                ...result,
+                sourceControlProviders: result.sourceControlProviders.filter((provider) =>
+                  isLegacySourceControlProviderKind(provider.kind),
+                ),
+              },
+        ),
       ),
-      sourceControlProviders: sourceControlProviders.discover,
-    }),
   });
 });
 

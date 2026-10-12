@@ -2,7 +2,7 @@
 import * as NodeHttp from "node:http";
 import { codexAuthHandoffUrl, readCodexAuthDelivery } from "@supacode/shared/codexAuthHandoff";
 import { EnvironmentId, ProviderInstanceId } from "@supacode/contracts";
-import { HostProcessArguments } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -14,8 +14,14 @@ import { vi } from "vite-plus/test";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
+import * as DesktopWebLinks from "./DesktopWebLinks.ts";
 import * as DesktopDeepLinks from "./DesktopDeepLinks.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
+
+const ignoreWebLinks = DesktopWebLinks.DesktopWebLinks.of({
+  receive: () => Effect.void,
+  setRendererReady: () => Effect.void,
+});
 
 const defaultShell: ElectronShell.ElectronShell["Service"] = {
   openExternal: () => Effect.succeed(true),
@@ -130,7 +136,13 @@ describe("DesktopDeepLinks", () => {
 
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
-      const exit = yield* Effect.exit(Effect.scoped(deepLinks.configure));
+      const exit = yield* Effect.exit(
+        Effect.scoped(
+          deepLinks.configure.pipe(
+            Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+          ),
+        ),
+      );
 
       assert.isTrue(Exit.hasInterrupts(exit));
       assert.deepEqual(events, [
@@ -154,10 +166,16 @@ describe("DesktopDeepLinks", () => {
 
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
-      const exit = yield* Effect.exit(Effect.scoped(deepLinks.configure));
+      const exit = yield* Effect.exit(
+        Effect.scoped(
+          deepLinks.configure.pipe(
+            Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+          ),
+        ),
+      );
 
       assert.isTrue(Exit.isSuccess(exit));
-      assert.deepEqual([...listeners.keys()], ["open-url", "second-instance"]);
+      assert.deepEqual([...listeners.keys()], ["open-url", "open-file", "second-instance"]);
     }).pipe(
       Effect.provide(makeDesktopDeepLinksLayer()),
       Effect.provideService(ElectronApp.ElectronApp, makeListenerApp(listeners)),
@@ -179,7 +197,9 @@ describe("DesktopDeepLinks", () => {
 
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
-      yield* deepLinks.configure;
+      yield* deepLinks.configure.pipe(
+        Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+      );
       listeners.get("second-instance")!({}, ["supacode", "--some-flag"]);
 
       assert.strictEqual(yield* Effect.promise(() => revealed.promise), window);
@@ -204,7 +224,9 @@ describe("DesktopDeepLinks", () => {
 
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
-      yield* deepLinks.configure;
+      yield* deepLinks.configure.pipe(
+        Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+      );
       const event = { preventDefault: vi.fn() };
       listeners.get("open-url")!(event, "supacode-dev://app/auth/callback?code=unrelated-code");
       listeners.get("open-url")!(event, "supacode://app/welcome");
@@ -278,7 +300,9 @@ describe("DesktopDeepLinks", () => {
         const listeners = new Map<string, (...args: unknown[]) => void>();
         yield* Effect.gen(function* () {
           const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
-          yield* deepLinks.configure;
+          yield* deepLinks.configure.pipe(
+            Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+          );
           if (entry === "open-url") {
             const event = { preventDefault: vi.fn() };
             listeners.get("open-url")!(event, link);
@@ -292,7 +316,7 @@ describe("DesktopDeepLinks", () => {
         }).pipe(
           Effect.provide(makeDesktopDeepLinksLayer({ shell })),
           Effect.provideService(
-            HostProcessArguments,
+            HostProcess.Arguments,
             entry === "startup" ? ["supacode", link] : ["supacode"],
           ),
           Effect.provideService(ElectronApp.ElectronApp, makeListenerApp(listeners)),
@@ -304,3 +328,53 @@ describe("DesktopDeepLinks", () => {
       }).pipe(Effect.scoped),
   );
 });
+
+it.effect("queues web, file, prompt and thread links and leaves other schemes alone", () =>
+  Effect.gen(function* () {
+    const listeners = new Map<string, (...args: unknown[]) => void>();
+    const received: string[] = [];
+    const webLinks = DesktopWebLinks.DesktopWebLinks.of({
+      receive: (url) =>
+        Effect.sync(() => {
+          received.push(url);
+        }),
+      setRendererReady: () => Effect.void,
+    });
+    yield* Effect.gen(function* () {
+      const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
+      yield* deepLinks.configure;
+      for (const url of [
+        "https://example.com/page",
+        "http://localhost:3000",
+        "supacode://new?prompt=hi",
+        "supacode://threads/env/thread",
+        "mailto:hi@example.com",
+      ]) {
+        const event = { preventDefault: vi.fn() };
+        listeners.get("open-url")!(event, url);
+        assert.equal(event.preventDefault.mock.calls.length, url.startsWith("mailto:") ? 0 : 1);
+      }
+      const event = { preventDefault: vi.fn() };
+      listeners.get("open-file")!(event, "/tmp/a page.html");
+      yield* Effect.yieldNow;
+      assert.deepEqual(received, [
+        "https://example.com/start",
+        "https://example.com/page",
+        "http://localhost:3000",
+        "supacode://new?prompt=hi",
+        "supacode://threads/env/thread",
+        "file:///tmp/a%20page.html",
+      ]);
+      assert.equal(event.preventDefault.mock.calls.length, 1);
+    }).pipe(
+      Effect.provide(makeDesktopDeepLinksLayer({ platform: "darwin" })),
+      Effect.provideService(ElectronApp.ElectronApp, makeListenerApp(listeners)),
+      Effect.provideService(
+        ElectronWindow.ElectronWindow,
+        {} as ElectronWindow.ElectronWindow["Service"],
+      ),
+      Effect.provideService(DesktopWebLinks.DesktopWebLinks, webLinks),
+      Effect.provideService(HostProcess.Arguments, ["supacode", "https://example.com/start"]),
+    );
+  }).pipe(Effect.scoped),
+);

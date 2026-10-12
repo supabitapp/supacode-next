@@ -1,8 +1,9 @@
 import {
   pullRequestHostOf,
   type PullRequestRef,
+  type OrchestrationProjectShell,
   type RepositoryIdentity,
-  type SourceControlProviderKind,
+  SourceControlProviderKind,
   type ThreadPullRequestKey,
 } from "@supacode/contracts";
 import { sourceControlRepositorySelector } from "@supacode/shared/sourceControl";
@@ -10,7 +11,8 @@ import { normalizeThreadPullRequestKey } from "@supacode/shared/threadPullReques
 
 /** Convert checkout-scoped references to the host-level identity used by linked threads. */
 export function pullRequestSyncKey(
-  reference: PullRequestRef,
+  reference: Pick<PullRequestRef, "host" | "repository" | "number"> &
+    Partial<Pick<PullRequestRef, "projectId">>,
   identity?: RepositoryIdentity | null,
 ): ThreadPullRequestKey | null {
   if (identity?.provider === "azure-devops" && !reference.repository.includes("/")) {
@@ -18,7 +20,8 @@ export function pullRequestSyncKey(
       reference.repository.toLowerCase() !==
         sourceControlRepositorySelector(identity)?.toLowerCase() ||
       (reference.host !== undefined &&
-        reference.host.toLowerCase() !== pullRequestHostOf(identity, "azure-devops"))
+        reference.host.toLowerCase() !==
+          pullRequestHostOf(identity, SourceControlProviderKind.make("azure-devops")))
     )
       return null;
     const [host, ...repository] = identity.canonicalKey.split("/");
@@ -41,4 +44,32 @@ export function pullRequestSyncKey(
         repository: reference.repository,
         number: reference.number,
       });
+}
+
+export function repositoryMatchesPullRequest(
+  identity: RepositoryIdentity | null | undefined,
+  target: Pick<ThreadPullRequestKey, "host" | "repository">,
+) {
+  if (identity == null) return false;
+  const own = pullRequestSyncKey(
+    { repository: sourceControlRepositorySelector(identity) ?? "", number: 1 },
+    identity,
+  );
+  const requested = pullRequestSyncKey({ ...target, number: 1 }, identity);
+  return (
+    own !== null &&
+    requested !== null &&
+    own.host === requested.host &&
+    own.repository === requested.repository
+  );
+}
+
+export function projectForPullRequest(
+  projects: ReadonlyArray<OrchestrationProjectShell>,
+  target: Pick<ThreadPullRequestKey, "host" | "repository">,
+  preferred: OrchestrationProjectShell | undefined,
+) {
+  const matches = (project: OrchestrationProjectShell) =>
+    repositoryMatchesPullRequest(project.repositoryIdentity, target);
+  return preferred !== undefined && matches(preferred) ? preferred : projects.find(matches);
 }

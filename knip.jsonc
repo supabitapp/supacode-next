@@ -100,7 +100,7 @@
         "@supacode/mobile-terminal-native",
       ],
     },
-    "apps/mobile/modules/supacode-markdown-text": {
+    "apps/mobile/modules/supacode-source-text": {
       // React Native codegen discovers component specifications by filename.
       "entry": ["src/*NativeComponent.ts!"],
     },

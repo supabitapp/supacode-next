@@ -37,9 +37,11 @@ import {
   resolveClaudeModelSlug,
   scopeClaudeModelCatalog,
 } from "../provider/ClaudeModelCatalog.ts";
+import { prepareClaudeReviewContext } from "./ClaudeReviewContext.ts";
 import { makeClaudeEnvironment } from "../provider/Drivers/ClaudeHome.ts";
 
 const CLAUDE_TIMEOUT_MS = 180_000;
+const CLAUDE_INVESTIGATION_TOOLS = "Read,Grep,Glob";
 
 /**
  * Schema for the wrapper JSON returned by `claude -p --output-format json`.
@@ -112,6 +114,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     prompt,
     outputSchema: outputSchemaJson,
     modelSelection,
+    investigate,
   }: TextGenerationOperations.Request<S>): Effect.fn.Return<
     S["Type"],
     TextGenerationError,
@@ -175,6 +178,23 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
                 ),
               )
           : cwd;
+      const reviewContext =
+        investigate === undefined
+          ? undefined
+          : yield* prepareClaudeReviewContext({
+              cwd,
+              baseCommit: investigate.baseCommit,
+              headCommits: investigate.headCommits,
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new TextGenerationError({
+                    operation,
+                    detail: "Could not prepare read-only review context.",
+                    cause,
+                  }),
+              ),
+            );
       const spawnCommand = yield* resolveSpawnCommand(
         claudeSettings.binaryPath || "claude",
         [
@@ -188,9 +208,18 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           ...(cliEffort ? ["--effort", cliEffort] : []),
           "--settings",
           settingsJson,
-          // Metadata prompts need no executable capabilities, even when they contain a skill name.
-          "--tools",
-          "",
+          ...(reviewContext === undefined
+            ? ["--tools", ""]
+            : [
+                "--setting-sources",
+                "",
+                "--add-dir",
+                reviewContext.directory,
+                "--tools",
+                CLAUDE_INVESTIGATION_TOOLS,
+                "--allowedTools",
+                CLAUDE_INVESTIGATION_TOOLS,
+              ]),
           "--disable-slash-commands",
           "--strict-mcp-config",
           "--permission-mode",
@@ -203,7 +232,11 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
         cwd: workingDirectory,
         shell: spawnCommand.shell,
         stdin: {
-          stream: Stream.encodeText(Stream.make(prompt)),
+          stream: Stream.encodeText(
+            Stream.make(
+              reviewContext === undefined ? prompt : `${reviewContext.prompt}\n\n${prompt}`,
+            ),
+          ),
         },
       });
 
@@ -246,7 +279,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
 
     const rawStdout = yield* runClaudeCommand().pipe(
       Effect.scoped,
-      Effect.timeoutOption(CLAUDE_TIMEOUT_MS),
+      Effect.timeoutOption(investigate?.timeoutMs ?? CLAUDE_TIMEOUT_MS),
       Effect.flatMap(
         Option.match({
           onNone: () =>

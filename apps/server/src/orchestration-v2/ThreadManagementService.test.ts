@@ -4,7 +4,10 @@ import {
   MessageId,
   NodeId,
   type OrchestrationV2Command,
+  type OrchestrationV2ServerCommand,
   type OrchestrationV2Run,
+  ProviderThreadId,
+  ProviderSessionId,
   type OrchestrationV2StoredEvent,
   type OrchestrationV2ThreadProjection,
   ProjectId,
@@ -13,17 +16,26 @@ import {
   ThreadId,
 } from "@supacode/contracts";
 import * as Deferred from "effect/Deferred";
+import * as DateTime from "effect/DateTime";
+
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
+import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as LegacyV1ThreadImporter from "./legacy/LegacyV1ThreadImporter.ts";
+import * as ServerSettings from "../serverSettings.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as Orchestrator from "./Orchestrator.ts";
+import * as ProviderSessionManager from "./ProviderSessionManager.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
+
+import { DispatchModeLimit, type DispatchModeRefusal } from "./DispatchModeLimit.ts";
 
 it("stamps authoritative provenance on commands that create threads or messages", () => {
   const command: OrchestrationV2Command = {
@@ -260,6 +272,206 @@ it("derives thread management messages from structural error attributes", () => 
   );
 });
 
+const layerReceiptsTest = CommandReceiptStore.layer.pipe(
+  Layer.provide(SqlitePersistence.layerMemory),
+);
+
+const layerThreadManagementTest = (settingsLayer: ReturnType<typeof ServerSettings.layerTest>) =>
+  ThreadManagementService.layer.pipe(
+    Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
+    Layer.provide(Layer.mock(Orchestrator.OrchestratorV2)({})),
+    Layer.provide(settingsLayer),
+    Layer.provide(layerReceiptsTest),
+  );
+
+it.effect("refuses a new turn when the project effectively disables the instance", () => {
+  const projectId = ProjectId.make("project:thread-management:gate-disabled");
+  const instanceId = ProviderInstanceId.make("codex_work");
+  const commandId = CommandId.make("command:thread-management:gate-disabled");
+  const layerTest = layerThreadManagementTest(
+    ServerSettings.layerTest({
+      providerInstances: { [instanceId]: { driver: "codex", enabled: true } },
+      projectSettingsOverrides: {
+        [projectId]: { providerInstances: { [instanceId]: { enabled: false } } },
+      },
+    }),
+  );
+
+  return Effect.gen(function* () {
+    const threads = yield* ThreadManagementService.ThreadManagementService;
+    const error = yield* Effect.flip(
+      threads.assertProviderInstanceEnabled({ projectId, commandId, instanceId }),
+    );
+
+    expect(error).toBeInstanceOf(
+      ThreadManagementService.ThreadManagementProviderInstanceDisabledError,
+    );
+    expect(error).toMatchObject({ projectId, instanceId });
+    expect(error.message).toBe(
+      `Provider instance "${instanceId}" is disabled for project ${projectId}.`,
+    );
+  }).pipe(Effect.provide(layerTest));
+});
+
+it.effect("allows a new turn when the project enables an instance the machine disabled", () => {
+  const projectId = ProjectId.make("project:thread-management:gate-enabled");
+  const instanceId = ProviderInstanceId.make("codex_work");
+  const commandId = CommandId.make("command:thread-management:gate-enabled");
+  const layerTest = layerThreadManagementTest(
+    ServerSettings.layerTest({
+      providerInstances: { [instanceId]: { driver: "codex", enabled: false } },
+      projectSettingsOverrides: {
+        [projectId]: { providerInstances: { [instanceId]: { enabled: true } } },
+      },
+    }),
+  );
+
+  return Effect.gen(function* () {
+    const threads = yield* ThreadManagementService.ThreadManagementService;
+    yield* threads.assertProviderInstanceEnabled({ projectId, commandId, instanceId });
+  }).pipe(Effect.provide(layerTest));
+});
+
+it.effect("inherits the machine value when the project has no override", () => {
+  const projectId = ProjectId.make("project:thread-management:gate-inherit");
+  const instanceId = ProviderInstanceId.make("codex_work");
+  const commandId = CommandId.make("command:thread-management:gate-inherit");
+  const layerTest = layerThreadManagementTest(
+    ServerSettings.layerTest({
+      providerInstances: { [instanceId]: { driver: "codex", enabled: false } },
+    }),
+  );
+
+  return Effect.gen(function* () {
+    const threads = yield* ThreadManagementService.ThreadManagementService;
+    const error = yield* Effect.flip(
+      threads.assertProviderInstanceEnabled({ projectId, commandId, instanceId }),
+    );
+
+    expect(error).toBeInstanceOf(
+      ThreadManagementService.ThreadManagementProviderInstanceDisabledError,
+    );
+  }).pipe(Effect.provide(layerTest));
+});
+
+const layerDispatchChokepointTest =
+  (settingsLayer: ReturnType<typeof ServerSettings.layerTest>) => (dispatched: Array<string>) =>
+    ThreadManagementService.layer.pipe(
+      Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
+      Layer.provide(
+        Layer.mock(Orchestrator.OrchestratorV2)({
+          getThreadRecords: () =>
+            Effect.succeed({
+              thread: {
+                id: ThreadId.make("thread:thread-management:chokepoint"),
+                projectId: ProjectId.make("project:thread-management:chokepoint"),
+                deletedAt: null,
+                modelSelection: {
+                  instanceId: ProviderInstanceId.make("codex_work"),
+                  model: "test",
+                },
+              },
+            } as unknown as OrchestrationV2ThreadProjection),
+          dispatch: (command) =>
+            Effect.sync(() => {
+              dispatched.push(command.type);
+              return { sequence: 1, storedEvents: [] } as never;
+            }),
+        }),
+      ),
+      Layer.provide(settingsLayer),
+      Layer.provideMerge(layerReceiptsTest),
+    );
+
+it.effect(
+  "the dispatch chokepoint refuses a continuation message.dispatch on a project-disabled instance before reaching the orchestrator",
+  () => {
+    const projectId = ProjectId.make("project:thread-management:chokepoint");
+    const threadId = ThreadId.make("thread:thread-management:chokepoint");
+    const instanceId = ProviderInstanceId.make("codex_work");
+    const commandId = CommandId.make("command:thread-management:chokepoint-disabled");
+    const dispatched: Array<string> = [];
+    const layerTest = layerDispatchChokepointTest(
+      ServerSettings.layerTest({
+        providerInstances: { [instanceId]: { driver: "codex", enabled: true } },
+        projectSettingsOverrides: {
+          [projectId]: { providerInstances: { [instanceId]: { enabled: false } } },
+        },
+      }),
+    )(dispatched);
+
+    return Effect.gen(function* () {
+      const threads = yield* ThreadManagementService.ThreadManagementService;
+      const error = yield* Effect.flip(
+        threads.dispatch({
+          type: "message.dispatch",
+          commandId,
+          threadId,
+          messageId: MessageId.make("message:thread-management:chokepoint-disabled"),
+          text: "Background task completed.",
+          attachments: [],
+          dispatchMode: { type: "queue_after_active" },
+          createdBy: "agent",
+          creationSource: "server",
+        }),
+      );
+
+      expect(error).toBeInstanceOf(
+        ThreadManagementService.ThreadManagementProviderInstanceDisabledError,
+      );
+      expect(error).toMatchObject({ projectId, instanceId });
+      expect(dispatched).toEqual([]);
+    }).pipe(Effect.provide(layerTest));
+  },
+);
+
+it.effect(
+  "a replay of an already-accepted command id dispatches despite the instance now being disabled",
+  () => {
+    const projectId = ProjectId.make("project:thread-management:chokepoint");
+    const threadId = ThreadId.make("thread:thread-management:chokepoint");
+    const instanceId = ProviderInstanceId.make("codex_work");
+    const commandId = CommandId.make("command:thread-management:chokepoint-replay");
+    const dispatched: Array<string> = [];
+    const layerTest = layerDispatchChokepointTest(
+      ServerSettings.layerTest({
+        providerInstances: { [instanceId]: { driver: "codex", enabled: true } },
+        projectSettingsOverrides: {
+          [projectId]: { providerInstances: { [instanceId]: { enabled: false } } },
+        },
+      }),
+    )(dispatched);
+
+    return Effect.gen(function* () {
+      const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
+      yield* receipts.insertIfAbsent({
+        commandId,
+        threadId,
+        commandType: "message.dispatch",
+        acceptedAt: yield* DateTime.now,
+        resultSequence: 1,
+        status: "accepted",
+        error: null,
+      });
+
+      const threads = yield* ThreadManagementService.ThreadManagementService;
+      yield* threads.dispatch({
+        type: "message.dispatch",
+        commandId,
+        threadId,
+        messageId: MessageId.make("message:thread-management:chokepoint-replay"),
+        text: "Background task completed.",
+        attachments: [],
+        dispatchMode: { type: "queue_after_active" },
+        createdBy: "agent",
+        creationSource: "server",
+      });
+
+      expect(dispatched).toEqual(["message.dispatch"]);
+    }).pipe(Effect.provide(layerTest));
+  },
+);
+
 it.effect("classifies projection infrastructure failures separately from a missing thread", () => {
   const projectId = ProjectId.make("project:thread-management:projection-failure");
   const threadId = ThreadId.make("thread:thread-management:projection-failure");
@@ -269,11 +481,14 @@ it.effect("classifies projection infrastructure failures separately from a missi
     cause: infrastructureCause,
   });
   const layerTest = ThreadManagementService.layer.pipe(
+    Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
     Layer.provide(
       Layer.mock(Orchestrator.OrchestratorV2)({
         getThreadProjection: () => Effect.fail(projectionError),
       }),
     ),
+    Layer.provide(ServerSettings.layerTest()),
+    Layer.provide(layerReceiptsTest),
   );
 
   return Effect.gen(function* () {
@@ -302,11 +517,14 @@ it.effect("uses thread-not-found only after a projection loads outside the proje
     },
   } as OrchestrationV2ThreadProjection;
   const layerTest = ThreadManagementService.layer.pipe(
+    Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
     Layer.provide(
       Layer.mock(Orchestrator.OrchestratorV2)({
         getThreadProjection: () => Effect.succeed(projection),
       }),
     ),
+    Layer.provide(ServerSettings.layerTest()),
+    Layer.provide(layerReceiptsTest),
   );
 
   return Effect.gen(function* () {
@@ -327,6 +545,7 @@ it.effect("preserves failed legacy materialization when reading checkpoint conte
     cause: new Error("checkpoint import failed"),
   });
   const layerTest = ThreadManagementService.layerWithLegacyImporter.pipe(
+    Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
     Layer.provide(
       Layer.mergeAll(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -338,6 +557,8 @@ it.effect("preserves failed legacy materialization when reading checkpoint conte
         }),
       ),
     ),
+    Layer.provide(ServerSettings.layerTest()),
+    Layer.provide(layerReceiptsTest),
   );
   return Effect.gen(function* () {
     const service = yield* ThreadManagementService.ThreadManagementService;
@@ -368,6 +589,7 @@ it.effect.each([
         runs: status === "missing" ? [] : [{ id: runId, status }],
       }) as unknown as OrchestrationV2ThreadProjection;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
           getThreadEventSequence: () => Effect.succeed(0),
@@ -385,6 +607,8 @@ it.effect.each([
             }),
         }),
       ),
+      Layer.provide(ServerSettings.layerTest()),
+      Layer.provide(layerReceiptsTest),
     );
     const service = yield* ThreadManagementService.ThreadManagementService.pipe(
       Effect.provide(layerTest),
@@ -434,6 +658,7 @@ it.effect("waitForThread reads the run again only when the run updates", () =>
     const stored = (sequence: number, event: object) =>
       ({ sequence, event: { threadId, ...event } }) as unknown as OrchestrationV2StoredEvent;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
           getThreadEventSequence: () => Effect.succeed(0),
@@ -455,6 +680,8 @@ it.effect("waitForThread reads the run again only when the run updates", () =>
             }),
         }),
       ),
+      Layer.provide(ServerSettings.layerTest()),
+      Layer.provide(layerReceiptsTest),
     );
     const service = yield* ThreadManagementService.ThreadManagementService.pipe(
       Effect.provide(layerTest),
@@ -475,38 +702,137 @@ it.effect("waitForThread reads the run again only when the run updates", () =>
 );
 
 it.effect.each([
-  { status: "completed" as const, settles: true },
-  { status: "failed" as const, settles: false },
-  { status: "interrupted" as const, settles: false },
-])("settleAfterRun settles only when the run $status", ({ status, settles }) =>
+  "running",
+  "missing",
+  "completed",
+  "unsupported",
+  "missing-native-id",
+  "wrong-thread",
+  "no-session",
+  "dispatch-failed",
+  "within-limit",
+  "runtime-raised",
+  "interaction-raised",
+] as const)("requests a persisted workflow stop with state %s", (state) =>
   Effect.gen(function* () {
-    const projectId = ProjectId.make("project:thread-management:settle-after-run");
-    const threadId = ThreadId.make("thread:thread-management:settle-after-run");
-    const runId = RunId.make("run:thread-management:settle-after-run");
-    const dispatched: Array<string> = [];
+    const threadId = ThreadId.make("thread:workflow-stop");
+    const subagentId = NodeId.make("node:workflow-stop");
+    const runId = RunId.make("run:workflow-stop");
+    const providerThreadId = ProviderThreadId.make("provider-thread:workflow-stop");
+    const now = yield* DateTime.now;
+    const modes = {
+      runtimeMode:
+        state === "runtime-raised" ? ("full-access" as const) : ("approval-required" as const),
+      interactionMode: state === "interaction-raised" ? ("default" as const) : ("plan" as const),
+    };
+    const commands: OrchestrationV2ServerCommand[] = [];
+    const task = {
+      id: subagentId,
+      threadId,
+      runId,
+      origin: "provider_native",
+      driver: state === "unsupported" ? "codex" : "claudeAgent",
+      providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+      providerThreadId,
+      workflow: { phases: [], agents: [] },
+      status: state === "completed" ? "completed" : "running",
+      nativeTaskRef:
+        state === "missing-native-id"
+          ? null
+          : { nativeId: "native-workflow-id", strength: "strong" },
+      updatedAt: now,
+    };
     const layerTest = ThreadManagementService.layer.pipe(
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
-          getThreadEventSequence: () => Effect.succeed(0),
           getThreadRecords: () =>
             Effect.succeed({
-              thread: { id: threadId, projectId, deletedAt: null },
-              runs: [{ id: runId, status }],
+              thread: { id: threadId, deletedAt: null, ...modes },
+              subagents: state === "missing" ? [] : [task],
+              runs: [{ id: runId, providerThreadId }],
+              providerThreads: [
+                {
+                  id: providerThreadId,
+                  appThreadId: state === "wrong-thread" ? "other" : threadId,
+                  providerInstanceId: task.providerInstanceId,
+                  driver: task.driver,
+                  providerSessionId:
+                    state === "no-session" ? null : ProviderSessionId.make("session:workflow-stop"),
+                },
+              ],
             } as unknown as OrchestrationV2ThreadProjection),
           dispatch: (command) =>
-            Effect.sync(() => {
-              dispatched.push(command.type);
-              return { sequence: 1, storedEvents: [] } as never;
-            }),
+            state === "dispatch-failed"
+              ? Effect.fail(
+                  new Orchestrator.OrchestratorDispatchError({
+                    commandId: command.commandId,
+                    commandType: command.type,
+                    cause: "dispatch failed",
+                  }),
+                )
+              : Effect.sync(() => {
+                  commands.push(command);
+                  return { sequence: 1, storedEvents: [] };
+                }),
         }),
       ),
+      Layer.provide(ServerSettings.layerTest()),
+      Layer.provide(layerReceiptsTest),
     );
-    const service = yield* ThreadManagementService.ThreadManagementService.pipe(
-      Effect.provide(layerTest),
-    );
-
-    yield* service.settleAfterRun({ projectId, threadId, runId });
-
-    expect(dispatched).toEqual(settles ? ["thread.settle"] : []);
+    yield* Effect.gen(function* () {
+      const service = yield* ThreadManagementService.ThreadManagementService;
+      const refused = yield* Ref.make<DispatchModeRefusal | undefined>(undefined);
+      const result = yield* service
+        .stopWorkflow({ threadId, subagentId })
+        .pipe(
+          Effect.provideService(
+            DispatchModeLimit,
+            ["within-limit", "runtime-raised", "interaction-raised"].includes(state)
+              ? { runtimeMode: "approval-required", interactionMode: "plan", refused }
+              : undefined,
+          ),
+          Effect.result,
+        );
+      if (state === "running" || state === "within-limit") {
+        expect(result._tag).toBe("Success");
+        expect(commands).toEqual([
+          {
+            type: "subagent.stop",
+            commandId: CommandId.make(
+              `server:workflow-stop:${subagentId}:${DateTime.formatIso(now)}`,
+            ),
+            threadId,
+            runId,
+            subagentId,
+            workflowOnly: true,
+          },
+        ]);
+      } else {
+        expect(commands).toEqual([]);
+        expect(result).toMatchObject({
+          _tag: "Failure",
+          failure: {
+            _tag: "OrchestrationV2StopWorkflowError",
+            threadId,
+            subagentId,
+            reason:
+              state === "missing" || state === "completed"
+                ? "not-running"
+                : state === "unsupported"
+                  ? "unsupported"
+                  : state === "dispatch-failed"
+                    ? "stop-failed"
+                    : "unavailable",
+          },
+        });
+        if (state === "runtime-raised" || state === "interaction-raised") {
+          expect(yield* Ref.get(refused)).toEqual({
+            threadId,
+            ...modes,
+            mode: state === "runtime-raised" ? "runtime" : "interaction",
+          });
+        }
+      }
+    }).pipe(Effect.provide(layerTest));
   }),
 );

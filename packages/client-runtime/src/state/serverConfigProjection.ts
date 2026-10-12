@@ -1,3 +1,4 @@
+import { resolveLegacySourceControlSettings } from "@supacode/shared/serverSettings";
 import type { ServerConfig, ServerConfigStreamEvent } from "@supacode/contracts";
 import { withRelayAdvertisement } from "@supacode/contracts";
 import * as Option from "effect/Option";
@@ -43,6 +44,7 @@ export function applyServerConfigProjection(
       return Option.some({
         config: {
           ...event.config,
+          settings: resolveLegacySourceControlSettings(event.config.settings),
           ...(carriedThemes === undefined ? {} : { environmentThemes: carriedThemes }),
           ...(carriedSources === undefined ? {} : { usageLimitSources: carriedSources }),
         },
@@ -73,7 +75,7 @@ export function applyServerConfigProjection(
       return Option.map(current, (projection) => ({
         config: {
           ...projection.config,
-          settings: event.payload.settings,
+          settings: resolveLegacySourceControlSettings(event.payload.settings),
         },
         latestEvent: event,
         source: "live",

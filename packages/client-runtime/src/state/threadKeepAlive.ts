@@ -6,7 +6,7 @@ import { arrayElementsEqual } from "./entities.ts";
 import type { EnvironmentThreadState } from "./threadState.ts";
 
 const isRunning = (status: string) =>
-  status === "preparing" || status === "starting" || status === "running";
+  status === "preparing" || status === "queued" || status === "starting" || status === "running";
 
 type KeptThreads = ReadonlyMap<EnvironmentId, ReadonlySet<ThreadId>>;
 

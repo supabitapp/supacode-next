@@ -25,7 +25,7 @@ import type {
   DesktopPreviewTabDefaults,
   PreviewForwardedShortcut,
 } from "@supacode/contracts";
-import { HostProcessPlatform } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import { matchesKeybindingShortcut } from "@supacode/shared/keybindings";
 import { normalizePreviewUrl } from "@supacode/shared/preview";
 import {
@@ -62,6 +62,7 @@ import * as SynchronizedRef from "effect/SynchronizedRef";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import { MENU_ACTION_CHANNEL, PREVIEW_PICTURE_IN_PICTURE_FRAME_CHANNEL } from "../ipc/channels.ts";
 import * as DesktopBrowserHost from "./DesktopBrowserHost.ts";
+import * as PreviewPasskeys from "./Passkeys.ts";
 import * as BrowserSession from "./BrowserSession.ts";
 import {
   ANNOTATION_CAPTURED_CHANNEL,
@@ -518,7 +519,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
   pictureInPicturePreloadPath: string,
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
-  const hostPlatform = yield* HostProcessPlatform;
+  const hostPlatform = yield* HostProcess.Platform;
   const path = yield* Path.Path;
   const crypto = yield* Crypto.Crypto;
   const parentScope = yield* Scope.Scope;
@@ -3627,6 +3628,7 @@ export class PreviewManager extends Context.Service<
 export const make = Effect.gen(function* PreviewManagerMake() {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const browserSession = yield* BrowserSession.BrowserSession;
+  const passkeys = yield* PreviewPasskeys.PreviewPasskeys;
   const browserHost = yield* DesktopBrowserHost.DesktopBrowserHost;
   const downloadSessions = new WeakSet<Electron.Session>();
   const fileSystem = yield* FileSystem.FileSystem;
@@ -3691,6 +3693,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
             ),
           );
         placeServerDownloads(session);
+        passkeys.installSessionHandlers(session);
         return session;
       },
     ),

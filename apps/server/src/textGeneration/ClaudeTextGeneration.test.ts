@@ -1,7 +1,9 @@
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import * as Stream from "effect/Stream";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
 import { ClaudeSettings, ProviderInstanceId } from "@supacode/contracts";
-import { HostProcessPlatform, isHostWindows } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import { createModelSelection } from "@supacode/shared/model";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -20,6 +22,7 @@ import {
 } from "../provider/ClaudeModelCatalog.testFixtures.ts";
 import * as TextGeneration from "./TextGeneration.ts";
 import { sanitizeThreadTitle } from "@supacode/provider-core/server/textGenerationUtils";
+import { prepareClaudeReviewContext } from "./ClaudeReviewContext.ts";
 import { makeClaudeTextGeneration } from "./ClaudeTextGeneration.ts";
 import { writeFakeCli } from "@supacode/provider-testing/fakeCli";
 const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
@@ -35,7 +38,7 @@ function makeFakeClaudeBinary(dir: string) {
   return Effect.gen(function* () {
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
-    const platform = yield* HostProcessPlatform;
+    const platform = yield* HostProcess.Platform;
     const binDir = path.join(dir, "bin");
     const fixturePath = yield* path.fromFileUrl(
       new URL("./testing/ClaudeTextGeneration.fixture.mjs", import.meta.url),
@@ -69,7 +72,7 @@ function withFakeClaudeEnv<A, E, R>(
     const fs = yield* FileSystem.FileSystem;
     const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "supacode-claude-text-" });
     const binDir = yield* makeFakeClaudeBinary(tempDir);
-    const pathDelimiter = (yield* isHostWindows) ? ";" : ":";
+    const pathDelimiter = (yield* HostProcess.isWindows) ? ";" : ":";
     const previousPath = process.env.PATH;
     const previousOutput = process.env.SUPACODE_FAKE_CLAUDE_OUTPUT;
     const previousExitCode = process.env.SUPACODE_FAKE_CLAUDE_EXIT_CODE;
@@ -357,6 +360,109 @@ it.layer(layerClaudeTextGenerationTest)("ClaudeTextGeneration", (it) => {
           });
 
           expect(generated.branch).toBe("call-script");
+        }),
+    ),
+  );
+
+  it.effect("investigates a review guide with isolated file tools and complete Git context", () =>
+    withFakeClaudeEnv(
+      {
+        output: JSON.stringify({ structured_output: { stops: [] } }),
+        argsMustContain: "--setting-sources  --add-dir",
+        argsMustNotContain: "Bash",
+        stdinMustContain: "The complete Git outputs",
+      },
+      (textGeneration) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "supacode-review-cli-" });
+          const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+          const git = (args: string[]) =>
+            Effect.scoped(
+              Effect.gen(function* () {
+                const child = yield* spawner.spawn(ChildProcess.make("git", args, { cwd }));
+                const [stdout, stderr, code] = yield* Effect.all(
+                  [
+                    child.stdout.pipe(
+                      Stream.decodeText(),
+                      Stream.runFold(
+                        () => "",
+                        (text, chunk) => text + chunk,
+                      ),
+                    ),
+                    child.stderr.pipe(
+                      Stream.decodeText(),
+                      Stream.runFold(
+                        () => "",
+                        (text, chunk) => text + chunk,
+                      ),
+                    ),
+                    child.exitCode,
+                  ],
+                  { concurrency: "unbounded" },
+                );
+                expect(code, stderr).toBe(0);
+                return stdout.trim();
+              }),
+            );
+          yield* git(["init", "--quiet"]);
+          yield* fs.writeFileString(`${cwd}/before.txt`, "before\n");
+          yield* git(["add", "."]);
+          const baseCommit = yield* Effect.gen(function* () {
+            yield* git([
+              "-c",
+              "user.name=Test",
+              "-c",
+              "user.email=test@example.com",
+              "-c",
+              "core.hooksPath=/dev/null",
+              "commit",
+              "--quiet",
+              "-m",
+              "Base",
+            ]);
+            return yield* git(["rev-parse", "HEAD"]);
+          });
+          yield* fs.remove(`${cwd}/before.txt`);
+          yield* fs.writeFileString(`${cwd}/after.txt`, "after\n");
+          yield* Effect.gen(function* () {
+            yield* git(["add", "-A"]);
+            yield* git([
+              "-c",
+              "user.name=Test",
+              "-c",
+              "user.email=test@example.com",
+              "-c",
+              "core.hooksPath=/dev/null",
+              "commit",
+              "--quiet",
+              "-m",
+              "Change",
+            ]);
+          });
+          const context = yield* prepareClaudeReviewContext({ cwd, baseCommit, headCommits: [] });
+          const patch = yield* fs.readFileString(`${context.directory}/change.patch`);
+          expect(patch).toContain("deleted file mode");
+          expect(patch).toContain("-before");
+          expect(patch).toContain("+after");
+          expect(yield* fs.readFileString(`${context.directory}/files.txt`)).toContain(
+            "before.txt",
+          );
+          const generated = yield* textGeneration.generateReviewGuide({
+            cwd,
+            number: 7,
+            title: "Add a project setting",
+            description: "",
+            baseBranch: "main",
+            baseCommit,
+            settledReview: "",
+            modelSelection: {
+              instanceId: ProviderInstanceId.make("claudeAgent"),
+              model: SYNTHETIC_CLAUDE_STANDARD_MODEL,
+            },
+          });
+
+          expect(generated.stops).toEqual([]);
         }),
     ),
   );

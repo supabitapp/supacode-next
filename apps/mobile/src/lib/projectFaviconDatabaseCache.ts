@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "./expoFileSystem";
 import {
   createProjectFaviconCache as createSharedProjectFaviconCache,
   createProjectFaviconImageLoader,
@@ -39,10 +40,7 @@ export async function downscaleProjectFavicon(
   image: { readonly url: string },
   signal: AbortSignal,
 ) {
-  const [{ Image }, { File }] = await Promise.all([
-    import("expo-image"),
-    import("expo-file-system"),
-  ]);
+  const [{ Image }, { File }] = await Promise.all([import("expo-image"), loadExpoFileSystem()]);
   for (const size of [PROJECT_FAVICON_THUMBNAIL_SIZE, PROJECT_FAVICON_THUMBNAIL_SIZE / 2]) {
     signal.throwIfAborted();
     const decoded = await Image.loadAsync(image.url, { maxWidth: size, maxHeight: size });

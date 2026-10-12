@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "./expoFileSystem";
 import { resolveAssetUrl } from "@supacode/client-runtime/state/assets";
 import {
   clampFileAttachmentUploadBytes,
@@ -249,7 +250,7 @@ async function composerImageAttachmentDataUrl(
   }
   const release = retainComposerAttachmentFileForPreview(attachment);
   try {
-    const { File, Paths } = await import("expo-file-system");
+    const { File, Paths } = await loadExpoFileSystem();
     const uri =
       resolveOwnedComposerAttachmentFileUri(attachment.fileUri, Paths.document.uri) ??
       attachment.fileUri;
@@ -267,7 +268,7 @@ async function uploadFileBytes(
   signal: AbortSignal,
   onProgress?: (progress: number) => void,
 ): Promise<void> {
-  const { File, Paths, UploadType } = await import("expo-file-system");
+  const { File, Paths, UploadType } = await loadExpoFileSystem();
   if (signal.aborted) throw new Error("Upload cancelled.");
   if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
     throw new Error("This connection cannot upload attachments.");

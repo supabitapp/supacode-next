@@ -416,4 +416,14 @@ contextBridge.exposeInMainWorld("desktopBridge", {
         ipcRenderer.removeListener(IpcChannels.PREVIEW_OPEN_LINK_CHANNEL, wrappedListener);
     },
   },
+  webLinks: {
+    setReady: (ready) => ipcRenderer.invoke(IpcChannels.WEB_LINK_READY_CHANNEL, ready),
+    onOpen: (listener) => {
+      const wrappedListener = (_event: Electron.IpcRendererEvent, url: unknown) => {
+        if (typeof url === "string") listener(url);
+      };
+      ipcRenderer.on(IpcChannels.WEB_LINK_OPEN_CHANNEL, wrappedListener);
+      return () => ipcRenderer.removeListener(IpcChannels.WEB_LINK_OPEN_CHANNEL, wrappedListener);
+    },
+  },
 } satisfies DesktopBridge);

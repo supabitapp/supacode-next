@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "./expoFileSystem";
 import {
   clampFileAttachmentUploadBytes,
   fileAttachmentTooLargeMessage,
@@ -60,7 +61,7 @@ export async function createPastedTextComposerAttachment(input: {
     throw new Error(fileAttachmentTooLargeMessage(input.name, input.maxBytes));
   }
 
-  const { Directory, File, Paths } = await import("expo-file-system");
+  const { Directory, File, Paths } = await loadExpoFileSystem();
   const directory = new Directory(Paths.document, COMPOSER_ATTACHMENT_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
   const file = new File(directory, `${uuidv4()}-${input.name}`);
@@ -139,7 +140,7 @@ export async function persistComposerAttachmentFile(
   name: string,
   maxBytes?: number,
 ): Promise<string> {
-  const { Directory, File, FileMode, Paths } = await import("expo-file-system");
+  const { Directory, File, FileMode, Paths } = await loadExpoFileSystem();
   const directory = new Directory(Paths.document, COMPOSER_ATTACHMENT_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
   const safeName =
@@ -224,7 +225,7 @@ export async function persistComposerAttachmentFile(
 
 export async function removePersistedComposerAttachmentFile(uri: string): Promise<void> {
   try {
-    const { File, Paths } = await import("expo-file-system");
+    const { File, Paths } = await loadExpoFileSystem();
     const ownedUri = resolveOwnedComposerAttachmentFileUri(uri, Paths.document.uri);
     if (ownedUri === null || isComposerAttachmentFileRetained(ownedUri)) {
       return;
@@ -248,7 +249,7 @@ async function createComposerFileAttachment(input: {
   if (input.sizeBytes !== null && input.sizeBytes > input.maxBytes) {
     throw new Error(fileAttachmentTooLargeMessage(input.name, input.maxBytes));
   }
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   const fileUri = await persistComposerAttachmentFile(input.uri, input.name, input.maxBytes);
   try {
     const sizeBytes = new File(fileUri).size ?? input.sizeBytes ?? 0;
@@ -481,7 +482,7 @@ export async function pickComposerMedia(input: {
         continue;
       }
       try {
-        const { File } = await import("expo-file-system");
+        const { File } = await loadExpoFileSystem();
         const file = new File(asset.uri);
         attachments.push(
           await createComposerFileAttachment({
@@ -509,7 +510,7 @@ export async function pickComposerMedia(input: {
     // whether the original bytes are safe to load into JS.
     let sourceBytes: number | null = null;
     try {
-      const { File } = await import("expo-file-system");
+      const { File } = await loadExpoFileSystem();
       sourceBytes = new File(asset.uri).size;
     } catch {
       sourceBytes = null;
@@ -529,7 +530,7 @@ export async function pickComposerMedia(input: {
     let image: { base64: string; mimeType: string; name: string; previewUri: string };
     try {
       if (originalMimeType !== null) {
-        const { File } = await import("expo-file-system");
+        const { File } = await loadExpoFileSystem();
         image = {
           base64: await new File(asset.uri).base64(),
           mimeType: originalMimeType,
@@ -696,7 +697,7 @@ export async function convertPastedImagesToAttachments(input: {
   readonly uris: ReadonlyArray<string>;
   readonly existingCount: number;
 }): Promise<ReadonlyArray<DraftComposerImageAttachment>> {
-  const { File } = await import("expo-file-system");
+  const { File } = await loadExpoFileSystem();
   const remainingSlots = PROVIDER_SEND_TURN_MAX_ATTACHMENTS - input.existingCount;
   const results: DraftComposerImageAttachment[] = [];
 

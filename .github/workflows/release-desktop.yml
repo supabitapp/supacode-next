@@ -11,6 +11,8 @@ on:
     secrets:
       OP_SERVICE_ACCOUNT_TOKEN:
         required: false
+      MACOS_PROVISIONING_PROFILE:
+        required: false
       AZURE_TENANT_ID:
         required: false
       AZURE_CLIENT_ID:
@@ -95,6 +97,39 @@ jobs:
           git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
           git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
           git -c checkout.workers=0 checkout --detach FETCH_HEAD
+
+      # The runner's PowerShell 7.6/.NET 10 intermittently crashes during signing:
+      # https://github.com/dotnet/runtime/issues/131636
+      # Put the .NET 8 release first for both workflow shells and electron-builder.
+      - name: Use PowerShell 7.4 for Windows ARM builds
+        if: inputs.platform == 'win' && inputs.arch == 'arm64'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ProgressPreference = "SilentlyContinue"
+          $version = "7.4.20"
+          $archive = Join-Path $env:RUNNER_TEMP "PowerShell-$version-win-arm64.zip"
+          $installDir = Join-Path $env:RUNNER_TEMP "powershell-$version-arm64"
+          Invoke-WebRequest -UseBasicParsing `
+            -Uri "https://github.com/PowerShell/PowerShell/releases/download/v$version/PowerShell-$version-win-arm64.zip" `
+            -OutFile $archive
+          $expectedHash = "67eff749d5dae357501c95a3eec1dcd93f669824e3ca2b1d2adcdecdebf04f35"
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne $expectedHash) {
+            throw "PowerShell archive checksum mismatch"
+          }
+          Expand-Archive -Path $archive -DestinationPath $installDir
+          $installDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$installDir\pwsh.exe" -NoProfile -NonInteractive -Command '$PSVersionTable; [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify Windows ARM PowerShell selection
+        if: inputs.platform == 'win' && inputs.arch == 'arm64'
+        shell: pwsh
+        run: |
+          $expectedPath = Join-Path $env:RUNNER_TEMP "powershell-7.4.20-arm64\pwsh.exe"
+          if ((Get-Command pwsh.exe).Source -ne $expectedPath -or $PSVersionTable.PSVersion -ne [version]"7.4.20") {
+            throw "Windows ARM builds must use the pinned PowerShell runtime"
+          }
 
       # Windows installs straight from the registry. There, linking the packages
       # takes the time, not downloading them, so a ~700 MB package cache did not
@@ -323,6 +358,19 @@ jobs:
           profile: apple
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
+      - name: Prepare optional Touch ID provisioning profile
+        if: inputs.platform == 'mac'
+        shell: bash
+        env:
+          MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
+        run: |
+          if [[ -n "$MACOS_PROVISIONING_PROFILE" ]]; then
+            profile_path="$RUNNER_TEMP/supacode.provisionprofile"
+            printf '%s' "$MACOS_PROVISIONING_PROFILE" | base64 --decode > "$profile_path"
+            chmod 600 "$profile_path"
+            echo "SUPACODE_MACOS_PROVISIONING_PROFILE=$profile_path" >> "$GITHUB_ENV"
+          fi
+
       - name: Build desktop artifact
         shell: bash
         env:
@@ -422,7 +470,11 @@ jobs:
           security unlock-keychain -p "$keychain_password" "$keychain"
           security import "$cert_path" -k "$keychain" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" >/dev/null
-          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          existing_keychains=()
+          while IFS= read -r existing_keychain; do
+            existing_keychains+=("$existing_keychain")
+          done < <(security list-keychains -d user | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+          security list-keychains -d user -s "$keychain" "${existing_keychains[@]}"
           identity="$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)"
           if [[ -z "$identity" ]]; then
             echo "No Developer ID Application identity found in CSC_LINK." >&2

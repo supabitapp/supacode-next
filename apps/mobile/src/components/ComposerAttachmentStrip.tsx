@@ -1,3 +1,6 @@
+import { loadExpoFileSystem } from "../lib/expoFileSystem";
+import { FilePreviewGallery, useFilePreviewGallery } from "./FilePreviewGallery";
+import { composerImageGallery } from "../lib/composerImageGallery";
 import { SymbolView } from "../components/AppSymbol";
 import { imageMimeType } from "@supacode/shared/image";
 import { videoMimeType } from "@supacode/shared/video";
@@ -120,7 +123,7 @@ const INLINE_PREVIEW_FALLBACK_MAX_CHARS = 256_000;
 async function materializeDataUrlPreview(id: string, dataUrl: string): Promise<string | null> {
   const comma = dataUrl.indexOf(",");
   if (comma < 0) return null;
-  const { Directory, File, Paths } = await import("expo-file-system");
+  const { Directory, File, Paths } = await loadExpoFileSystem();
   const mimeType = /^data:([^;,]+)/.exec(dataUrl)?.[1] ?? "image/jpeg";
   const extension = (mimeType.split("/")[1] ?? "jpg").replace("jpeg", "jpg");
   const directory = new Directory(Paths.cache, PREVIEW_CACHE_DIRECTORY);
@@ -143,7 +146,7 @@ function useComposerImagePreviewUri(attachment: DraftComposerImageAttachment): s
     if (fileUri === undefined) return;
     let cancelled = false;
     void (async () => {
-      const { Paths } = await import("expo-file-system");
+      const { Paths } = await loadExpoFileSystem();
       const owned = resolveOwnedComposerAttachmentFileUri(fileUri, Paths.document.uri);
       // Re-render only when the container actually moved.
       if (!cancelled && owned !== null && owned !== previewUri) setRebased({ fileUri, uri: owned });
@@ -187,6 +190,7 @@ function ComposerImageAttachment(
   props: ComposerAttachmentThumbnailProps & { readonly attachment: DraftComposerImageAttachment },
 ) {
   const { attachment } = props;
+  const withGallery = useFilePreviewGallery();
   const style = { width: props.size, height: props.size, borderRadius: props.borderRadius };
   const previewUri = useComposerImagePreviewUri(attachment);
   const sourceIdentifier = `draft-image:${attachment.id}`;
@@ -198,16 +202,18 @@ function ComposerImageAttachment(
         disabled={!props.onPressPreview}
         onPress={() =>
           props.onPressPreview?.(
-            // File-backed images open through the retain-lease + container
-            // rebase path; legacy drafts still carry their inline bytes.
-            isFileBackedComposerAttachment(attachment)
-              ? { kind: "image", attachment, name: attachment.name, sourceIdentifier }
-              : {
-                  kind: "image",
-                  uri: attachment.dataUrl ?? attachment.previewUri,
-                  name: attachment.name,
-                  sourceIdentifier,
-                },
+            withGallery(
+              // File-backed images open through the retain-lease + container
+              // rebase path; legacy drafts still carry their inline bytes.
+              isFileBackedComposerAttachment(attachment)
+                ? { kind: "image", attachment, name: attachment.name, sourceIdentifier }
+                : {
+                    kind: "image",
+                    uri: attachment.dataUrl ?? attachment.previewUri,
+                    name: attachment.name,
+                    sourceIdentifier,
+                  },
+            ),
           )
         }
       >
@@ -334,6 +340,7 @@ function ComposerVideoAttachment(props: {
  * Attachment thumbnails used by the thread composer and the new-task draft screen.
  */
 export function ComposerAttachmentStrip(props: ComposerAttachmentStripProps) {
+  const gallery = useMemo(() => composerImageGallery(props.attachments), [props.attachments]);
   const size = props.imageSize ?? 72;
   const radius = props.imageBorderRadius ?? 16;
   const removeButtonPlacement = props.removeButtonPlacement ?? "overlay";
@@ -344,54 +351,56 @@ export function ComposerAttachmentStrip(props: ComposerAttachmentStripProps) {
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="always"
-      className="grow-0"
-    >
-      <View className="flex-row gap-2.5">
-        {props.attachments.map((attachment) => (
-          <Animated.View
-            key={attachment.id}
-            className="relative"
-            entering={FadeIn.duration(140)}
-            exiting={FadeOut.duration(120)}
-            layout={LinearTransition.duration(180)}
-            style={{
-              paddingTop: removeButtonGutter,
-              paddingRight: removeButtonGutter,
-            }}
-          >
-            <ComposerAttachmentThumbnail
-              environmentId={props.environmentId}
-              attachment={attachment}
-              size={size}
-              borderRadius={radius}
-              onPressPreview={props.onPressPreview}
-              onPressVideo={props.onPressVideo}
-              onPressDocument={props.onPressDocument}
-            />
-            <Pressable
-              className="absolute h-[22px] w-[22px] items-center justify-center rounded-[11px] bg-black/55"
+    <FilePreviewGallery value={gallery}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        className="grow-0"
+      >
+        <View className="flex-row gap-2.5">
+          {props.attachments.map((attachment) => (
+            <Animated.View
+              key={attachment.id}
+              className="relative"
+              entering={FadeIn.duration(140)}
+              exiting={FadeOut.duration(120)}
+              layout={LinearTransition.duration(180)}
               style={{
-                top: removeButtonPlacement === "gutter" ? 0 : 4,
-                right: removeButtonPlacement === "gutter" ? 0 : 4,
+                paddingTop: removeButtonGutter,
+                paddingRight: removeButtonGutter,
               }}
-              hitSlop={6}
-              onPress={() => props.onRemove(attachment.id)}
             >
-              <SymbolView
-                name="xmark"
-                size={9}
-                tintColor="#ffffff"
-                type="monochrome"
-                weight="bold"
+              <ComposerAttachmentThumbnail
+                environmentId={props.environmentId}
+                attachment={attachment}
+                size={size}
+                borderRadius={radius}
+                onPressPreview={props.onPressPreview}
+                onPressVideo={props.onPressVideo}
+                onPressDocument={props.onPressDocument}
               />
-            </Pressable>
-          </Animated.View>
-        ))}
-      </View>
-    </ScrollView>
+              <Pressable
+                className="absolute h-[22px] w-[22px] items-center justify-center rounded-[11px] bg-black/55"
+                style={{
+                  top: removeButtonPlacement === "gutter" ? 0 : 4,
+                  right: removeButtonPlacement === "gutter" ? 0 : 4,
+                }}
+                hitSlop={6}
+                onPress={() => props.onRemove(attachment.id)}
+              >
+                <SymbolView
+                  name="xmark"
+                  size={9}
+                  tintColor="#ffffff"
+                  type="monochrome"
+                  weight="bold"
+                />
+              </Pressable>
+            </Animated.View>
+          ))}
+        </View>
+      </ScrollView>
+    </FilePreviewGallery>
   );
 }

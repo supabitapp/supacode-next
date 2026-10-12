@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import * as Electron from "electron";
 
 import * as NetService from "@supacode/shared/Net";
-import { HostProcessArchitecture, HostProcessPlatform } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import type { RemoteSupacodeRunnerOptions } from "@supacode/ssh/tunnel";
 import serverPackageJson from "../../server/package.json" with { type: "json" };
 
@@ -37,6 +37,7 @@ import * as DesktopApp from "./app/DesktopApp.ts";
 import * as DesktopAppActivation from "./app/DesktopAppActivation.ts";
 import * as DesktopAppIdentity from "./app/DesktopAppIdentity.ts";
 import * as DesktopConnectionCatalogStore from "./app/DesktopConnectionCatalogStore.ts";
+import * as DesktopWebLinks from "./app/DesktopWebLinks.ts";
 import * as DesktopDeepLinks from "./app/DesktopDeepLinks.ts";
 import * as DesktopCliCommand from "./app/DesktopCliCommand.ts";
 import * as DesktopApplicationMenu from "./window/DesktopApplicationMenu.ts";
@@ -67,6 +68,7 @@ import * as BrowserImport from "./preview/BrowserImport/BrowserImport.ts";
 import * as LinuxBrowserSecret from "./preview/BrowserImport/LinuxBrowserSecret.ts";
 import * as BrowserSession from "./preview/BrowserSession.ts";
 import * as DesktopBrowserHost from "./preview/DesktopBrowserHost.ts";
+import * as PreviewPasskeys from "./preview/Passkeys.ts";
 import * as PreviewManager from "./preview/Manager.ts";
 import * as DesktopWindow from "./window/DesktopWindow.ts";
 import * as DesktopWslBackend from "./wsl/DesktopWslBackend.ts";
@@ -87,8 +89,8 @@ const layerDesktopEnvironment = Layer.unwrap(
     const metadata = yield* Effect.service(ElectronApp.ElectronApp).pipe(
       Effect.flatMap((app) => app.metadata),
     );
-    const platform = yield* HostProcessPlatform;
-    const processArch = yield* HostProcessArchitecture;
+    const platform = yield* HostProcess.Platform;
+    const processArch = yield* HostProcess.Architecture;
     return DesktopEnvironment.layer({
       dirname: __dirname,
       homeDirectory: NodeOS.homedir(),
@@ -159,6 +161,7 @@ const layerDesktopServerExposure = DesktopServerExposure.layer.pipe(
 );
 
 const layerDesktopPreview = PreviewManager.layer.pipe(
+  Layer.provideMerge(PreviewPasskeys.layer),
   Layer.provideMerge(DesktopBrowserHost.layer),
   // Merged rather than provided so the IPC handlers can reach the import
   // service alongside the manager; both sit on the same BrowserSession.
@@ -171,6 +174,8 @@ const layerDesktopWindow = DesktopWindow.layer.pipe(
   Layer.provideMerge(layerDesktopServerExposure),
   Layer.provideMerge(layerDesktopPreview),
 );
+
+const layerDesktopWebLinks = DesktopWebLinks.layer.pipe(Layer.provideMerge(layerDesktopWindow));
 
 const layerDesktopSnapShot = DesktopSnapShot.layer.pipe(
   Layer.provideMerge(layerDesktopWindow),
@@ -215,6 +220,7 @@ const layerDesktopApplication = Layer.mergeAll(
   layerDesktopSsh,
   DesktopRelayGateway.layer,
 ).pipe(
+  Layer.provideMerge(layerDesktopWebLinks),
   Layer.provideMerge(layerDesktopSnapShot),
   Layer.provideMerge(DesktopUpdates.layer),
   Layer.provideMerge(layerDesktopWslBackend),

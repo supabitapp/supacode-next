@@ -1,3 +1,4 @@
+import { loadExpoFileSystem } from "./expoFileSystem";
 import { videoMimeType } from "@supacode/shared/video";
 
 import type { FileBackedComposerAttachment } from "./composerImages";
@@ -13,7 +14,7 @@ export async function loadLocalAttachmentPreview(
   if (signal.aborted) return null;
   const release = retainComposerAttachmentFileForPreview(attachment);
   try {
-    const { File, Paths } = await import("expo-file-system");
+    const { File, Paths } = await loadExpoFileSystem();
     if (signal.aborted) {
       release();
       return null;

@@ -1,11 +1,12 @@
-import { WS_METHODS } from "@supacode/contracts";
+import { WS_METHODS, type ProjectCloneSubscribeInput } from "@supacode/contracts";
+import { request, subscribe } from "../rpc/client.ts";
 import { Atom } from "effect/reactivity";
 
 import {
   createAtomCommandScheduler,
   createEnvironmentRpcCommand,
   createEnvironmentRpcQueryAtomFamily,
-  createEnvironmentRpcSubscriptionAtomFamily,
+  createEnvironmentSubscriptionAtomFamily,
 } from "./runtime.ts";
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import * as Persistence from "../platform/persistence.ts";
@@ -20,6 +21,11 @@ export function createSourceControlEnvironmentAtoms<R, E>(
     discovery: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:source-control-discovery",
       tag: WS_METHODS.serverDiscoverSourceControl,
+      execute: (input) =>
+        request(WS_METHODS.serverDiscoverSourceControl, {
+          ...input,
+          acceptOpenProviderKinds: true,
+        }),
     }),
     repository: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:source-control:repository",
@@ -67,9 +73,10 @@ export function createSourceControlEnvironmentAtoms<R, E>(
     }),
     // Every clone the environment tracks. Empty until a clone starts; a
     // finished clone drops out after a grace period, a failed one stays.
-    projectClones: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+    projectClones: createEnvironmentSubscriptionAtomFamily(runtime, {
       label: "environment-data:source-control:project-clones",
-      tag: WS_METHODS.subscribeProjectClones,
+      subscribe: (input: ProjectCloneSubscribeInput) =>
+        subscribe(WS_METHODS.subscribeProjectClones, { ...input, acceptOpenProviderKinds: true }),
     }),
     publishRepository: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:source-control:publish-repository",
