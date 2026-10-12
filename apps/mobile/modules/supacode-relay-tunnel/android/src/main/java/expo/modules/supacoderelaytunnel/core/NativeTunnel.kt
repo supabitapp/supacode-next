@@ -22,6 +22,32 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 
+private enum class RelayFailure(private val status: String, val code: String) {
+  HOST_OFFLINE("503 Service Unavailable", "host-offline"),
+  RELAY_BUSY("503 Service Unavailable", "relay-busy"),
+  TIMEOUT("504 Gateway Timeout", "relay-timeout"),
+  UNREACHABLE("502 Bad Gateway", "relay-unreachable");
+
+  val response
+    get() =
+      (
+        "HTTP/1.1 $status\r\nX-Supacode-Relay-Error: $code\r\nCache-Control: no-store\r\n" +
+          "Connection: close\r\nContent-Length: 0\r\n\r\n"
+        ).toByteArray(Charsets.ISO_8859_1)
+
+  companion object {
+    fun from(relayStatus: Int?) =
+      when (relayStatus) {
+        404 -> HOST_OFFLINE
+        429, 503 -> RELAY_BUSY
+        else -> UNREACHABLE
+      }
+  }
+}
+
+private class RelayAttemptException(val failure: RelayFailure, message: String) :
+  IllegalStateException("$message: ${failure.code}")
+
 class NativeTunnel(
   private val relayUrl: String,
   hostAddress: String,
@@ -88,7 +114,6 @@ class NativeTunnel(
     }
     origin = "http://127.0.0.1:${listener.localPort}"
     log("[relay-android] listener origin=$origin ${CurveCrypto().provider}")
-    actor.execute { connect() }
     io.execute {
       while (!stopped.get()) {
         try {
@@ -159,7 +184,7 @@ class NativeTunnel(
     val handshake = ClientHandshake(identity)
     future.whenComplete { _, _ -> handshake.destroy() }
     val timeout = actor.schedule(
-      { fail(future, IllegalStateException("Relay handshake timed out")) },
+      { fail(future, RelayAttemptException(RelayFailure.TIMEOUT, "Relay handshake timed out")) },
       15,
       TimeUnit.SECONDS,
     )
@@ -229,7 +254,7 @@ class NativeTunnel(
         }
 
         override fun onFailure(socket: WebSocket, error: Throwable, response: Response?) {
-          post { fail(future, error) }
+          post { fail(future, error, response?.code) }
         }
       },
     )
@@ -245,8 +270,22 @@ class NativeTunnel(
     return false
   }
 
-  private fun fail(future: CompletableFuture<TunnelMux>, error: Throwable) {
+  private fun fail(
+    future: CompletableFuture<TunnelMux>,
+    cause: Throwable,
+    relayStatus: Int? = null
+  ) {
     if (attempt !== future) return
+    val error =
+      when {
+        cause is RelayAttemptException -> cause
+        mux != null || suspended || stopped.get() -> cause
+        else ->
+          RelayAttemptException(
+            RelayFailure.from(relayStatus),
+            cause.message ?: "Relay disconnected"
+          )
+      }
     attempt = null
     keepalive?.cancel(false)
     keepalive = null
@@ -356,8 +395,33 @@ class NativeTunnel(
       val active = stream
       val selected = session
       if (active != null && selected != null) post { selected.reset(active, error) }
+      if (selected == null) {
+        generateSequence<Throwable>(error) { it.cause }
+          .filterIsInstance<RelayAttemptException>()
+          .firstOrNull()
+          ?.let { answer(socket, it.failure) }
+      }
       finishSocket()
     }
+  }
+
+  private fun answer(socket: Socket, failure: RelayFailure) {
+    try {
+      socket.soTimeout = 5_000
+      socket.getOutputStream().apply {
+        write(failure.response)
+        flush()
+      }
+      socket.shutdownOutput()
+      val input = socket.getInputStream()
+      val buffer = ByteArray(16384)
+      var budget = 1 shl 16
+      while (budget > 0) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        budget -= count
+      }
+    } catch (_: IOException) {}
   }
 
   fun suspend() = post {
@@ -384,19 +448,13 @@ class NativeTunnel(
     backgroundClose = null
     suspended = false
     log("[relay-android] foregrounded origin=$origin")
-    val current = attempt
-    val session = mux
-    if (current == null || session == null) {
-      current?.let { fail(it, IllegalStateException("Relay resumed during handshake")) }
-      connect()
-    } else {
-      probeDeadline?.cancel(false)
-      probeDeadline = actor.schedule({
-        fail(current, IllegalStateException("Relay resume probe timed out"))
-        connect()
-      }, probeTimeoutMillis, TimeUnit.MILLISECONDS)
-      session.ping()
-    }
+    val current = attempt ?: return@post
+    val session = mux ?: return@post
+    probeDeadline?.cancel(false)
+    probeDeadline = actor.schedule({
+      fail(current, IllegalStateException("Relay resume probe timed out"))
+    }, probeTimeoutMillis, TimeUnit.MILLISECONDS)
+    session.ping()
   }
 
   override fun close() {

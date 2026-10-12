@@ -20,6 +20,16 @@ import okio.ByteString.Companion.toByteString
 import org.json.JSONObject
 import org.junit.Test
 
+private fun ByteArray.frameTypes(): List<Int> {
+  val types = mutableListOf<Int>()
+  var offset = 0
+  while (offset + 9 <= size) {
+    types.add(this[offset].toInt())
+    offset += 9 + java.nio.ByteBuffer.wrap(this, offset + 5, 4).int
+  }
+  return types
+}
+
 class NativeTunnelTest {
   private val vector = JSONObject(File("fixtures/vectors.json").readText())
 
@@ -60,8 +70,80 @@ class NativeTunnelTest {
       cipher?.let {
         val record = it.open(bytes.toByteArray())
         records.add(record)
-        if (replyToPings && record.firstOrNull() == 6.toByte()) {
+        if (replyToPings && 6 in record.frameTypes()) {
           webSocket.send(it.seal(TunnelMux.frame(7, 0)).toByteString())
+        }
+      }
+    }
+  }
+
+  private fun openStream(value: String): java.net.Socket {
+    val origin = java.net.URI(value)
+    return java.net.Socket(origin.host, origin.port).apply {
+      getOutputStream().write(
+        "GET / HTTP/1.1\r\nHost: ${origin.host}:${origin.port}\r\n\r\n".toByteArray()
+      )
+    }
+  }
+
+  private fun request(value: String): String =
+    openStream(value).use { socket ->
+      socket.soTimeout = 5_000
+      socket.getInputStream().readBytes().toString(Charsets.ISO_8859_1)
+    }
+
+  private fun LinkedBlockingQueue<ByteArray>.awaitPing() {
+    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+    while (true) {
+      val record = poll(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
+      checkNotNull(record) { "Timed out waiting for a ping" }
+      if (6 in record.frameTypes()) return
+    }
+  }
+
+  @Test
+  fun offlineHostAnswersEveryWaitingRequestWithoutRedialing() {
+    MockWebServer().use { server ->
+      repeat(2) {
+        server.enqueue(
+          MockResponse().setResponseCode(404).setHeadersDelay(200, TimeUnit.MILLISECONDS)
+        )
+      }
+      NativeTunnel(
+        server.url("/").toString().replaceFirst("http", "ws"),
+        vector.getString("address"),
+      ).use { tunnel ->
+        tunnel.resume()
+        val responses =
+          List(3) { CompletableFuture.supplyAsync { request(tunnel.origin) } }
+            .map { it.get(10, TimeUnit.SECONDS) }
+        for (response in responses) {
+          assertTrue(response.startsWith("HTTP/1.1 503 "), response)
+          assertTrue("X-Supacode-Relay-Error: host-offline\r\n" in response, response)
+        }
+        Thread.sleep(500)
+        assertEquals(1, server.requestCount)
+        assertTrue(request(tunnel.origin).startsWith("HTTP/1.1 503 "))
+        assertEquals(2, server.requestCount)
+      }
+    }
+  }
+
+  @Test
+  fun relayRejectionsMapToLocalGatewayAnswers() {
+    for ((status, expected) in listOf(
+      429 to "HTTP/1.1 503 Service Unavailable\r\nX-Supacode-Relay-Error: relay-busy",
+      503 to "HTTP/1.1 503 Service Unavailable\r\nX-Supacode-Relay-Error: relay-busy",
+      500 to "HTTP/1.1 502 Bad Gateway\r\nX-Supacode-Relay-Error: relay-unreachable",
+    )) {
+      MockWebServer().use { server ->
+        server.enqueue(MockResponse().setResponseCode(status))
+        NativeTunnel(
+          server.url("/").toString().replaceFirst("http", "ws"),
+          vector.getString("address"),
+        ).use { tunnel ->
+          val response = request(tunnel.origin)
+          assertTrue(response.startsWith(expected), "$status: $response")
         }
       }
     }
@@ -84,21 +166,23 @@ class NativeTunnelTest {
           if (it["reason"] != null) down.complete(it)
         },
       ).use { tunnel ->
+        val client = openStream(tunnel.origin)
         connected.get(10, TimeUnit.SECONDS)
         tunnel.background(100)
         tunnel.resume(300)
-        assertEquals(TunnelMux.frame(6, 0).hex(), host.records.poll(10, TimeUnit.SECONDS)?.hex())
+        host.records.awaitPing()
         assertFailsWith<java.util.concurrent.TimeoutException> {
           down.get(600, TimeUnit.MILLISECONDS)
         }
         assertEquals(1, server.requestCount)
         assertEquals(1, connected.get()["sessionCount"])
+        client.close()
       }
     }
   }
 
   @Test
-  fun backgroundGraceClosesTheSessionAndForegroundReconnects() {
+  fun backgroundGraceClosesTheSessionAndTheNextRequestReconnects() {
     MockWebServer().use { server ->
       repeat(2) {
         server.enqueue(
@@ -121,13 +205,16 @@ class NativeTunnelTest {
           if (it["reason"] == "Backgrounded") down.complete(Unit)
         },
       ).use { tunnel ->
+        openStream(tunnel.origin)
         connected.get(10, TimeUnit.SECONDS)
         tunnel.background(100)
         down.get(10, TimeUnit.SECONDS)
         assertLoopbackClosed(tunnel.origin)
         assertEquals(1, server.requestCount)
         tunnel.resume()
-        reconnected.get(10, TimeUnit.SECONDS)
+        Thread.sleep(300)
+        assertEquals(1, server.requestCount)
+        openStream(tunnel.origin).use { reconnected.get(10, TimeUnit.SECONDS) }
       }
     }
   }
@@ -149,7 +236,7 @@ class NativeTunnelTest {
   }
 
   @Test
-  fun foregroundProbeReplacesASilentSessionBeforeKeepaliveExpiry() {
+  fun foregroundProbeDropsASilentSessionWithoutRedialing() {
     MockWebServer().use { server ->
       repeat(2) {
         server.enqueue(
@@ -172,10 +259,13 @@ class NativeTunnelTest {
           if (it["reason"] == "Relay resume probe timed out") failed.complete(Unit)
         },
       ).use { tunnel ->
+        openStream(tunnel.origin)
         connected.get(10, TimeUnit.SECONDS)
         tunnel.resume(100)
         failed.get(10, TimeUnit.SECONDS)
-        reconnected.get(10, TimeUnit.SECONDS)
+        Thread.sleep(300)
+        assertEquals(1, server.requestCount)
+        openStream(tunnel.origin).use { reconnected.get(10, TimeUnit.SECONDS) }
         assertEquals(2, server.requestCount)
       }
     }
@@ -192,9 +282,11 @@ class NativeTunnelTest {
         vector.getString("address"),
         onStatus = { if (it["reason"] == "Relay session timed out") down.complete(it) },
         keepaliveMillis = 50,
-      ).use {
-        assertEquals(TunnelMux.frame(6, 0).hex(), host.records.poll(10, TimeUnit.SECONDS)?.hex())
-        assertEquals("down", down.get(10, TimeUnit.SECONDS)["state"])
+      ).use { tunnel ->
+        openStream(tunnel.origin).use {
+          host.records.awaitPing()
+          assertEquals("down", down.get(10, TimeUnit.SECONDS)["state"])
+        }
       }
     }
   }

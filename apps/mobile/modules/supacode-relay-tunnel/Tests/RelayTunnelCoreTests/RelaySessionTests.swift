@@ -11,6 +11,7 @@ private final class FakeRelay: @unchecked Sendable {
   private let listener: NWListener
   private var connection: NWConnection?
   private var cipher: RelayCipher?
+  var silent = false
 
   var address: String {
     let hex = signing.publicKey.rawRepresentation.hex
@@ -68,7 +69,7 @@ private final class FakeRelay: @unchecked Sendable {
         self.continuation.finish(); return
       }
       do {
-        if opcode == .text { try self.welcome(data) }
+        if opcode == .text && !self.silent { try self.welcome(data) }
         if opcode == .binary, let cipher = self.cipher {
           for frame in try decodeFrames(cipher.open(data)) { self.continuation.yield(frame) }
         }
@@ -99,28 +100,152 @@ private final class FakeRelay: @unchecked Sendable {
   }
 }
 
+private final class RejectingRelay: @unchecked Sendable {
+  let address = "https://\(String(repeating: "ab", count: 16)).\(String(repeating: "cd", count: 16)).relay.supacode.invalid/"
+  private let status: String
+  private let delay: TimeInterval
+  private let queue = DispatchQueue(label: "rejecting-relay")
+  private let listener: NWListener
+  private var count = 0
+  var dials: Int { queue.sync { count } }
+
+  init(status: String, delay: TimeInterval = 0) throws {
+    self.status = status; self.delay = delay
+    let parameters = NWParameters.tcp
+    parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+    listener = try NWListener(using: parameters)
+  }
+
+  func start() async throws -> String {
+    try await withCheckedThrowingContinuation { ready in
+      listener.stateUpdateHandler = { [weak self] state in
+        guard let self else { return }
+        switch state {
+        case .ready:
+          self.listener.stateUpdateHandler = nil
+          ready.resume(returning: "ws://127.0.0.1:\(self.listener.port?.rawValue ?? 0)")
+        case .failed(let error):
+          self.listener.stateUpdateHandler = nil
+          ready.resume(throwing: error)
+        default: break
+        }
+      }
+      listener.newConnectionHandler = { [weak self] connection in self?.reject(connection) }
+      listener.start(queue: queue)
+    }
+  }
+
+  func stop() { queue.async { self.listener.cancel() } }
+
+  private func reject(_ connection: NWConnection) {
+    count += 1
+    connection.start(queue: queue)
+    connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [self] _, _, _, _ in
+      let body = #"{"error":"rejected"}"#
+      let response = "HTTP/1.1 \(status)\r\nContent-Type: application/json\r\nContent-Length: \(body.utf8.count)\r\n" +
+        "Connection: close\r\n\r\n\(body)"
+      queue.asyncAfter(deadline: .now() + delay) {
+        connection.send(content: Data(response.utf8), contentContext: .finalMessage, isComplete: true,
+                        completion: .contentProcessed { _ in connection.cancel() })
+      }
+    }
+  }
+}
+
+private func localSession() -> URLSession {
+  let config = URLSessionConfiguration.ephemeral
+  config.connectionProxyDictionary = [:]
+  config.timeoutIntervalForRequest = 5
+  return URLSession(configuration: config)
+}
+
+private func describe(_ session: URLSession, _ origin: String) async throws -> HTTPURLResponse {
+  let (_, response) = try await session.data(from: try XCTUnwrap(URL(string: origin + "/.well-known/supacode/environment")))
+  return try XCTUnwrap(response as? HTTPURLResponse)
+}
+
+private func openStream(_ origin: String) throws -> NWConnection {
+  let port = try XCTUnwrap(URL(string: origin)?.port)
+  let client = NWConnection(host: "127.0.0.1", port: try XCTUnwrap(NWEndpoint.Port(rawValue: UInt16(port))), using: .tcp)
+  client.start(queue: .global())
+  client.send(content: Data("GET / HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\n\r\n".utf8), completion: .idempotent)
+  return client
+}
+
 final class RelaySessionTests: XCTestCase {
-  func testResumeRebindPreservesTheRelaySessionStatus() async throws {
+  func testOfflineHostAnswersEveryWaitingRequestWithoutRedialing() async throws {
+    let relay = try RejectingRelay(status: "404 Not Found", delay: 0.2)
+    defer { relay.stop() }
+    let tunnel = try RelayTunnel(relayURL: try await relay.start(), hostAddress: relay.address)
+    let origin = try await tunnel.start(port: 0)
+    let session = localSession()
+    defer { session.invalidateAndCancel() }
+
+    let responses = try await withThrowingTaskGroup(of: HTTPURLResponse.self) { group in
+      for _ in 0..<3 { group.addTask { try await describe(session, origin) } }
+      return try await group.reduce(into: []) { $0.append($1) }
+    }
+    XCTAssertEqual(responses.map(\.statusCode), [503, 503, 503])
+    XCTAssertEqual(responses.map { $0.value(forHTTPHeaderField: "X-Supacode-Relay-Error") },
+                   Array(repeating: "host-offline", count: 3))
+    try await Task.sleep(nanoseconds: 500_000_000)
+    XCTAssertEqual(relay.dials, 1)
+
+    let next = try await describe(session, origin)
+    XCTAssertEqual(next.statusCode, 503)
+    XCTAssertEqual(relay.dials, 2)
+    await tunnel.stop()
+  }
+
+  func testRelayRejectionsMapToLocalGatewayAnswers() async throws {
+    for (status, local, code) in [("429 Too Many Requests", 503, "relay-busy"),
+                                  ("503 Service Unavailable", 503, "relay-busy"),
+                                  ("500 Internal Server Error", 502, "relay-unreachable")] {
+      let relay = try RejectingRelay(status: status)
+      let tunnel = try RelayTunnel(relayURL: try await relay.start(), hostAddress: relay.address)
+      let origin = try await tunnel.start(port: 0)
+      let session = localSession()
+      let response = try await describe(session, origin)
+      XCTAssertEqual(response.statusCode, local, status)
+      XCTAssertEqual(response.value(forHTTPHeaderField: "X-Supacode-Relay-Error"), code, status)
+      session.invalidateAndCancel(); await tunnel.stop(); relay.stop()
+    }
+  }
+
+  func testHandshakeTimeoutAnswersWithGatewayTimeout() async throws {
+    let relay = try FakeRelay()
+    relay.silent = true
+    defer { relay.stop() }
+    let tunnel = try RelayTunnel(relayURL: try await relay.start(), hostAddress: relay.address, handshakeTimeout: 0.2)
+    let origin = try await tunnel.start(port: 0)
+    let session = localSession()
+    defer { session.invalidateAndCancel() }
+    let response = try await describe(session, origin)
+    XCTAssertEqual(response.statusCode, 504)
+    XCTAssertEqual(response.value(forHTTPHeaderField: "X-Supacode-Relay-Error"), "relay-timeout")
+    await tunnel.stop()
+  }
+
+  func testResumeRebindsWithoutDialingUntilARequestArrives() async throws {
     let relay = try FakeRelay()
     defer { relay.stop() }
     let url = try await relay.start()
-    let connected = expectation(description: "relay connected")
+    let connected = expectation(description: "relay connected on demand")
     var states: [String] = []
     let tunnel = try RelayTunnel(relayURL: url, hostAddress: relay.address) { status in
       states.append(status.state)
-      if status.state == "up" && status.sessionCount == 1 { connected.fulfill() }
+      if status.state == "up" { connected.fulfill() }
     }
     let origin = try await tunnel.start(port: 0)
     _ = try await tunnel.resume()
-    await fulfillment(of: [connected], timeout: 5)
     tunnel.suspend()
-    tunnel.queue.sync { states.removeAll() }
 
     let resumed = try await tunnel.resume()
     XCTAssertEqual(resumed, origin)
-    let resumedStates = tunnel.queue.sync { states }
-    XCTAssertEqual(resumedStates.first, "connecting")
-    XCTAssertFalse(resumedStates.contains("down"))
+    XCTAssertFalse(tunnel.queue.sync { states }.contains("connecting"))
+    let client = try openStream(origin)
+    defer { client.cancel() }
+    await fulfillment(of: [connected], timeout: 5)
     await tunnel.stop()
   }
 
@@ -136,8 +261,8 @@ final class RelaySessionTests: XCTestCase {
       if status.state == "up" { connected.fulfill() }
       if status.reason == "Relay resume probe timed out" { failed.fulfill() }
     }
-    _ = try await tunnel.start(port: 0)
-    _ = try await tunnel.resume()
+    let client = try openStream(try await tunnel.start(port: 0))
+    defer { client.cancel() }
     await fulfillment(of: [connected], timeout: 5)
     let listener = try XCTUnwrap(tunnel.listener)
     let responses = Task {
@@ -161,15 +286,18 @@ final class RelaySessionTests: XCTestCase {
     let url = try await relay.start()
     let connected = expectation(description: "relay connected")
     let failed = expectation(description: "resume probe failed")
+    var states: [String] = []
     let tunnel = try RelayTunnel(relayURL: url, hostAddress: relay.address, probeTimeout: 0.1) { status in
+      states.append(status.state)
       if status.state == "up" && status.sessionCount == 1 { connected.fulfill() }
       if status.reason == "Relay resume probe timed out" { failed.fulfill() }
     }
-    _ = try await tunnel.start(port: 0)
-    _ = try await tunnel.resume()
+    let client = try openStream(try await tunnel.start(port: 0))
+    defer { client.cancel() }
     await fulfillment(of: [connected], timeout: 5)
     _ = try await tunnel.resume()
     await fulfillment(of: [failed], timeout: 5)
+    XCTAssertEqual(tunnel.queue.sync { states }.last, "down")
     await tunnel.stop()
   }
 

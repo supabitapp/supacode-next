@@ -32,6 +32,13 @@ supervisor retains established sessions but parks connection attempts and
 retries. Expected background disconnects do not become connection failures in the
 foreground UI.
 
+Native tunnels never retry on their own. A relay attempt that fails before its
+session is up answers every waiting loopback request with a 5xx carrying
+`X-Supacode-Relay-Error`, and the supervisor's backoff decides when to dial again.
+A tunnel cannot see a client abandon a loopback request, so a tunnel-side retry
+loop keeps dialing an offline host long after the client gave up. Offline hosts
+answer 503 rather than 404, because a declared 404 blocks the environment.
+
 The [registry](../../packages/client-runtime/src/connection/registry.ts) scopes
 connections by environment. An involuntary disconnect retains the registration
 and cached data. Explicit removal closes the scope and clears credentials,

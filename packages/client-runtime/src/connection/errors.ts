@@ -1,5 +1,6 @@
 import type { EnvironmentId } from "@supacode/contracts";
 import type { RemoteEnvironmentAuthError } from "../authorization/remote.ts";
+import type { RelayTunnelFailure } from "../rpc/http.ts";
 import {
   ConnectionBlockedError,
   type ConnectionAttemptError,
@@ -78,11 +79,41 @@ export function mapRemoteEnvironmentError(
         detail: "The environment could not authorize the connection.",
         traceId: error.traceId,
       });
-    case "RemoteEnvironmentAuthInvalidJsonError":
     case "RemoteEnvironmentAuthUndeclaredStatusError":
+      if (error.relayFailure !== undefined) return relayTunnelError(error.relayFailure);
       return new ConnectionTransientError({
         reason: "remote-unavailable",
         detail: error.message,
+      });
+    case "RemoteEnvironmentAuthInvalidJsonError":
+      return new ConnectionTransientError({
+        reason: "remote-unavailable",
+        detail: error.message,
+      });
+  }
+}
+
+function relayTunnelError(failure: RelayTunnelFailure): ConnectionTransientError {
+  switch (failure) {
+    case "host-offline":
+      return new ConnectionTransientError({
+        reason: "endpoint-unavailable",
+        detail: "The environment is offline. Make sure Supacode is running on that computer.",
+      });
+    case "relay-busy":
+      return new ConnectionTransientError({
+        reason: "remote-unavailable",
+        detail: "The relay is busy right now.",
+      });
+    case "relay-timeout":
+      return new ConnectionTransientError({
+        reason: "timeout",
+        detail: "The relay did not respond in time.",
+      });
+    case "relay-unreachable":
+      return new ConnectionTransientError({
+        reason: "network",
+        detail: "The relay could not be reached.",
       });
   }
 }
