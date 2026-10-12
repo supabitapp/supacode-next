@@ -211,7 +211,7 @@ export function HomeRouteScreen() {
 
   return (
     <AndroidHomeFabLayout
-      disabled={workspace !== null && Platform.OS !== "android"}
+      disabled={workspace !== null && !layout.usesSplitView}
       onStartNewTask={startNewTask}
     >
       <>

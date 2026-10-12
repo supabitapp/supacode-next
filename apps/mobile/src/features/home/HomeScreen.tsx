@@ -91,7 +91,6 @@ import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
-import { ThreadListFilters } from "./ThreadListFilters";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -980,21 +979,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
 
-  const v2ListHeader = (
-    <>
-      {listHeader}
-      {Platform.OS === "ios" && workspace ? (
-        <ThreadListFilters
-          environments={props.environments}
-          projects={projectScopes.map((scope) => ({ key: scope.key, label: scope.title }))}
-          selectedEnvironmentId={props.selectedEnvironmentId}
-          selectedProjectKey={props.selectedProjectKey}
-          onEnvironmentChange={props.onEnvironmentChange}
-          onProjectChange={props.onProjectChange}
-        />
-      ) : null}
-    </>
-  );
+  const v2ListHeader = <>{listHeader}</>;
 
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.

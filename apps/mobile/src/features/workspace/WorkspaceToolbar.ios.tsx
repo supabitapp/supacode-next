@@ -1,8 +1,5 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { use, useCallback, useEffect, useRef } from "react";
-import { Platform } from "react-native";
-import { useNativeLayoutMetrics } from "../../native/native-layout-metrics";
-import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import type { SearchBarCommands } from "react-native-screens";
 
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
@@ -11,20 +8,12 @@ import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 
-/** Root actions stay in the header; UIKit owns the bottom compose button. */
 export function WorkspaceToolbar(props: {
   readonly onNewTask: () => void;
   readonly sidebar?: boolean;
 }) {
   const workspace = useWorkspaceTabs()!;
   const navigation = useNavigation();
-  const metrics = useNativeLayoutMetrics();
-  // The phone tab bar's compose action needs iOS 26, so earlier iPhones get it here.
-  const nativeToolbarCompose =
-    Platform.OS === "ios" &&
-    (Platform.isPad ||
-      (metrics?.verticalBarEdge ?? "none") !== "none" ||
-      !NATIVE_LIQUID_GLASS_SUPPORTED);
   const { isTabActive } = workspace;
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
   const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
@@ -114,18 +103,6 @@ export function WorkspaceToolbar(props: {
           icon="magnifyingglass"
           onPress={focusSearch}
         />
-      </NativeHeaderToolbar>
-      <NativeHeaderToolbar placement="bottom">
-        {nativeToolbarCompose ? <NativeHeaderToolbar.Spacer flexible /> : null}
-        {nativeToolbarCompose ? (
-          <NativeHeaderToolbar.Button
-            identifier="workspace-compose"
-            accessibilityLabel="New chat"
-            icon="square.and.pencil"
-            onPress={props.onNewTask}
-            separateBackground
-          />
-        ) : null}
       </NativeHeaderToolbar>
     </>
   );

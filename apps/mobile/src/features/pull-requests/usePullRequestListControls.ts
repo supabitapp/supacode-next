@@ -44,5 +44,12 @@ export function usePullRequestListControls() {
       }),
     [savePreferences],
   );
-  return { environmentId, controlsFor, setEnvironmentId, setControls } as const;
+  const reset = useCallback(
+    () =>
+      savePreferences({
+        pullRequestListFilters: { environmentId: null, controls: {} },
+      }),
+    [savePreferences],
+  );
+  return { environmentId, controlsFor, setEnvironmentId, setControls, reset } as const;
 }

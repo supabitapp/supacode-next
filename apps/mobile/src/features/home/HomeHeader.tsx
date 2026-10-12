@@ -1,3 +1,5 @@
+import { WorkspaceDock } from "../workspace/WorkspaceDock";
+import { ThreadListFilters } from "./ThreadListFilters";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { use, useCallback, useEffect, useRef } from "react";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
@@ -58,7 +60,13 @@ export function HomeHeader(props: HomeHeaderProps) {
   const filterMenu = buildHomeListFilterMenu(props);
 
   if (props.usesWorkspaceToolbar) {
-    return null;
+    return (
+      <WorkspaceDock
+        floating
+        onNewTask={props.onStartNewTask}
+        filter={<ThreadListFilters {...props} />}
+      />
+    );
   }
 
   return (

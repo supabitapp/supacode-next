@@ -5,25 +5,25 @@ import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { MaterialScreenContent } from "../../components/MaterialScreenContent";
-import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { HomeRouteScreen } from "../home/HomeRouteScreen";
 import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
 import { MaterialPullRequestToolbar } from "../pull-requests/MaterialPullRequestToolbar.android";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
-import { AndroidWorkspaceNavigation } from "./AndroidWorkspaceNavigation";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { WORKSPACE_DOCK } from "./workspace-tabs-state";
 
 export function WorkspaceRootScreen() {
   const { layout } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs()!;
   const insets = useSafeAreaInsets();
-  const { fabClearance } = useAndroidControlSizing();
+  const bottomClearance =
+    Math.max(insets.bottom, 12) + WORKSPACE_DOCK.bottomGap + WORKSPACE_DOCK.height + 16;
   const context = useMemo(
     () => ({
       ...workspace,
-      bottomClearance: workspace.state.selectedTab === "threads" ? fabClearance + 16 : 16,
+      bottomClearance,
     }),
-    [workspace, fabClearance],
+    [workspace, bottomClearance],
   );
 
   // Split lists live beside the navigator; Home remains an empty detail pane.
@@ -49,7 +49,7 @@ export function WorkspaceRootScreen() {
     <WorkspaceTabsContext value={context}>
       <View className="flex-1 bg-header">
         <NativeStackScreenOptions options={{ headerShown: false }} />
-        <SafeAreaInsetsContext value={{ ...insets, bottom: 0 }}>
+        <SafeAreaInsetsContext value={insets}>
           <View className="flex-1">
             {workspace.state.selectedTab === "threads" ? (
               <HomeRouteScreen />
@@ -63,7 +63,6 @@ export function WorkspaceRootScreen() {
             )}
           </View>
         </SafeAreaInsetsContext>
-        <AndroidWorkspaceNavigation />
       </View>
     </WorkspaceTabsContext>
   );

@@ -29,6 +29,7 @@ export function MaterialThreadListToolbar(props: {
   readonly onSearchQueryChange: (query: string) => void;
   readonly filterActions: MenuAction[];
   readonly filterCustomized: boolean;
+  readonly showFloatingFilter?: boolean;
   readonly onFilterAction: NonNullable<ComponentProps<typeof ControlPillMenu>["onPressAction"]>;
   readonly onOpenSettings: () => void;
   readonly onOpenEnvironments: () => void;
@@ -140,7 +141,7 @@ export function MaterialThreadListToolbar(props: {
         </View>
       </View>
       {/* Keep the filter above the New thread FAB at every text size. */}
-      {state.hasConnections ? (
+      {state.hasConnections && props.showFloatingFilter !== false ? (
         <View
           className="absolute right-5 z-[5]"
           style={{

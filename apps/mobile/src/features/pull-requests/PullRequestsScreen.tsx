@@ -1,3 +1,5 @@
+import { WorkspaceDock } from "../workspace/WorkspaceDock";
+import { useStartNewTask } from "../threads/use-start-new-task";
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -59,6 +61,7 @@ export function PullRequestsScreen(
     readonly selectedPullRequestKey?: string | null;
   } = {},
 ) {
+  const startNewTask = useStartNewTask();
   const navigation = useNavigation();
   const primaryColumn = use(NativePrimaryColumnContext);
   const workspace = useWorkspaceTabs()!;
@@ -270,29 +273,6 @@ export function PullRequestsScreen(
         renderItem={renderPullRequest}
         ListHeaderComponent={
           <>
-            <PullRequestListFilters
-              environments={environments.map((item) => ({
-                id: String(item.environmentId),
-                label: item.environmentLabel,
-              }))}
-              environmentId={environmentId}
-              onEnvironmentChange={listControls.setEnvironmentId}
-              value={controls}
-              onChange={(next) => {
-                listControls.setControls(environmentId, next);
-                void listRef.current?.scrollToOffset({
-                  offset: Platform.OS === "ios" ? -insets.top : 0,
-                  animated: false,
-                });
-              }}
-              authors={
-                knownFacets.environmentId === environmentId ? knownFacets.authors : facets.authors
-              }
-              labels={
-                knownFacets.environmentId === environmentId ? knownFacets.labels : facets.labels
-              }
-              projects={projects}
-            />
             {result.data?.errors.length ? (
               <Text className="px-4 py-3 text-sm text-foreground-muted">
                 {result.data.errors
@@ -356,6 +336,36 @@ export function PullRequestsScreen(
               />
             </View>
           )
+        }
+      />
+      <WorkspaceDock
+        floating
+        onNewTask={startNewTask}
+        filter={
+          <PullRequestListFilters
+            environments={environments.map((item) => ({
+              id: String(item.environmentId),
+              label: item.environmentLabel,
+            }))}
+            environmentId={environmentId}
+            onEnvironmentChange={listControls.setEnvironmentId}
+            onReset={listControls.reset}
+            value={controls}
+            onChange={(next) => {
+              listControls.setControls(environmentId, next);
+              void listRef.current?.scrollToOffset({
+                offset: Platform.OS === "ios" ? -insets.top : 0,
+                animated: false,
+              });
+            }}
+            authors={
+              knownFacets.environmentId === environmentId ? knownFacets.authors : facets.authors
+            }
+            labels={
+              knownFacets.environmentId === environmentId ? knownFacets.labels : facets.labels
+            }
+            projects={projects}
+          />
         }
       />
     </View>

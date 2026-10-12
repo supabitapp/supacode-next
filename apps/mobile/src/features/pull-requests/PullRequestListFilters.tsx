@@ -1,7 +1,7 @@
-import { ScrollView } from "react-native";
+import { ControlPillMenu } from "../../components/ControlPillMenu";
+import { SidebarFilterButton } from "../threads/sidebar-filter-button";
 import type { ControlPillMenuProps } from "../../components/ControlPillMenu.types";
-import { ListFilterMenu } from "../workspace/ListFilterMenu";
-import { DEFAULT_PR_LIST_CONTROLS, type PullRequestListControls } from "./pullRequestList";
+import type { PullRequestListControls } from "./pullRequestList";
 
 const STATES = { open: "Open", closed: "Closed", merged: "Merged", all: "All states" } as const;
 const INVOLVEMENT = { all: "All PRs", reviewing: "Your review", authored: "By you" } as const;
@@ -34,6 +34,7 @@ export function PullRequestListFilters(props: {
   readonly onEnvironmentChange: (id: string | null) => void;
   readonly value: PullRequestListControls;
   readonly onChange: (value: PullRequestListControls) => void;
+  readonly onReset: () => void;
   readonly authors: readonly string[];
   readonly labels: readonly string[];
   readonly projects: readonly { id: string; title: string; environmentId: string }[];
@@ -64,7 +65,7 @@ export function PullRequestListFilters(props: {
           props.onEnvironmentChange(next);
         break;
       case "reset":
-        props.onChange(DEFAULT_PR_LIST_CONTROLS);
+        props.onReset();
         break;
       case "state":
         props.onChange({ ...value, state: next as PullRequestListControls["state"] });
@@ -185,92 +186,76 @@ export function PullRequestListFilters(props: {
     {
       id: id("reset", ""),
       title: "Reset filters",
-      attributes: { disabled: count === 0 && value.sort === "updated" },
+      attributes: {
+        disabled: count === 0 && value.sort === "updated" && props.environmentId === null,
+      },
     },
   ];
   const labels = [...new Set([...selectedLabels, ...props.labels])].slice(0, 60);
   const authors = [
     ...new Set([...(author && author !== "me" ? [author] : []), ...props.authors]),
   ].slice(0, 60);
+  const actions: ControlPillMenuProps["actions"] = [
+    {
+      id: "environment",
+      title: "Environment",
+      subactions: choices(
+        "environment",
+        Object.fromEntries([
+          ["", "All environments"],
+          ...props.environments.map((environment) => [environment.id, environment.label]),
+        ]),
+        props.environmentId ?? "",
+      ),
+    },
+    { id: "state", title: "State", subactions: choices("state", STATES, value.state) },
+    {
+      id: "involvement",
+      title: "Involvement",
+      subactions: choices("involvement", INVOLVEMENT, value.involvement),
+    },
+    {
+      id: "labels",
+      title: "Labels",
+      subactions: [
+        { id: id("labels", ""), title: "All labels", state: selectedLabels.length ? "off" : "on" },
+        ...labels.map((label) => ({
+          id: id("label", label),
+          title: label,
+          state: selectedLabelSet.has(label) ? ("on" as const) : ("off" as const),
+        })),
+      ],
+    },
+    {
+      id: "author",
+      title: "Author",
+      subactions: choices(
+        "author",
+        Object.fromEntries([
+          ["", "All authors"],
+          ["me", "Me"],
+          ...authors.map((login) => [login, login]),
+        ]),
+        author ?? "",
+      ),
+    },
+    ...more,
+  ];
+  const customized = count > 0 || props.environmentId !== null || value.sort !== "updated";
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 10, gap: 8 }}
+    <ControlPillMenu
+      title="Pull request filters"
+      actions={actions}
+      onPressAction={({ nativeEvent }) => select(nativeEvent.event)}
     >
-      <ListFilterMenu
-        label={count ? String(count) : "Filters"}
-        icon
-        active={count > 0}
-        accessibilityLabel={count ? `Filters, ${count} active` : "More filters"}
-        actions={more}
-        onSelect={select}
+      <SidebarFilterButton
+        accessibilityLabel="Filter pull requests"
+        icon={
+          customized
+            ? "line.3.horizontal.decrease.circle.fill"
+            : "line.3.horizontal.decrease.circle"
+        }
       />
-      {props.environments.length > 1 ? (
-        <ListFilterMenu
-          label={
-            props.environments.find((environment) => environment.id === props.environmentId)
-              ?.label ?? "All environments"
-          }
-          accessibilityLabel="Choose pull request environment"
-          actions={choices(
-            "environment",
-            Object.fromEntries([
-              ["", "All environments"],
-              ...props.environments.map((environment) => [environment.id, environment.label]),
-            ]),
-            props.environmentId ?? "",
-          )}
-          onSelect={select}
-        />
-      ) : null}
-      <ListFilterMenu
-        label={STATES[value.state]}
-        active={value.state !== "open"}
-        accessibilityLabel="Filter by state"
-        actions={choices("state", STATES, value.state)}
-        onSelect={select}
-      />
-      <ListFilterMenu
-        label={INVOLVEMENT[value.involvement]}
-        active={value.involvement !== "all"}
-        accessibilityLabel="Filter by involvement"
-        actions={choices("involvement", INVOLVEMENT, value.involvement)}
-        onSelect={select}
-      />
-      <ListFilterMenu
-        label={selectedLabels.length ? `Labels ${selectedLabels.length}` : "Labels"}
-        active={selectedLabels.length > 0}
-        accessibilityLabel="Filter by label"
-        actions={[
-          {
-            id: id("labels", ""),
-            title: "All labels",
-            state: selectedLabels.length ? "off" : "on",
-          },
-          ...labels.map((label) => ({
-            id: id("label", label),
-            title: label,
-            state: selectedLabelSet.has(label) ? ("on" as const) : ("off" as const),
-          })),
-        ]}
-        onSelect={select}
-      />
-      <ListFilterMenu
-        label={author === "me" ? "By you" : (author ?? "Author")}
-        active={Boolean(author)}
-        accessibilityLabel="Filter by author"
-        actions={choices(
-          "author",
-          Object.fromEntries([
-            ["", "All authors"],
-            ["me", "Me"],
-            ...authors.map((login) => [login, login]),
-          ]),
-          author ?? "",
-        )}
-        onSelect={select}
-      />
-    </ScrollView>
+    </ControlPillMenu>
   );
 }

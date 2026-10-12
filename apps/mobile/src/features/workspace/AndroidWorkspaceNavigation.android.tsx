@@ -1,13 +1,5 @@
 import { requireNativeView } from "expo";
-import { CommonActions, useNavigation } from "@react-navigation/native";
-import { androidWorkspaceNavigationState } from "../../lib/android-workspace-navigation";
-import {
-  Keyboard,
-  processColor,
-  View,
-  type NativeSyntheticEvent,
-  type ViewProps,
-} from "react-native";
+import { processColor, View, type NativeSyntheticEvent, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardState } from "react-native-keyboard-controller";
 
@@ -16,6 +8,7 @@ import { androidWorkspaceNavigationColors } from "./android-workspace-navigation
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import type { WorkspaceTab } from "./workspace-tabs-state";
+import { useWorkspaceTabSelection } from "./useWorkspaceTabSelection";
 
 export const ANDROID_WORKSPACE_RAIL_WIDTH = 80;
 
@@ -43,7 +36,7 @@ export function AndroidWorkspaceNavigation(props: {
   readonly onSelect?: () => void;
 }) {
   const workspace = useWorkspaceTabs()!;
-  const navigation = useNavigation();
+  const selectTab = useWorkspaceTabSelection();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
@@ -77,14 +70,7 @@ export function AndroidWorkspaceNavigation(props: {
         indicatorColor={nativeColor(indicatorColor)}
         unselectedColor={nativeColor(unselectedColor)}
         onTabSelected={(event) => {
-          Keyboard.dismiss();
-          const tab = event.nativeEvent.tab;
-          if (tab !== workspace.state.selectedTab) {
-            workspace.dispatch({ type: "select", tab });
-            navigation.dispatch((state) =>
-              CommonActions.reset(androidWorkspaceNavigationState(state)),
-            );
-          }
+          selectTab(event.nativeEvent.tab);
           props.onSelect?.();
         }}
         style={rail ? { flex: 1 } : { height: 80 * Math.max(1, scale) }}
