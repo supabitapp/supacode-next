@@ -7,6 +7,7 @@ import {
 import { createModelSelection } from "@supacode/shared/model";
 import { resolveProjectSettings } from "@supacode/shared/projectSettings";
 import { useNavigate } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { getCustomModelOptionsByInstance } from "../../modelSelection";
 import {
@@ -51,7 +52,13 @@ function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules
   return value !== null && (WORKTREE_SUBMODULES_OPTIONS as readonly string[]).includes(value);
 }
 
-export function ProjectDefaultsSettings({ category }: { category: ProjectSettingsCategory }) {
+export function ProjectDefaultsSettings({
+  category,
+  children,
+}: {
+  category: ProjectSettingsCategory;
+  children?: ReactNode;
+}) {
   const { scope, target, targets, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
@@ -137,11 +144,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       mixed={mixedModel}
       id="default-model"
       title="Model"
-      description={
-        isProjectScope
-          ? "Model for new threads in this project."
-          : "Default model for new threads. Projects can override it."
-      }
       status={
         unavailable || mixedModel || modelSource === "project"
           ? undefined
@@ -207,11 +209,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       mixed={mixedWorkspace}
       id={searchableSetting("new-threads").id}
       title="Workspace"
-      description={
-        isProjectScope
-          ? "Where new threads in this project start."
-          : "Where new threads start. Projects and their supacode.json can override it."
-      }
       resetAction={
         !isProjectScope && settings.defaultThreadEnvMode !== null ? (
           <SettingResetButton
@@ -254,7 +251,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         category === "general" || category === "project"
           ? "project-defaults"
           : category === "integrations"
-            ? "browser-access"
+            ? "browser"
             : "source-control-defaults"
       }
       title={
@@ -278,11 +275,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             settingKeys={["defaultRuntimeMode"]}
             mixed={mixedPermissions}
             {...searchableSetting("default-permissions")}
-            description={
-              isProjectScope
-                ? "Permissions for new threads in this project."
-                : "Default permissions for new threads. Projects can override them."
-            }
             resetAction={
               settings.defaultRuntimeMode !== DEFAULT_SERVER_SETTINGS.defaultRuntimeMode ? (
                 <SettingResetButton
@@ -340,11 +332,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             settingKeys={["worktreeSubmodules"]}
             mixed={mixedSubmodules}
             {...searchableSetting("worktree-submodules")}
-            description={
-              isProjectScope
-                ? "How new worktrees in this project populate git submodules."
-                : "How new worktrees populate git submodules. Projects and their supacode.json can override it."
-            }
             resetAction={
               !isProjectScope && settings.worktreeSubmodules !== null ? (
                 <SettingResetButton
@@ -390,11 +377,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             mixed={mixedAutoPull}
             id="automatic-pull"
             title="Automatically pull"
-            description={
-              isProjectScope
-                ? "Keeps this project's default branch current when the checkout has no local changes or commits."
-                : "Keeps the default branch current when the checkout has no local changes or commits. Projects can override it."
-            }
+            description="Fast-forward the default branch when the checkout is clean."
             resetAction={
               settings.defaultAutoPull ? (
                 <SettingResetButton
@@ -418,7 +401,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             settingKeys={["removeAgentCreditsOnMerge"]}
             mixed={mixedAgentCredits}
             {...searchableSetting("remove-agent-credits-on-merge")}
-            description="Remove recognized agent credit lines from GitHub merge and squash messages, keeping human co-authors. Includes auto-merge. Excludes merge queues, stack merges, and existing commits."
+            description="Strip agent credit lines from GitHub merge and squash messages."
             resetAction={
               settings.removeAgentCreditsOnMerge ? (
                 <SettingResetButton
@@ -444,11 +427,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             settingKeys={["pullRequestMergeMethod"]}
             mixed={mixedMergeMethod}
             {...searchableSetting("pull-request-merge-method")}
-            description={
-              isProjectScope
-                ? "Pull requests in this project start with this method."
-                : "Pull requests start with this method. Last selected reuses whatever you chose most recently on this device."
-            }
             resetAction={
               settings.pullRequestMergeMethod !== null ? (
                 <SettingResetButton
@@ -496,11 +474,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             mixed={mixedBrowser}
             id={searchableSetting("agent-browser-access").id}
             title="Agent browser access"
-            description={
-              isProjectScope
-                ? "Allow agents in this project to use the shared browser. Applies when the agent session next starts."
-                : "Allow agents to use the shared browser. Projects can override it."
-            }
+            description="Let agents drive the shared browser."
             resetAction={
               settings.enableAgentBrowserAccess !==
               DEFAULT_SERVER_SETTINGS.enableAgentBrowserAccess ? (
@@ -525,6 +499,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
           />
         </>
       )}
+      {children}
     </SettingsSection>
   );
 }

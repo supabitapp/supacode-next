@@ -354,15 +354,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "default-diff-file-state",
-    title: "Default diff file state",
+    title: "Collapse diff files",
     to: "/settings/general",
-    searchTerms: ["collapsed expanded collapse expand files pull request pr code tab"],
-  },
-  {
-    id: "diff-layout",
-    title: "Diff layout",
-    to: "/settings/general",
-    searchTerms: ["stacked split side by side unified inline view"],
+    searchTerms: ["default diff file state collapsed expanded expand pull request pr code tab"],
   },
   {
     id: "proactive-panels",
@@ -683,16 +677,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/integrations",
   },
   {
-    id: "browser-recording-key-presses",
-    title: "Show key presses in recordings",
+    id: "browser-recording-input",
+    title: "Show in recordings",
     to: "/settings/integrations",
-    searchTerms: ["browser preview keyboard shortcuts keystrokes overlay capture"],
-  },
-  {
-    id: "browser-recording-mouse-presses",
-    title: "Show mouse presses in recordings",
-    to: "/settings/integrations",
-    searchTerms: ["browser preview clicks buttons drag overlay capture"],
+    searchTerms: [
+      "browser preview key presses keyboard shortcuts keystrokes mouse presses clicks buttons drag overlay capture",
+    ],
   },
   {
     id: "browser-link-target",
