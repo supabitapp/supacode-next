@@ -74,6 +74,7 @@ interface BranchToolbarProps {
    */
   projectPicker?: ReactNode;
   contextStripPlacement?: "top" | "bottom";
+  usageMeter?: ReactNode;
 }
 
 const COMPOSER_CONTEXT_MOTION_DURATION_MS = 180;
@@ -301,6 +302,7 @@ export const BranchToolbar = memo(function BranchToolbar({
   contextStripVisible = true,
   projectPicker,
   contextStripPlacement = "bottom",
+  usageMeter,
 }: BranchToolbarProps) {
   const branchSelectorRef = useRef<BranchToolbarBranchSelectorHandle>(null);
   const threadRef = useMemo(
@@ -523,6 +525,11 @@ export const BranchToolbar = memo(function BranchToolbar({
           data-chat-resting-composer-controls-host="true"
           className="flex min-w-0 flex-1 items-center justify-start overflow-x-clip overflow-y-visible"
         />
+      ) : null}
+      {usageMeter ? (
+        <div className="ms-auto flex shrink-0 group-has-data-[chat-composer-resting]/composer-surface:hidden">
+          {usageMeter}
+        </div>
       ) : null}
     </ComposerSurface.ContextStrip>
   );

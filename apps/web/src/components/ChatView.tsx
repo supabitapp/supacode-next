@@ -43,6 +43,7 @@ import type { UsageLimitSourceSnapshots } from "@supacode/contracts";
 import {
   collectProviderUsageLimits,
   hasProviderUsageLimits,
+  headlineUsageWindows,
   isUsageLimitsCommand,
 } from "@supacode/shared/usageLimits";
 import { feedbackBannerItem } from "./chat/ComposerFeedback";
@@ -827,6 +828,11 @@ function formatOutgoingPrompt(params: {
   const promptEffort = resolvePromptInjectedEffort(caps, params.effort);
   return applyClaudePromptEffortPrefix(params.text, promptEffort);
 }
+
+// The shell drops its glass while the collapse animation resizes it, so drawers under the
+// composer bring their own for that stretch.
+const COMPOSER_DRAWER_STRIP_CLASS =
+  "ps-2 group-data-model-strip-transition/composer-surface:before:backdrop-blur-(--glass-blur) group-data-model-strip-transition/composer-surface:before:bg-(--chat-composer-glass-surface)/(--glass-opacity)";
 const SCRIPT_TERMINAL_COLS = 120;
 const SCRIPT_TERMINAL_ROWS = 30;
 
@@ -4449,6 +4455,14 @@ export default function ChatView(props: ChatViewProps) {
   const mountComposerModelStrip =
     routeKind === "server" && !mountComposerContextStrip && !showProviderSubagentBar;
   const showComposerModelStrip = mountComposerModelStrip && restingComposerControlsVisible;
+  const showComposerBottomContextStrip =
+    composerContextStripPlacement === "bottom" && showComposerContextStrip;
+  const showComposerUsageMeter =
+    !isMobileViewport && headlineUsageWindows(activeProviderStatus).length > 0;
+  // History scrolls behind a thread's composer, so its meter needs a strip's glass.
+  const showThreadUsageMeter = routeKind === "server" && showComposerUsageMeter;
+  const showComposerUsageStrip =
+    showThreadUsageMeter && !showComposerModelStrip && !showComposerBottomContextStrip;
   const terminalShortcutLabelOptions = useMemo(
     () => ({
       context: {
@@ -10859,6 +10873,11 @@ export default function ChatView(props: ChatViewProps) {
       composerControlsHostRef={setRestingComposerControlsHost}
       contextStripVisible={showComposerContextStrip}
       contextStripPlacement={composerContextStripPlacement}
+      usageMeter={
+        showThreadUsageMeter && showComposerBottomContextStrip ? (
+          <ComposerUsageMeter provider={activeProviderStatus} placement="strip" />
+        ) : null
+      }
       projectPicker={
         showDraftProjectPicker ? (
           <DraftProjectPicker
@@ -11140,8 +11159,9 @@ export default function ChatView(props: ChatViewProps) {
                   >
                     <ComposerSurface.Shell
                       bottomStrip={
-                        (composerContextStripPlacement === "bottom" && showComposerContextStrip) ||
-                        showComposerModelStrip
+                        showComposerBottomContextStrip ||
+                        showComposerModelStrip ||
+                        showComposerUsageStrip
                       }
                     >
                       <ComposerSurface.Host
@@ -11403,7 +11423,7 @@ export default function ChatView(props: ChatViewProps) {
                               aria-hidden={showComposerModelStrip ? undefined : true}
                               inert={showComposerModelStrip ? undefined : true}
                               className={cn(
-                                "ps-2 group-data-model-strip-transition/composer-surface:before:backdrop-blur-(--glass-blur) group-data-model-strip-transition/composer-surface:before:bg-(--chat-composer-glass-surface)/(--glass-opacity)",
+                                COMPOSER_DRAWER_STRIP_CLASS,
                                 !showComposerModelStrip &&
                                   "pointer-events-none invisible absolute inset-x-0 top-full",
                               )}
@@ -11415,10 +11435,20 @@ export default function ChatView(props: ChatViewProps) {
                             </ComposerSurface.ContextStrip>
                           ) : null}
                           {composerContextStripPlacement === "bottom" ? composerContextStrip : null}
+                          {showComposerUsageStrip ? (
+                            <ComposerSurface.ContextStrip className={COMPOSER_DRAWER_STRIP_CLASS}>
+                              <ComposerUsageMeter
+                                provider={activeProviderStatus}
+                                placement="strip"
+                              />
+                            </ComposerSurface.ContextStrip>
+                          ) : null}
                         </div>
                       </div>
                     </ComposerSurface.Shell>
-                    <ComposerUsageMeter provider={activeProviderStatus} />
+                    {routeKind === "draft" && showComposerUsageMeter ? (
+                      <ComposerUsageMeter provider={activeProviderStatus} placement="row" />
+                    ) : null}
                     <div
                       aria-hidden
                       className="h-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-[calc(env(safe-area-inset-bottom)+1.25rem)]"
