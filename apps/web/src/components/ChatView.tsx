@@ -11431,16 +11431,16 @@ export default function ChatView(props: ChatViewProps) {
                                   "pointer-events-none invisible absolute inset-x-0 top-full",
                               )}
                             >
-                              {composerUsageMeterSlot === "model-strip" ? composerUsageMeter : null}
                               <div
                                 ref={setRestingComposerControlsHost}
                                 className="min-w-0 flex-1"
                               />
+                              {composerUsageMeterSlot === "model-strip" ? composerUsageMeter : null}
                             </ComposerSurface.ContextStrip>
                           ) : null}
                           {composerContextStripPlacement === "bottom" ? composerContextStrip : null}
                           {composerUsageMeterSlot === "own-strip" ? (
-                            <ComposerSurface.ContextStrip className="ps-2">
+                            <ComposerSurface.ContextStrip className="justify-end">
                               {composerUsageMeter}
                             </ComposerSurface.ContextStrip>
                           ) : null}
