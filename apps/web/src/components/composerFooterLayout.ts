@@ -94,6 +94,25 @@ export function resolveComposerTimelineInset(input: {
     : input.overlayHeight;
 }
 
+type ComposerUsageMeterSlot = "row" | "context-strip" | "model-strip" | "own-strip";
+
+/**
+ * Where the usage meter goes. History scrolls behind a docked composer, so the meter rides a strip
+ * under it, reusing whichever strip the composer already has so collapsing swaps contents in place.
+ */
+export function resolveComposerUsageMeterSlot(input: {
+  hasUsageWindows: boolean;
+  isMobileViewport: boolean;
+  isCenteredDraft: boolean;
+  contextStripMounted: boolean;
+  modelStripMounted: boolean;
+}): ComposerUsageMeterSlot | null {
+  if (!input.hasUsageWindows || input.isMobileViewport) return null;
+  if (input.isCenteredDraft) return "row";
+  if (input.contextStripMounted) return "context-strip";
+  return input.modelStripMounted ? "model-strip" : "own-strip";
+}
+
 /**
  * Whether the overlay's composer is resting. Only a mounted composer can be:
  * a status bar in its place (a native subagent thread) never is, even if the

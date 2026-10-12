@@ -666,12 +666,14 @@ function useComposerRestingTransition(
         if (modelStrip) {
           const stripHeight = modelStrip.getBoundingClientRect().height;
           const stripOverlap = -Number.parseFloat(getComputedStyle(modelStrip).marginTop);
+          // A strip that holds content while expanded too swaps it in place instead of tucking away.
+          const stripStaysOpen = modelStrip.dataset.staysOpen === "true";
           const fromHeight =
             interruptedStripHeight ??
-            (previousCollapsedRef.current
+            (previousCollapsedRef.current || stripStaysOpen
               ? (previousModelStripHeightRef.current ?? stripHeight)
               : stripOverlap);
-          const toHeight = nextIsCollapsed ? stripHeight : stripOverlap;
+          const toHeight = nextIsCollapsed || stripStaysOpen ? stripHeight : stripOverlap;
           modelStrip.style.position = "relative";
           modelStrip.style.top = "auto";
           modelStrip.style.visibility = "visible";

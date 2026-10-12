@@ -1,7 +1,7 @@
-import type { ServerProvider, ServerProviderUsageWindow } from "@supacode/contracts";
+import type { ServerProviderUsageWindow } from "@supacode/contracts";
 import {
   formatResetsIn,
-  headlineUsageWindows,
+  type headlineUsageWindows,
   remainingPercent,
 } from "@supacode/shared/usageLimits";
 import { memo } from "react";
@@ -9,28 +9,16 @@ import { memo } from "react";
 import { useNowMinuteMs } from "../../hooks/useNowMinute";
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
-import { cn } from "~/lib/utils";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { usageFillColor } from "./ContextWindowMeter.logic";
 
 export const ComposerUsageMeter = memo(function ComposerUsageMeter({
-  provider,
-  placement,
+  windows,
 }: {
-  readonly provider: ServerProvider | null;
-  readonly placement: "row" | "strip";
+  readonly windows: ReturnType<typeof headlineUsageWindows>;
 }) {
-  const windows = headlineUsageWindows(provider);
-  if (windows.length === 0) return null;
   return (
-    <div
-      className={cn(
-        "flex items-center text-xs tabular-nums",
-        placement === "strip"
-          ? "h-6 shrink-0 gap-3 px-1"
-          : "gap-4 px-4 pt-2 transition-[opacity,visibility] duration-150 ease-out peer-has-data-[chat-composer-resting]/composer-shell:invisible peer-has-data-[chat-composer-resting]/composer-shell:opacity-0 motion-reduce:transition-none",
-      )}
-    >
+    <div className="flex h-6 items-center gap-3 px-1 text-xs tabular-nums">
       {windows.map(({ label, window }) => (
         <UsageWindowMeter key={window.id} label={label} window={window} />
       ))}
