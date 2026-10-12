@@ -29,6 +29,7 @@ import * as VcsProcess from "../vcs/VcsProcess.ts";
 
 const PROVIDER_DETECTION_CACHE_CAPACITY = 2_048;
 const PROVIDER_DETECTION_CACHE_TTL = Duration.seconds(5);
+const PROVIDER_REFINEMENT_CACHE_TTL = Duration.minutes(1);
 
 export interface SourceControlProviderRegistration {
   readonly kind: SourceControlProviderKind;
@@ -213,6 +214,23 @@ export const makeWithProviders = Effect.fn("makeSourceControlProviderRegistryWit
     const get: SourceControlProviderRegistry["Service"]["get"] = (kind) =>
       Effect.succeed(providers.get(kind) ?? unsupportedProvider(kind));
 
+    const providerRefinementCache = yield* Cache.make({
+      capacity: PROVIDER_DETECTION_CACHE_CAPACITY,
+      timeToLive: PROVIDER_REFINEMENT_CACHE_TTL,
+      lookup: (input: {
+        readonly cwd: string;
+        readonly context: SourceControlProvider.SourceControlProviderContext;
+      }) => refineUnknownRemoteProvider({ specs: discoverySpecs, process, ...input }),
+    });
+
+    const refineProviderContext = (
+      cwd: string,
+      context: SourceControlProvider.SourceControlProviderContext | null,
+    ) =>
+      context?.provider.kind === "unknown"
+        ? Cache.get(providerRefinementCache, { cwd, context })
+        : Effect.succeed(context);
+
     const detectProviderContext = Effect.fn("SourceControlProviderRegistry.detectProviderContext")(
       function* (cwd: string) {
         const handle = yield* vcsRegistry.resolve({ cwd }).pipe(
@@ -239,14 +257,7 @@ export const makeWithProviders = Effect.fn("makeSourceControlProviderRegistryWit
               }),
           ),
         );
-        const context = selectProviderContext(remotes.remotes);
-
-        return yield* refineUnknownRemoteProvider({
-          specs: discoverySpecs,
-          process,
-          cwd,
-          context,
-        });
+        return yield* refineProviderContext(cwd, selectProviderContext(remotes.remotes));
       },
     );
 
@@ -262,12 +273,7 @@ export const makeWithProviders = Effect.fn("makeSourceControlProviderRegistryWit
     const resolveHandle: SourceControlProviderRegistry["Service"]["resolveHandle"] = (input) =>
       (input.context === undefined
         ? Cache.get(providerContextCache, input.cwd)
-        : refineUnknownRemoteProvider({
-            specs: discoverySpecs,
-            process,
-            cwd: input.cwd,
-            context: input.context,
-          })
+        : refineProviderContext(input.cwd, input.context)
       ).pipe(
         Effect.map((context) => {
           const kind = context?.provider.kind ?? "unknown";
@@ -290,15 +296,20 @@ export const makeWithProviders = Effect.fn("makeSourceControlProviderRegistryWit
       get,
       resolveHandle,
       resolve: (input) => resolveHandle(input).pipe(Effect.map((handle) => handle.provider)),
-      discover: Effect.forEach(
-        discoverySpecs,
-        (spec) =>
-          probeSourceControlProvider({
-            spec,
-            process,
-            cwd: config.cwd,
-          }),
-        { concurrency: "unbounded" },
+      discover: Cache.invalidateAll(providerRefinementCache).pipe(
+        Effect.andThen(Cache.invalidateAll(providerContextCache)),
+        Effect.andThen(
+          Effect.forEach(
+            discoverySpecs,
+            (spec) =>
+              probeSourceControlProvider({
+                spec,
+                process,
+                cwd: config.cwd,
+              }),
+            { concurrency: "unbounded" },
+          ),
+        ),
       ),
     });
   },

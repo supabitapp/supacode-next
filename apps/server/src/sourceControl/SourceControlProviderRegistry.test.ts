@@ -1,11 +1,13 @@
 import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import { ChildProcessSpawner } from "effect/process";
+import * as TestClock from "effect/testing/TestClock";
 import { VcsRepositoryDetectionError } from "@supacode/contracts";
 
 import * as ServerSettings from "../serverSettings.ts";
@@ -97,7 +99,14 @@ function makeRegistry(input: {
         layerRegistry,
         layerProcess,
         Layer.mock(AzureDevOpsCli.AzureDevOpsCli)({}),
-        Layer.mock(BitbucketApi.BitbucketApi)({}),
+        Layer.mock(BitbucketApi.BitbucketApi)({
+          probeAuth: Effect.succeed({
+            status: "unknown",
+            account: Option.none(),
+            host: Option.none(),
+            detail: Option.none(),
+          }),
+        }),
         ServerSettings.ServerSettingsService.layerTest(),
         Layer.mock(GitHubApi.GitHubApi)({
           credential: (host) => Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host })),
@@ -430,5 +439,75 @@ it.effect("skips GitHub discovery for the identity resolver's empty base URL", (
       "https://githubenterprise.dev.example.com",
     );
     assert.deepStrictEqual(hosts, ["githubenterprise.dev.example.com"]);
+  }),
+);
+
+it.effect("refines an unrecognized remote once per TTL however often it is resolved", () =>
+  Effect.gen(function* () {
+    const commands: Array<string> = [];
+    const hosts: Array<string> = [];
+    const remoteUrl = "git@github-work:team/project.git";
+    const registry = yield* makeRegistry({
+      remotes: [{ name: "origin", url: remoteUrl }],
+      process: {
+        run: ({ command }) => {
+          commands.push(command);
+          return Effect.succeed(processOutput(""));
+        },
+      },
+      githubApi: {
+        credential: (host) => {
+          hosts.push(host);
+          return Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host }));
+        },
+      },
+    });
+    const context = {
+      provider: { kind: "unknown" as const, name: "github-work", baseUrl: "https://github-work" },
+      remoteName: "origin",
+      remoteUrl,
+    };
+    const resolveAll = Effect.gen(function* () {
+      yield* registry.resolveHandle({ cwd: "/repo", context });
+      yield* registry.resolveHandle({ cwd: "/repo", context });
+      const detected = yield* registry.resolveHandle({ cwd: "/repo" });
+      assert.deepStrictEqual(detected.context, context);
+    });
+
+    yield* resolveAll;
+    const probes = commands.length;
+    assert.isAbove(probes, 0);
+    assert.deepStrictEqual(hosts, ["github-work"]);
+
+    yield* resolveAll;
+    assert.strictEqual(commands.length, probes);
+    assert.deepStrictEqual(hosts, ["github-work"]);
+
+    yield* TestClock.adjust(Duration.minutes(1));
+    yield* registry.resolveHandle({ cwd: "/repo", context });
+    assert.strictEqual(commands.length, probes * 2);
+    assert.deepStrictEqual(hosts, ["github-work", "github-work"]);
+  }),
+);
+
+it.effect("applies a fresh sign-in on the next discovery instead of waiting out the cache", () =>
+  Effect.gen(function* () {
+    let signedIn = false;
+    const registry = yield* makeRegistry({
+      remotes: [{ name: "origin", url: "git@code.example.test:team/project.git" }],
+      githubApi: {
+        credential: (host) =>
+          signedIn
+            ? Effect.succeed({ token: Redacted.make("token"), fingerprint: `${host}:fingerprint` })
+            : Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host })),
+      },
+    });
+
+    assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "unknown");
+    signedIn = true;
+    assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "unknown");
+
+    yield* registry.discover;
+    assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "github");
   }),
 );
