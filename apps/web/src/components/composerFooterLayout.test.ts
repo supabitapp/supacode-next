@@ -116,7 +116,7 @@ describe("resolveComposerTimelineInset", () => {
     ).toBe(172);
   });
 
-  it("keeps timeline padding stable when the model-only strip appears on collapse", () => {
+  it("keeps timeline padding stable across collapse and expansion", () => {
     const expanded = resolveComposerTimelineInset({
       currentInset: 0,
       overlayHeight: 172,
@@ -126,7 +126,6 @@ describe("resolveComposerTimelineInset", () => {
       currentInset: expanded,
       overlayHeight: 110,
       isResting: true,
-      restingOnlyHeight: 32,
     });
     expect(collapsed).toBe(expanded);
     expect(

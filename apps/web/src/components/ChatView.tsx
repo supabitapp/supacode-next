@@ -2092,6 +2092,7 @@ export default function ChatView(props: ChatViewProps) {
   const [composerTimelineInset, setComposerTimelineInset] = useState(0);
   const composerTimelineInsetRef = useRef(0);
   const composerRestingRef = useRef(false);
+  const [composerResting, setComposerResting] = useState(false);
   // False while a status bar stands in for the composer (a native subagent).
   const composerMountedRef = useRef(true);
   const [scrollToEndClearance, setScrollToEndClearance] = useState(0);
@@ -4457,14 +4458,17 @@ export default function ChatView(props: ChatViewProps) {
     contextStripMounted: mountComposerContextStrip,
     modelStripMounted: mountComposerModelStrip,
   });
+  // A resting composer is a bare input, so the meter's strips close with it.
   const showComposerContextStrip =
     shouldShowComposerContextStrip({
       ...composerContextStripInput,
       hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
-    }) || composerUsageMeterSlot === "context-strip";
+    }) ||
+    (composerUsageMeterSlot === "context-strip" && !composerResting);
   const showComposerModelStrip =
     mountComposerModelStrip &&
-    (restingComposerControlsVisible || composerUsageMeterSlot === "model-strip");
+    (restingComposerControlsVisible ||
+      (composerUsageMeterSlot === "model-strip" && !composerResting));
   const composerUsageMeter = <ComposerUsageMeter windows={composerUsageWindows} />;
   const terminalShortcutLabelOptions = useMemo(
     () => ({
@@ -7172,24 +7176,10 @@ export default function ChatView(props: ChatViewProps) {
         composerMounted: composerMountedRef.current,
         composerReportedResting: composerRestingRef.current,
       });
-      const modelStrip = composerOverlayElement?.querySelector<HTMLElement>(
-        '[data-composer-model-strip="true"]',
-      );
-      // The model-only strip disappears on expansion unless it stays open for the
-      // usage meter; counting it again would add 32px of timeline padding as soon
-      // as the empty composer collapses.
-      const restingOnlyHeight =
-        modelStrip && isResting && modelStrip.dataset.staysOpen !== "true"
-          ? Math.max(
-              0,
-              modelStrip.offsetHeight + Number.parseFloat(getComputedStyle(modelStrip).marginTop),
-            )
-          : 0;
       const nextInset = resolveComposerTimelineInset({
         currentInset: composerTimelineInsetRef.current,
         overlayHeight: nextHeight,
         isResting,
-        restingOnlyHeight,
       });
       if (composerTimelineInsetRef.current !== nextInset) {
         composerTimelineInsetRef.current = nextInset;
@@ -7227,6 +7217,7 @@ export default function ChatView(props: ChatViewProps) {
   // itself once it has measured it.
   const onComposerRestingChange = useCallback((resting: boolean) => {
     composerRestingRef.current = resting;
+    setComposerResting(resting);
   }, []);
   // A held reservation belongs to the previous thread's draft. Rebuild it from
   // this thread's overlay so a tall draft elsewhere does not pad this one.

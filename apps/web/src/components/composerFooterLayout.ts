@@ -81,15 +81,11 @@ export function resolveComposerTimelineInset(input: {
   currentInset: number;
   overlayHeight: number;
   isResting: boolean;
-  restingOnlyHeight?: number;
 }): number {
   return input.isResting
     ? Math.max(
         input.currentInset,
-        input.overlayHeight +
-          (input.currentInset === 0
-            ? COMPOSER_RESTING_EXPANSION_MIN_PX - (input.restingOnlyHeight ?? 0)
-            : 0),
+        input.overlayHeight + (input.currentInset === 0 ? COMPOSER_RESTING_EXPANSION_MIN_PX : 0),
       )
     : input.overlayHeight;
 }

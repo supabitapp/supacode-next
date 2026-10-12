@@ -434,6 +434,8 @@ function useComposerRestingTransition(
   const elementRef = useRef<HTMLDivElement>(null);
   const isCollapsedRef = useRef(isCollapsed);
   const previousCollapsedRef = useRef(isCollapsed);
+  const isRestingRef = useRef(isResting);
+  const previousTransitionRestingRef = useRef(isResting);
   const previousRestingRef = useRef(isResting);
   const previousHeightRef = useRef<number | null>(null);
   const previousModelStripHeightRef = useRef<number | null>(null);
@@ -509,6 +511,7 @@ function useComposerRestingTransition(
 
   useLayoutEffect(() => {
     isCollapsedRef.current = isCollapsed;
+    isRestingRef.current = isResting;
   });
 
   const transitionToCurrentGeometry = useCallback(
@@ -518,6 +521,7 @@ function useComposerRestingTransition(
       if (!element || !surface) return;
 
       const nextIsCollapsed = isCollapsedRef.current;
+      const nextIsResting = isRestingRef.current;
 
       const visibleTransitionElement = (selector: string) =>
         Array.from(element.querySelectorAll<HTMLElement>(selector)).find(
@@ -528,9 +532,12 @@ function useComposerRestingTransition(
       );
       const action = visibleTransitionElement('[data-chat-composer-transition-actions="true"]');
       const footer = element.querySelector<HTMLElement>('[data-chat-composer-footer="true"]');
+      // A resting desktop composer shows no collapsed controls, so its footer controls fade instead.
       const continuousControls =
-        element.dataset.inlineRestingControls === "true" ||
-        element.dataset.modelOnlyStrip === "true";
+        !nextIsResting &&
+        !previousTransitionRestingRef.current &&
+        (element.dataset.inlineRestingControls === "true" ||
+          element.dataset.modelOnlyStrip === "true");
       const controls = nextIsCollapsed
         ? restingControlsRef.current
         : element.querySelector<HTMLElement>('[data-chat-composer-controls="left"]');
@@ -538,7 +545,9 @@ function useComposerRestingTransition(
       const shell = element.closest<HTMLElement>('[data-slot="composer-shell"]');
       const modelStrip = shell?.querySelector<HTMLElement>('[data-composer-model-strip="true"]');
       const interruptedStripHeight =
-        animationRef.current && modelStrip ? modelStrip.getBoundingClientRect().height : null;
+        animationRef.current && modelStrip?.style.visibility === "visible"
+          ? modelStrip.getBoundingClientRect().height
+          : null;
       const interruptedAnimation = animationRef.current;
       const interruptedPromptTop = interruptedAnimation
         ? (prompt?.getBoundingClientRect().top ?? null)
@@ -663,19 +672,24 @@ function useComposerRestingTransition(
         }
 
         let stripAnimation: Animation | null = null;
-        if (modelStrip) {
+        if (modelStrip) shell?.setAttribute("data-model-strip-transition", "true");
+        // The strip holds collapsed controls on phones and, marked stays-open, the usage meter
+        // while expanded. A resting desktop composer tucks it behind the input.
+        const stripStaysOpen = modelStrip?.dataset.staysOpen === "true";
+        const stripOpen = (collapsed: boolean, resting: boolean) =>
+          collapsed ? !resting : stripStaysOpen;
+        const stripWasOpen = stripOpen(
+          previousCollapsedRef.current,
+          previousTransitionRestingRef.current,
+        );
+        const stripWillOpen = stripOpen(nextIsCollapsed, nextIsResting);
+        if (modelStrip && (interruptedStripHeight !== null || stripWasOpen || stripWillOpen)) {
           const stripHeight = modelStrip.getBoundingClientRect().height;
           const stripOverlap = -Number.parseFloat(getComputedStyle(modelStrip).marginTop);
-          // A strip that holds content while expanded too swaps it in place instead of tucking away.
-          const stripStaysOpen = modelStrip.dataset.staysOpen === "true";
           const fromHeight =
             interruptedStripHeight ??
-            (previousCollapsedRef.current
-              ? (previousModelStripHeightRef.current ?? stripHeight)
-              : stripStaysOpen
-                ? stripHeight
-                : stripOverlap);
-          const toHeight = nextIsCollapsed || stripStaysOpen ? stripHeight : stripOverlap;
+            (stripWasOpen ? (previousModelStripHeightRef.current ?? stripHeight) : stripOverlap);
+          const toHeight = stripWillOpen ? stripHeight : stripOverlap;
           modelStrip.style.position = "relative";
           modelStrip.style.top = "auto";
           modelStrip.style.visibility = "visible";
@@ -686,7 +700,6 @@ function useComposerRestingTransition(
           modelStrip.style.alignItems = "flex-end";
           modelStrip.style.pointerEvents = "none";
           modelStrip.style.zIndex = "20";
-          shell?.setAttribute("data-model-strip-transition", "true");
           stripAnimation = modelStrip.animate(
             [{ height: `${fromHeight}px` }, { height: `${toHeight}px` }],
             { duration, easing: EASE_DRAWER, fill: "both" },
@@ -875,6 +888,7 @@ function useComposerRestingTransition(
       }
 
       previousCollapsedRef.current = nextIsCollapsed;
+      previousTransitionRestingRef.current = nextIsResting;
       previousHeightRef.current = nextHeight;
       previousModelStripHeightRef.current = nextModelStripHeight;
       previousContentOffsetsRef.current = {
@@ -954,6 +968,11 @@ function useComposerRestingTransition(
           : visibleTransitionElement('[data-chat-composer-controls="left"]')
       )?.getBoundingClientRect();
       previousHeightRef.current = elementRect.height;
+      previousModelStripHeightRef.current =
+        element
+          .closest<HTMLElement>('[data-slot="composer-shell"]')
+          ?.querySelector<HTMLElement>('[data-composer-model-strip="true"]')
+          ?.getBoundingClientRect().height ?? null;
       previousContentOffsetsRef.current = {
         promptFromTop: promptRect === undefined ? null : promptRect.top - elementRect.top,
         promptHeight: promptRect?.height ?? null,
@@ -5332,10 +5351,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const otherFileExits = useAttachmentExits(attachmentTray, composerOtherFiles, (file) => file.id);
   // Keep collapsed controls inside the input when workspace context is hidden.
   const composerControlsCollapsed = isComposerResting || isComposerCollapsedMobile;
-  const showInlineRestingControls = composerControlsCollapsed && restingControlsHost === null;
+  // A scroll-collapsed desktop composer is a bare input; only the phone layout keeps its controls.
+  const showInlineRestingControls = isComposerCollapsedMobile && restingControlsHost === null;
   const composerControlsVisibleInStrip =
-    composerControlsCollapsed && restingControlsHost !== null && restingControlsVisible;
-  const composerControlsHidden = composerControlsCollapsed && !restingControlsVisible;
+    isComposerCollapsedMobile && restingControlsHost !== null && restingControlsVisible;
+  const composerControlsHidden =
+    isComposerResting || (isComposerCollapsedMobile && !restingControlsVisible);
   if (composerControlsHidden && isComposerModelPickerOpen) {
     setIsComposerModelPickerOpen(false);
   }
@@ -6820,7 +6841,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       data-chat-composer-resting={isComposerResting ? "true" : undefined}
       {...threadContextDropTargetProps()}
     >
-      {composerControlsCollapsed && restingControlsHost
+      {isComposerCollapsedMobile && restingControlsHost
         ? createPortal(
             <div
               ref={attachRestingComposerControls}
@@ -6837,7 +6858,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             restingControlsHost,
           )
         : null}
-      <ComposerBanner.Dock>
+      <ComposerBanner.Dock className={isComposerResting ? "hidden" : undefined}>
         <ComposerBanner.Column>
           <ComposerBannerStack
             key={`stack:${activeThreadId}`}
