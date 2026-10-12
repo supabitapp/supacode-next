@@ -25,7 +25,7 @@ import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
  * binaries. That keeps the assertions focused on registry routing
  * behaviour rather than the runtime details of each provider.
  */
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   EnvironmentId,
@@ -439,6 +439,77 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
         version: "2.1.219",
       });
     }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.live.skipIf(windowsHost)(
+    "keeps Claude ready through one failed check and recovers after sign-in",
+    () =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const fixtures = yield* makeTildeProviderFixtures();
+        const statePath = path.join(fixtures.claudeHomePath, "auth-state");
+        yield* fileSystem.writeFileString(statePath, "ready");
+        yield* fileSystem.writeFileString(
+          path.join(fixtures.claudeHomePath, ".claude.json"),
+          JSON.stringify({ oauthAccount: { organizationUuid: "test-workspace" } }),
+        );
+        const instanceId = ProviderInstanceId.make("claude_recovery");
+        const { registry } = yield* makeProviderInstanceRegistry<ClaudeDriverEnv>({
+          drivers: [ClaudeDriver],
+          configMap: {
+            [instanceId]: {
+              driver: ProviderDriverKind.make("claudeAgent"),
+              enabled: true,
+              environment: [
+                { name: "SUPACODE_CLAUDE_AUTH_STATE", value: statePath, sensitive: false },
+              ],
+              config: makeClaudeConfig({
+                enabled: true,
+                binaryPath: fixtures.claudeBinaryPath,
+                homePath: fixtures.claudeHomePath,
+              }),
+            },
+          },
+        });
+        const instance = yield* registry.getInstance(instanceId);
+        assert.exists(instance);
+        if (!instance) return;
+        const readyChanges = yield* Stream.toPull(
+          instance.snapshot.streamChanges.pipe(
+            Stream.filter((snapshot) => snapshot.status === "ready"),
+          ),
+        );
+        const initial = yield* instance.snapshot.getSnapshot;
+        const ready = initial.status === "ready" ? initial : (yield* readyChanges)[0];
+        assert.equal(ready.status, "ready");
+        assert.equal(ready.auth.workspaceId, "test-workspace");
+        assert.equal(ready.usageLimits?.windows[0]?.usedPercent, 100);
+
+        yield* fileSystem.writeFileString(statePath, "failure");
+        yield* instance.invalidateCaches!;
+        const carried = yield* instance.snapshot.refresh;
+        assert.equal(carried.status, "ready");
+        assert.deepEqual(carried.auth, ready.auth);
+        assert.deepEqual(carried.slashCommands, ready.slashCommands);
+        assert.equal(carried.usageLimits?.checkedAt, ready.usageLimits?.checkedAt);
+        const failed = yield* instance.snapshot.refresh;
+        assert.equal(failed.status, "warning");
+        assert.equal(failed.auth.status, "unknown");
+        assert.equal(failed.message, "Claude status check failed. Try refreshing provider status.");
+
+        yield* fileSystem.writeFileString(statePath, "signed-out");
+        const signedOut = yield* instance.snapshot.refresh;
+        assert.equal(signedOut.auth.status, "unauthenticated");
+        yield* fileSystem.writeFileString(statePath, "failure");
+        assert.equal((yield* instance.snapshot.refresh).auth.status, "unknown");
+
+        yield* fileSystem.writeFileString(statePath, "ready");
+        const recovered = yield* instance.snapshot.refresh;
+        assert.equal(recovered.status, "ready");
+        assert.equal(recovered.auth.status, "authenticated");
+        assert.equal(recovered.auth.workspaceId, "test-workspace");
+      }).pipe(Effect.provide(layerTest)),
   );
 
   const redeemClaudeReset = (claim: { result: string; usageFailsAfterClaim: boolean }) =>

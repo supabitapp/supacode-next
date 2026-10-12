@@ -4,6 +4,7 @@ import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, it, assert, expect } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
+import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
@@ -3607,6 +3608,31 @@ it.layer(
           }),
         ),
       ),
+    );
+
+    it.effect.each([
+      {
+        error: new Cause.TimeoutError(),
+        message: "Claude status check timed out. Try again when the environment is less busy.",
+      },
+      {
+        error: new Cause.UnknownError(new Error("secret-sdk-output")),
+        message: "Claude status check failed. Try refreshing provider status.",
+      },
+    ])(
+      "reports a failed Claude status check without suggesting authentication failed %#",
+      ({ error, message }) =>
+        Effect.gen(function* () {
+          const status = yield* checkClaudeProviderStatus(defaultClaudeSettings, () =>
+            Effect.fail(error),
+          );
+          assert.strictEqual(status.status, "warning");
+          assert.strictEqual(status.installed, true);
+          assert.strictEqual(status.auth.status, "unknown");
+          assert.strictEqual(status.message, message);
+        }).pipe(
+          Effect.provide(layerMockSpawner(() => ({ stdout: "2.1.296\n", stderr: "", code: 0 }))),
+        ),
     );
   });
 });

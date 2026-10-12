@@ -47,6 +47,21 @@ lines.on("line", (line) => {
     return;
   }
   if (message.request?.subtype !== "initialize") return;
+  const statePath = process.env.SUPACODE_CLAUDE_AUTH_STATE;
+  const authState = statePath ? NodeFS.readFileSync(statePath, "utf8") : "ready";
+  if (authState === "failure") {
+    process.stdout.write(
+      JSON.stringify({
+        type: "control_response",
+        response: {
+          subtype: "error",
+          request_id: message.request_id,
+          error: "Initialization failed",
+        },
+      }) + "\n",
+    );
+    return;
+  }
   process.stdout.write(
     JSON.stringify({
       type: "control_response",
@@ -59,7 +74,10 @@ lines.on("line", (line) => {
           models: [],
           output_style: "default",
           available_output_styles: ["default"],
-          account: { email: "test@example.com", subscriptionType: "pro", tokenSource: "oauth" },
+          account:
+            authState === "signed-out"
+              ? { tokenSource: "none", apiKeySource: "none", apiProvider: "firstParty" }
+              : { email: "test@example.com", subscriptionType: "pro", tokenSource: "oauth" },
         },
       },
     }) + "\n",

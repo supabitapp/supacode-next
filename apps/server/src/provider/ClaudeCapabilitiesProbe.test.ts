@@ -2,7 +2,10 @@
 import * as ClaudeSdk from "@anthropic-ai/claude-agent-sdk";
 import { vi } from "vite-plus/test";
 import * as Deferred from "effect/Deferred";
+import * as Cause from "effect/Cause";
 import * as Fiber from "effect/Fiber";
+import * as Logger from "effect/Logger";
+import * as Result from "effect/Result";
 import * as TestClock from "effect/testing/TestClock";
 import {
   ClaudeSettings,
@@ -376,3 +379,59 @@ it.effect("asks for usage without the local transcript scan", () =>
     assert.deepEqual(usageOptions, { skipBehaviors: true });
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+it.effect("preserves the timeout cause, logs its deadline, and aborts the SDK query", () => {
+  const messages: Array<unknown> = [];
+  const logger = Logger.make<unknown, void>(({ message }) => {
+    messages.push(message);
+  });
+  return Effect.gen(function* () {
+    const started = yield* Deferred.make<void>();
+    let abortSignal: AbortSignal | undefined;
+    const query = vi.spyOn(ClaudeSdk, "query").mockImplementation(({ options }) => {
+      abortSignal = options?.abortController?.signal;
+      return {
+        initializationResult: () => {
+          Deferred.doneUnsafe(started, Effect.void);
+          return new Promise(() => {});
+        },
+      } as ReturnType<typeof ClaudeSdk.query>;
+    });
+    yield* Effect.addFinalizer(() => Effect.sync(() => query.mockRestore()));
+    const probe = yield* probeClaudeCapabilities(
+      decodeClaudeSettings({ binaryPath: "claude" }),
+    ).pipe(Effect.result, Effect.forkChild);
+    yield* Deferred.await(started);
+    yield* TestClock.adjust("25 seconds");
+    const result = yield* Fiber.join(probe);
+    assert.equal(Result.isFailure(result), true);
+    if (Result.isFailure(result)) assert.equal(Cause.isTimeoutError(result.failure), true);
+    assert.equal(abortSignal?.aborted, true);
+    assert.deepEqual(messages, [
+      ["Claude capability probe failed.", { errorTag: "TimeoutError", timeoutMs: 25_000 }],
+    ]);
+  }).pipe(Effect.scoped, Effect.provide([NodeServices.layer, Logger.layer([logger])]));
+});
+
+it.effect("records an SDK failure without exposing the rejection message", () => {
+  const messages: Array<unknown> = [];
+  const logger = Logger.make<unknown, void>(({ message }) => {
+    messages.push(message);
+  });
+  return Effect.gen(function* () {
+    const query = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+      () =>
+        ({
+          initializationResult: () => Promise.reject(new TypeError("secret-sdk-output")),
+        }) as ReturnType<typeof ClaudeSdk.query>,
+    );
+    yield* Effect.addFinalizer(() => Effect.sync(() => query.mockRestore()));
+    const result = yield* probeClaudeCapabilities(
+      decodeClaudeSettings({ binaryPath: "claude" }),
+    ).pipe(Effect.result);
+    assert.equal(Result.isFailure(result), true);
+    if (Result.isFailure(result)) assert.equal(result.failure._tag, "UnknownError");
+    assert.deepEqual(messages, [["Claude capability probe failed.", { errorTag: "UnknownError" }]]);
+    assert.equal(JSON.stringify(messages).includes("secret-sdk-output"), false);
+  }).pipe(Effect.scoped, Effect.provide([NodeServices.layer, Logger.layer([logger])]));
+});

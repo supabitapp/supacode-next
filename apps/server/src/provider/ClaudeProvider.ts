@@ -5,8 +5,12 @@ import {
   type ServerProviderSlashCommand,
   type ServerProviderResetCredits,
 } from "@supacode/contracts";
+import * as Cache from "effect/Cache";
+import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -191,6 +195,7 @@ function claudeAuthStatus(
 // account info. The previous 8s budget expired mid-init, so the probe returned
 // `undefined` and left the provider unverified and unselectable in the picker.
 const CAPABILITIES_PROBE_TIMEOUT_MS = 25_000;
+const CAPABILITIES_PROBE_TTL = Duration.minutes(5);
 
 /**
  * Keep workspace-scoped command discovery intact while isolating the periodic
@@ -245,7 +250,7 @@ function nonEmptyProbeString(value: string): string | undefined {
   return candidate ? candidate : undefined;
 }
 
-type ClaudeCapabilitiesProbe = {
+export type ClaudeCapabilitiesProbe = {
   readonly email: string | undefined;
   /**
    * The organization UUID from the login's `.claude.json`. The driver reads it
@@ -431,10 +436,57 @@ const probeClaudeCapabilities = (
         if (!abort.signal.aborted) abort.abort();
       }),
     ),
-    Effect.result,
-    Effect.map((result) => (Result.isSuccess(result) ? result.success : undefined)),
+    Effect.tapError((error) =>
+      Effect.logWarning("Claude capability probe failed.", {
+        errorTag: error._tag,
+        ...(Cause.isTimeoutError(error) ? { timeoutMs: CAPABILITIES_PROBE_TIMEOUT_MS } : {}),
+      }),
+    ),
   );
 };
+
+type ClaudeCapabilitiesProbeError = Effect.Error<ReturnType<typeof probeClaudeCapabilities>>;
+
+export const makeClaudeCapabilitiesCache = Effect.fn("makeClaudeCapabilitiesCache")(function* <
+  R,
+>(input: {
+  readonly key: string;
+  readonly lookup: () => Effect.Effect<ClaudeCapabilitiesProbe, ClaudeCapabilitiesProbeError, R>;
+}) {
+  const lastGood = yield* Ref.make<ClaudeCapabilitiesProbe | undefined>(undefined);
+  const cache = yield* Cache.makeWith(
+    () =>
+      input.lookup().pipe(
+        Effect.tap((capabilities) =>
+          Ref.set(
+            lastGood,
+            claudeAuthStatus(capabilities) === "authenticated" ? capabilities : undefined,
+          ),
+        ),
+        Effect.catch((error) =>
+          Effect.gen(function* () {
+            const previous = yield* Ref.getAndSet(lastGood, undefined);
+            if (!previous) return yield* error;
+            const { usage: _staleUsage, ...capabilities } = previous;
+            return yield* Effect.succeed<ClaudeCapabilitiesProbe>(capabilities);
+          }),
+        ),
+      ),
+    {
+      capacity: 1,
+      timeToLive: (exit) =>
+        Exit.isSuccess(exit) &&
+        exit.value.usage !== undefined &&
+        claudeAuthStatus(exit.value) === "authenticated"
+          ? CAPABILITIES_PROBE_TTL
+          : Duration.zero,
+    },
+  );
+  return {
+    get: Cache.get(cache, input.key),
+    invalidate: Cache.invalidateAll(cache),
+  };
+});
 
 const runClaudeCommand = Effect.fn("runClaudeCommand")(function* (
   claudeSettings: ClaudeSettings,
@@ -461,7 +513,9 @@ export const probeClaudeWorkspaceSnapshot = Effect.fn("probeClaudeWorkspaceSnaps
 ): Effect.fn.Return<ProviderWorkspaceSnapshot, never, FileSystem.FileSystem | Path.Path> {
   if (!claudeSettings.enabled) return machineSnapshot;
   const skills = yield* discoverClaudeSkills(claudeSettings, cwd, environment);
-  const capabilities = yield* probeClaudeCapabilities(claudeSettings, environment, cwd, false);
+  const capabilities = yield* probeClaudeCapabilities(claudeSettings, environment, cwd, false).pipe(
+    Effect.orElseSucceed(() => undefined),
+  );
   return {
     ...machineSnapshot,
     skills,
@@ -477,7 +531,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   claudeSettings: ClaudeSettings,
   resolveCapabilities?: (
     claudeSettings: ClaudeSettings,
-  ) => Effect.Effect<ClaudeCapabilitiesProbe | undefined>,
+  ) => Effect.Effect<ClaudeCapabilitiesProbe | undefined, ClaudeCapabilitiesProbeError>,
   environment?: NodeJS.ProcessEnv,
   cwd?: string,
   modelCatalog: ClaudeModelCatalog = BUNDLED_CLAUDE_MODEL_CATALOG,
@@ -590,14 +644,23 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   const updateRequiredModels = resolveClaudeUpdateRequiredModels(modelCatalog, parsedVersion);
   const versionUpgradeMessage = formatClaudeVersionUpgradeMessage(modelCatalog, parsedVersion);
 
-  const capabilities = resolveCapabilities
-    ? yield* resolveCapabilities(claudeSettings).pipe(Effect.orElseSucceed(() => undefined))
+  const capabilitiesResult = resolveCapabilities
+    ? yield* resolveCapabilities(claudeSettings).pipe(Effect.result)
+    : Result.succeed(undefined);
+  const capabilities = Result.isSuccess(capabilitiesResult)
+    ? capabilitiesResult.success
     : undefined;
   const skills = yield* discoverClaudeSkills(claudeSettings, cwd, resolvedEnvironment);
   const slashCommands = [COMPACT_SLASH_COMMAND, ...(capabilities?.slashCommands ?? [])];
   const dedupedSlashCommands = dedupeSlashCommands(slashCommands);
 
   if (!capabilities) {
+    let message = "Could not verify Claude authentication status from initialization result.";
+    if (Result.isFailure(capabilitiesResult)) {
+      message = Cause.isTimeoutError(capabilitiesResult.failure)
+        ? "Claude status check timed out. Try again when the environment is less busy."
+        : "Claude status check failed. Try refreshing provider status.";
+    }
     return buildServerProvider({
       presentation: CLAUDE_PRESENTATION,
       enabled: claudeSettings.enabled,
@@ -611,7 +674,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
         version: parsedVersion,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Could not verify Claude authentication status from initialization result.",
+        message,
       },
     });
   }
