@@ -35,7 +35,7 @@ import * as Schema from "effect/Schema";
 import { DraftComposerAttachmentSchema } from "../lib/composer-image-schema";
 import type { ComposerDispatchMode } from "@supacode/client-runtime/state/composer-dispatch";
 import type { DraftComposerAttachment } from "../lib/composerImages";
-import { resolveProviderInteractionMode } from "./legacy-plan-mode";
+import { resolveProviderInteractionMode } from "./provider-interaction-mode";
 
 // Keep current writes until a compatible native baseline includes the v4 reader.
 const THREAD_OUTBOX_SCHEMA_VERSION = 3;

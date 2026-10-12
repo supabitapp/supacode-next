@@ -1,7 +1,6 @@
 import { memo, type MouseEventHandler, type PointerEventHandler } from "react";
 import {
   CheckIcon,
-  ChevronDownIcon,
   ChevronLeftIcon,
   CornerUpRightIcon,
   ListPlusIcon,
@@ -19,10 +18,8 @@ import { shortcutLabelForCommand } from "../../keybindings";
 import { useShortcutModifierState } from "../../shortcutModifierState";
 import { StageBackdropButtonArt, useSidebarStageBackdropVariant } from "../SidebarStageBackdrop";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipPopup, TooltipShortcutLabel, TooltipTrigger } from "../ui/tooltip";
-import { composerFloatingLayerProps } from "./composerEventScope";
 import {
   type ActiveTurnComposerAction,
   alternateComposerDispatchAction,
@@ -47,8 +44,6 @@ interface ComposerPrimaryActionsProps {
   /** Stop can reach a run, including one still preparing or starting. */
   canInterrupt: boolean;
   followUpBehavior?: "queue" | "steer";
-  showPlanFollowUpPrompt: boolean;
-  promptHasText: boolean;
   isSendBusy: boolean;
   sendDisabledReason: string | null;
   isConnecting: boolean;
@@ -65,7 +60,6 @@ interface ComposerPrimaryActionsProps {
   onResume?: () => void;
   onPreviousPendingQuestion: () => void;
   onInterrupt: () => void;
-  onImplementPlanInNewThread: () => void;
 
   compactBeforeSendTokens?: number | null;
 
@@ -91,7 +85,7 @@ const formatPendingPrimaryActionLabel = (input: {
   return input.questionIndex > 0 ? "Submit answers" : "Submit answer";
 };
 
-// The composer's labeled primary actions (Submit, Refine, Implement) share the send button's
+// The composer's labeled primary action shares the send button's
 // message-action pill, so they are composer-owned buttons rather than restyled Buttons.
 const messageActionPillClassName =
   "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-message-action font-medium text-base text-message-action-foreground shadow-xs shadow-message-action/24 outline-none hover:bg-message-action-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 disabled:shadow-none sm:text-sm";
@@ -164,8 +158,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   isRunning,
   canInterrupt,
   followUpBehavior = "steer",
-  showPlanFollowUpPrompt,
-  promptHasText,
   isSendBusy,
   sendDisabledReason,
   isConnecting,
@@ -182,7 +174,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   onResume,
   onPreviousPendingQuestion,
   onInterrupt,
-  onImplementPlanInNewThread,
   compactBeforeSendTokens = null,
   keepFullHistory = false,
   onToggleKeepFullHistory,
@@ -279,62 +270,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
             questionIndex: pendingAction.questionIndex,
           })}
         </button>
-      </div>
-    );
-  }
-
-  if (showPlanFollowUpPrompt && (promptHasText || !canResume)) {
-    if (promptHasText) {
-      return (
-        <button
-          type="submit"
-          className={cn(messageActionPillClassName, "h-9 sm:h-8", compact ? "px-3" : "px-4")}
-          {...pointerFocusProps}
-          disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
-        >
-          {isConnecting || isSendBusy ? "Sending..." : "Refine"}
-        </button>
-      );
-    }
-
-    return (
-      <div data-chat-composer-implement-actions="true" className="flex items-center justify-end">
-        <button
-          type="submit"
-          className={cn(messageActionPillClassName, "h-9 rounded-r-none px-4 sm:h-8")}
-          {...pointerFocusProps}
-          disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
-        >
-          {isConnecting || isSendBusy ? "Sending..." : "Implement"}
-        </button>
-        <Menu>
-          <MenuTrigger
-            render={
-              <button
-                type="button"
-                className={cn(
-                  messageActionPillClassName,
-                  "h-9 rounded-l-none border-l border-message-action-foreground/20 px-2 sm:h-8",
-                )}
-                aria-label="Implementation actions"
-                {...pointerFocusProps}
-                disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
-              />
-            }
-          >
-            <ChevronDownIcon className="size-3.5" />
-          </MenuTrigger>
-          <MenuPopup align="end" side="top" {...composerFloatingLayerProps}>
-            <MenuItem
-              disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
-              onClick={() => {
-                if (canOperateThread) onImplementPlanInNewThread();
-              }}
-            >
-              Implement in a new thread
-            </MenuItem>
-          </MenuPopup>
-        </Menu>
       </div>
     );
   }

@@ -1,9 +1,8 @@
-import { SettingsGroup } from "./SettingsGroup";
 import { useScopedSettingsWriteAllowed } from "./useScopedSettings";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
-import { ArchiveIcon, ArchiveX, CheckIcon, ChevronRightIcon, SettingsIcon } from "lucide-react";
+import { ArchiveIcon, ArchiveX, CheckIcon, SettingsIcon } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -84,7 +83,6 @@ import { desktopUpdateRestart } from "../../state/desktopUpdateRestart";
 import {
   getCustomModelOptionsByInstance,
   resolveAppModelSelectionState,
-  selectsPlanAgent,
 } from "../../modelSelection";
 import {
   applyProviderInstanceSettings,
@@ -97,7 +95,6 @@ import { EMPTY_SERVER_PROVIDERS } from "../../state/server";
 import { useArchivedThreadSnapshots } from "../../lib/archivedThreadsState";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { Button } from "../ui/button";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import {
   Dialog,
   DialogDescription,
@@ -156,7 +153,6 @@ import {
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-  useSettingsSearchTarget,
   useSettingsSearchTargetId,
 } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
@@ -572,9 +568,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.followUpBehavior !== DEFAULT_UNIFIED_SETTINGS.followUpBehavior
         ? ["Follow-up behavior"]
         : []),
-      ...(settings.contextWindowMeterEnabled !== DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled
-        ? ["Context window indicator"]
-        : []),
       ...(settings.responseStreamingMode !== DEFAULT_UNIFIED_SETTINGS.responseStreamingMode
         ? ["Response streaming"]
         : []),
@@ -702,7 +695,6 @@ export function useSettingsRestore(onRestored?: () => void) {
       composerRichTextEnabled: DEFAULT_UNIFIED_SETTINGS.composerRichTextEnabled,
       sendShortcut: DEFAULT_UNIFIED_SETTINGS.sendShortcut,
       followUpBehavior: DEFAULT_UNIFIED_SETTINGS.followUpBehavior,
-      contextWindowMeterEnabled: DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
       sidebarThreadPreviewCount: DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount,
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
@@ -1823,98 +1815,6 @@ function FontFamilySettingsRow({
 
 const AUTO_SETTLE_DEFAULT_DAYS = DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays ?? 3;
 
-// The legacy rows sit behind the fold, so a settings-search jump has to
-// expand the section before its target can mount and scroll.
-const LEGACY_FEATURE_TARGET_IDS: ReadonlySet<string> = new Set([
-  "legacy-plan-mode",
-  "legacy-context-window-indicator",
-  "legacy-sidebar",
-]);
-
-/**
- * Retired features kept only for users who still depend on them. Collapsed by
- * default so they stay out of the everyday settings path; a settings-search
- * jump to one of the rows unfolds the section.
- */
-function LegacyFeaturesSection() {
-  const settings = useScopedSettings();
-  const updateSettings = useUpdateScopedSettings();
-  const [open, setOpen] = useState(false);
-  const searchTargetId = useSettingsSearchTargetId();
-  const targetRef = useSettingsSearchTarget<HTMLElement>("legacy-features");
-  // Unfold once per search jump; tracking the handled id lets the user fold
-  // the section back up without the still-set target immediately reopening it.
-  const lastExpandedTargetRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (searchTargetId === null) {
-      // A handled jump clears the target; forgetting it here lets a later
-      // jump to the same row expand the section again.
-      lastExpandedTargetRef.current = null;
-      return;
-    }
-    if (!LEGACY_FEATURE_TARGET_IDS.has(searchTargetId)) return;
-    if (lastExpandedTargetRef.current === searchTargetId) return;
-    lastExpandedTargetRef.current = searchTargetId;
-    setOpen(true);
-  }, [searchTargetId]);
-
-  return (
-    <section id="legacy-features" ref={targetRef} tabIndex={-1} className="space-y-2">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger className="group flex min-h-8 w-full items-center gap-2 px-3 sm:px-4">
-          <h2 className="text-sm font-normal text-foreground/70 transition-colors group-hover:text-foreground">
-            Legacy features
-          </h2>
-          <ChevronRightIcon className="size-4 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-90" />
-        </CollapsibleTrigger>
-        <CollapsiblePanel>
-          <SettingsGroup>
-            <SettingsRow
-              {...searchableSetting("legacy-plan-mode")}
-              description="Restore Build/Plan, /plan, /default, and Shift+Tab. Off uses build mode."
-              control={
-                <Switch
-                  checked={settings.planModeEnabled}
-                  onCheckedChange={(checked) => {
-                    updateSettings({ planModeEnabled: Boolean(checked) });
-                  }}
-                  aria-label="Plan mode (legacy)"
-                />
-              }
-            />
-            <SettingsRow
-              {...searchableSetting("legacy-context-window-indicator")}
-              description="Shows context window usage as a circular indicator in the composer."
-              control={
-                <Switch
-                  checked={settings.contextWindowMeterEnabled}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ contextWindowMeterEnabled: Boolean(checked) })
-                  }
-                  aria-label="Context window indicator (legacy)"
-                />
-              }
-            />
-            <SettingsRow
-              {...searchableSetting("legacy-sidebar")}
-              description="Restore per-project thread trees instead of the default flat sidebar."
-              control={
-                <Switch
-                  checked={settings.legacySidebarEnabled}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ legacySidebarEnabled: Boolean(checked) })
-                  }
-                  aria-label="Sidebar (legacy)"
-                />
-              }
-            />
-          </SettingsGroup>
-        </CollapsiblePanel>
-      </Collapsible>
-    </section>
-  );
-}
-
 export function GeneralSettingsPanel() {
   const modifierLabel = isMacPlatform(navigator.platform) ? "⌘" : "Ctrl";
   const followUpOverrideShortcut = {
@@ -2778,9 +2678,6 @@ export function GeneralSettingsPanel() {
                     onPromptChange={() => {}}
                     modelOptions={textGenModelOptions}
                     allowPromptInjectedEffort={false}
-                    planModeEnabled={
-                      settings.planModeEnabled || selectsPlanAgent(textGenModelOptions)
-                    }
                     triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
                     onModelOptionsChange={(nextOptions) => {
                       updateSettings({
@@ -2971,8 +2868,6 @@ export function GeneralSettingsPanel() {
           }
         />
       </SettingsSection>
-
-      <LegacyFeaturesSection />
     </SettingsPageContainer>
   );
 }

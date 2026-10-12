@@ -37,7 +37,6 @@ import {
   ENVIRONMENT_RECONNECT_WARNING_GRACE_MS,
   getAntigravitySendBlockReason,
   resolveBackgroundDraftWorkspaceOptions,
-  resolveComposerInteractionMode,
   resolveComposerProviderSelection,
   resolveProactiveTurnDiffAction,
   resolveDraftHeroState,
@@ -73,12 +72,10 @@ import {
   isBranchMismatchDismissedForSession,
   reconcileMountedTerminalThreadIds,
   resolveDraftPromotionNavigationTarget,
-  resolveEffectiveInteractionMode,
   resolveThreadMetadataUpdateForNextTurn,
   resolveSendEnvMode,
   startNewThreadForProject,
   shouldShowBranchMismatchBanner,
-  shouldShowPlanFollowUpPrompt,
   shouldWriteThreadErrorToCurrentServerThread,
   waitForRevertedMessage,
 } from "./ChatView.logic";
@@ -228,28 +225,6 @@ describe("resolveDraftPromotionNavigationTarget", () => {
         backgroundSubmissionPending: true,
       }),
     ).toBeNull();
-  });
-});
-
-describe("resolveEffectiveInteractionMode", () => {
-  it("forces build mode when legacy plan mode is disabled", () => {
-    expect(
-      resolveEffectiveInteractionMode({
-        planModeEnabled: false,
-        composerInteractionMode: "plan",
-        threadInteractionMode: "plan",
-      }),
-    ).toBe("default");
-  });
-
-  it("uses the saved mode while legacy plan mode is enabled", () => {
-    expect(
-      resolveEffectiveInteractionMode({
-        planModeEnabled: true,
-        composerInteractionMode: null,
-        threadInteractionMode: "plan",
-      }),
-    ).toBe("plan");
   });
 });
 
@@ -483,31 +458,6 @@ describe("shouldShowBranchMismatchBanner", () => {
     expect(
       shouldShowBranchMismatchBanner({ ...base, composerHasContent: true, hasMismatch: false }),
     ).toBe(false);
-  });
-});
-
-describe("shouldShowPlanFollowUpPrompt", () => {
-  const base = {
-    pendingUserInputCount: 0,
-    interactionMode: "plan" as const,
-    latestTurnSettled: true,
-    hasActionableProposedPlan: true,
-    hasComposerAttachments: false,
-  };
-
-  it("shows plan actions for a settled actionable plan without attachments", () => {
-    expect(shouldShowPlanFollowUpPrompt(base)).toBe(true);
-  });
-
-  it("hides plan actions while the composer has staged attachments", () => {
-    expect(shouldShowPlanFollowUpPrompt({ ...base, hasComposerAttachments: true })).toBe(false);
-  });
-
-  it("preserves the existing plan follow-up gates", () => {
-    expect(shouldShowPlanFollowUpPrompt({ ...base, pendingUserInputCount: 1 })).toBe(false);
-    expect(shouldShowPlanFollowUpPrompt({ ...base, interactionMode: "default" })).toBe(false);
-    expect(shouldShowPlanFollowUpPrompt({ ...base, latestTurnSettled: false })).toBe(false);
-    expect(shouldShowPlanFollowUpPrompt({ ...base, hasActionableProposedPlan: false })).toBe(false);
   });
 });
 
@@ -1441,53 +1391,6 @@ describe("resolveComposerProviderSelection", () => {
     ).toBeNull();
   });
 
-  it("uses the custom instance's capability instead of the default instance", () => {
-    const defaultEntry = entry("antigravity", "antigravity", {
-      showInteractionModeToggle: true,
-    });
-    const customEntry = entry("antigravity", "google_work", {
-      showInteractionModeToggle: false,
-    });
-    const selection = resolveComposerProviderSelection({
-      entries: [defaultEntry, customEntry],
-      candidateInstanceIds: [customEntry.instanceId],
-      lockedProvider: null,
-      lockedInstanceId: null,
-    });
-
-    expect(selection.selectedProviderEntry?.instanceId).toBe(customEntry.instanceId);
-    expect(
-      resolveComposerInteractionMode({
-        provider: selection.selectedProviderEntry?.snapshot,
-        planModeEnabled: true,
-        interactionMode: "plan",
-      }),
-    ).toEqual({ enabled: false, interactionMode: "default" });
-  });
-
-  it("uses the fallback provider's plan capability after the draft's instance is disabled", () => {
-    const disabledEntry = entry("antigravity", "antigravity", {
-      enabled: false,
-      showInteractionModeToggle: false,
-    });
-    const fallbackEntry = entry("codex");
-    const selection = resolveComposerProviderSelection({
-      entries: [disabledEntry, fallbackEntry],
-      candidateInstanceIds: [disabledEntry.instanceId],
-      lockedProvider: null,
-      lockedInstanceId: null,
-    });
-
-    expect(selection.selectedProviderEntry?.instanceId).toBe(fallbackEntry.instanceId);
-    expect(
-      resolveComposerInteractionMode({
-        provider: selection.selectedProviderEntry?.snapshot,
-        planModeEnabled: true,
-        interactionMode: "plan",
-      }),
-    ).toEqual({ enabled: true, interactionMode: "plan" });
-  });
-
   it("keeps a signed-out selection instead of silently switching providers", () => {
     const signedOutEntry = entry("antigravity", "google_work", {
       status: "error",
@@ -1623,48 +1526,6 @@ describe("resolveComposerProviderSelection", () => {
     });
 
     expect(selection.selectedProviderEntry).toBeUndefined();
-  });
-});
-
-describe("resolveComposerInteractionMode", () => {
-  it("resets a restored plan draft when the selected instance does not support plan mode", () => {
-    expect(
-      resolveComposerInteractionMode({
-        planModeEnabled: true,
-        provider: { showInteractionModeToggle: false },
-        interactionMode: "plan",
-      }),
-    ).toEqual({ enabled: false, interactionMode: "default" });
-  });
-
-  it("keeps legacy plan behavior for providers that omit the capability", () => {
-    expect(
-      resolveComposerInteractionMode({
-        planModeEnabled: true,
-        provider: {},
-        interactionMode: "plan",
-      }),
-    ).toEqual({ enabled: true, interactionMode: "plan" });
-  });
-
-  it("resets a restored plan draft when the beta setting is off", () => {
-    expect(
-      resolveComposerInteractionMode({
-        planModeEnabled: false,
-        provider: { showInteractionModeToggle: true },
-        interactionMode: "plan",
-      }),
-    ).toEqual({ enabled: false, interactionMode: "default" });
-  });
-
-  it("disables plan mode until the selected provider is available", () => {
-    expect(
-      resolveComposerInteractionMode({
-        planModeEnabled: true,
-        provider: null,
-        interactionMode: "plan",
-      }),
-    ).toEqual({ enabled: false, interactionMode: "default" });
   });
 });
 

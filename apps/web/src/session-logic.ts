@@ -321,10 +321,6 @@ export function findLatestProposedPlan(
   return plan === undefined ? null : toLatestProposedPlanState(projection, plan);
 }
 
-export function hasActionableProposedPlan(plan: LatestProposedPlanState | null): boolean {
-  return plan?.status === "active";
-}
-
 const STANDALONE_V2_ITEM_TYPES = new Set<OrchestrationV2ProjectedTurnItem["item"]["type"]>([
   "fork",
   "handoff",

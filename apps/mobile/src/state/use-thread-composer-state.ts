@@ -21,7 +21,6 @@ import {
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   type EnvironmentId,
   type ModelSelection,
-  type ProviderInteractionMode,
   type RuntimeMode,
   type ThreadId,
 } from "@supacode/contracts";
@@ -43,7 +42,6 @@ import {
   describeUnavailableModelSelection,
   isModelSelectionUnavailable,
 } from "../lib/modelOptions";
-import { resolveProviderInteractionMode } from "./legacy-plan-mode";
 import {
   convertPastedImagesToAttachments,
   createPastedTextComposerAttachment,
@@ -331,15 +329,6 @@ export function useThreadComposerState() {
   const selectedThread = selectedThreadShell;
   const modelSelection = selectedDraft?.modelSelection ?? selectedThread?.modelSelection ?? null;
   const runtimeMode = selectedDraft?.runtimeMode ?? selectedThread?.runtimeMode ?? null;
-  const selectedProvider = selectedEnvironmentRuntime?.serverConfig?.providers.find(
-    (provider) => provider.instanceId === modelSelection?.instanceId,
-  );
-  const interactionMode = selectedThread
-    ? resolveProviderInteractionMode(
-        selectedProvider,
-        selectedDraft?.interactionMode ?? selectedThread.interactionMode,
-      )
-    : null;
   // Whether the model picker may leave this thread's provider. Derived here
   // because the projection already drives this hook; the composer only needs
   // the answer, not a subscription to every projection update.
@@ -712,10 +701,7 @@ export function useThreadComposerState() {
         context: draft.context,
         modelSelection,
         runtimeMode: draft.runtimeMode ?? thread.runtimeMode,
-        interactionMode: resolveProviderInteractionMode(
-          provider,
-          draft.interactionMode ?? thread.interactionMode,
-        ),
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
         ...(followUpDispatchMode === null ? {} : { dispatchMode: followUpDispatchMode }),
         createdAt: metadata.createdAt,
       });
@@ -1014,17 +1000,9 @@ export function useThreadComposerState() {
       if (!selectedThreadKey) {
         return;
       }
-      const provider = selectedEnvironmentRuntime?.serverConfig?.providers.find(
-        (candidate) => candidate.instanceId === value.instanceId,
-      );
-      updateComposerDraftSettings(selectedThreadKey, {
-        modelSelection: value,
-        ...(provider?.showInteractionModeToggle === false
-          ? { interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE }
-          : {}),
-      });
+      updateComposerDraftSettings(selectedThreadKey, { modelSelection: value });
     },
-    [selectedEnvironmentRuntime?.serverConfig, selectedThreadKey],
+    [selectedThreadKey],
   );
 
   const onUpdateRuntimeMode = useCallback(
@@ -1035,24 +1013,6 @@ export function useThreadComposerState() {
       updateComposerDraftSettings(selectedThreadKey, { runtimeMode: value });
     },
     [selectedThreadKey],
-  );
-
-  const onUpdateInteractionMode = useCallback(
-    (value: ProviderInteractionMode) => {
-      if (!selectedThreadKey) {
-        return;
-      }
-      const modelSelection =
-        getComposerDraftSnapshot(selectedThreadKey).modelSelection ??
-        selectedThread?.modelSelection;
-      const provider = selectedEnvironmentRuntime?.serverConfig?.providers.find(
-        (candidate) => candidate.instanceId === modelSelection?.instanceId,
-      );
-      updateComposerDraftSettings(selectedThreadKey, {
-        interactionMode: resolveProviderInteractionMode(provider, value),
-      });
-    },
-    [selectedEnvironmentRuntime?.serverConfig, selectedThread?.modelSelection, selectedThreadKey],
   );
 
   return {
@@ -1079,7 +1039,6 @@ export function useThreadComposerState() {
     modelSelection,
     canSwitchThreadProvider,
     runtimeMode,
-    interactionMode,
     activeThreadBusy,
     interruptibleRunId,
     onChangeDraftMessage,
@@ -1092,6 +1051,5 @@ export function useThreadComposerState() {
     onSendMessage,
     onUpdateModelSelection,
     onUpdateRuntimeMode,
-    onUpdateInteractionMode,
   };
 }

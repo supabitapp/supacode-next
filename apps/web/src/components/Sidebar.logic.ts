@@ -22,7 +22,6 @@ import {
 } from "../lib/threadSort";
 import type { SidebarThreadSummary, Thread } from "../types";
 import { normalizeSearchText } from "../lib/utils";
-import { isLatestRunSettled } from "../session-logic";
 import { resolveServerBackedAppStageLabel } from "../branding.logic";
 
 export {
@@ -597,14 +596,7 @@ export function buildBulkUnpinContextMenuItem(input: {
 }
 
 export interface ThreadStatusPill {
-  label:
-    | "Working"
-    | "Connecting"
-    | "Completed"
-    | "Pending Approval"
-    | "Awaiting Input"
-    | "Waiting"
-    | "Plan Ready";
+  label: "Working" | "Connecting" | "Completed" | "Pending Approval" | "Awaiting Input" | "Waiting";
   colorClass: string;
   dotClass: string;
   pulse: boolean;
@@ -616,18 +608,12 @@ const THREAD_STATUS_PRIORITY: Record<ThreadStatusPill["label"], number> = {
   Working: 3,
   Connecting: 3,
   Waiting: 2.5,
-  "Plan Ready": 2,
   Completed: 1,
 };
 
 type ThreadStatusInput = Pick<
   SidebarThreadSummary,
-  | "hasActionableProposedPlan"
-  | "hasPendingApprovals"
-  | "hasPendingUserInput"
-  | "interactionMode"
-  | "latestRun"
-  | "runtime"
+  "hasPendingApprovals" | "hasPendingUserInput" | "latestRun" | "runtime"
 > & {
   lastVisitedAt?: string | null | undefined;
   pendingBackgroundTasks?: SidebarThreadSummary["pendingBackgroundTasks"] | undefined;
@@ -1094,20 +1080,6 @@ export function resolveThreadStatusPill(input: {
       label: "Waiting",
       colorClass: "text-sky-600 dark:text-sky-300/80",
       dotClass: "bg-sky-500 dark:bg-sky-300/80",
-      pulse: false,
-    };
-  }
-
-  const hasPlanReadyPrompt =
-    !thread.hasPendingUserInput &&
-    thread.interactionMode === "plan" &&
-    isLatestRunSettled(thread.latestRun, thread.runtime) &&
-    thread.hasActionableProposedPlan;
-  if (hasPlanReadyPrompt) {
-    return {
-      label: "Plan Ready",
-      colorClass: "text-violet-600 dark:text-violet-300/90",
-      dotClass: "bg-violet-500 dark:bg-violet-300/90",
       pulse: false,
     };
   }

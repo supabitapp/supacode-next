@@ -12,14 +12,11 @@ import {
   type MessageId,
   type ModelSelection,
   type OrchestrationV2ProjectedTurnItem,
-  type PreviewAnnotationPayload,
-  type ProviderInteractionMode,
   ProviderDriverKind,
   type ProviderInstanceId,
   type ServerProvider,
   type ScopedProjectRef,
   type ScopedThreadRef,
-  type ThreadContextRecord,
   type ThreadId,
   type ThreadLinkedPullRequest,
   type RunId,
@@ -50,13 +47,11 @@ import {
 import type { DraftThreadState } from "../composerDraftStore";
 import * as Schema from "effect/Schema";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentThreadShells, environmentThreadDetails } from "../state/threads";
-import { waitForAtomValue } from "../state/waitForAtomValue";
+import { environmentThreadDetails } from "../state/threads";
 import { filterTerminalContextsWithText, type TerminalContextDraft } from "../lib/terminalContext";
 import { stripInlineContextReferences } from "~/lib/composerContextReferences";
 import type { DraftThreadEnvMode } from "../composerDraftStore";
-import { collapseExpandedComposerCursor, type ComposerSubmissionIntent } from "../composer-logic";
-import type { ReviewCommentContext } from "../reviewCommentContext";
+import { type ComposerSubmissionIntent } from "../composer-logic";
 import { derivePhase, type TimelineEntry } from "../session-logic";
 import type { PreviewMiniPlayerSource } from "../previewMiniPlayerStore";
 import type { RightPanelSurface } from "../rightPanelStore";
@@ -191,15 +186,6 @@ export function codexArtifactTemplatePromptToAppend(
 }
 
 export const LastInvokedScriptByProjectSchema = Schema.Record(ProjectId, Schema.String);
-
-export function resolveEffectiveInteractionMode(input: {
-  planModeEnabled: boolean;
-  composerInteractionMode: ProviderInteractionMode | null;
-  threadInteractionMode: ProviderInteractionMode | null | undefined;
-}): ProviderInteractionMode {
-  if (!input.planModeEnabled) return "default";
-  return input.composerInteractionMode ?? input.threadInteractionMode ?? "default";
-}
 
 export function shouldDockDraftHeroForSubmission(input: {
   isDraftHeroState: boolean;
@@ -600,22 +586,6 @@ export function resolveComposerProviderSelection(input: {
   };
 }
 
-/** Keep restored drafts and every plan control on the selected instance's supported mode. */
-export function resolveComposerInteractionMode(input: {
-  planModeEnabled: boolean;
-  provider: Pick<ServerProvider, "showInteractionModeToggle"> | null | undefined;
-  interactionMode: ProviderInteractionMode;
-}): { enabled: boolean; interactionMode: ProviderInteractionMode } {
-  const enabled =
-    input.planModeEnabled &&
-    input.provider != null &&
-    input.provider.showInteractionModeToggle !== false;
-  return {
-    enabled,
-    interactionMode: enabled ? input.interactionMode : "default",
-  };
-}
-
 export function getAntigravitySendBlockReason(
   provider:
     | Pick<ServerProvider, "driver" | "installed" | "auth" | "models" | "status">
@@ -897,22 +867,6 @@ export function shouldShowBranchMismatchBanner(input: {
   return input.composerHasContent || input.wasShownForCurrentMismatch;
 }
 
-export function shouldShowPlanFollowUpPrompt(input: {
-  pendingUserInputCount: number;
-  interactionMode: ProviderInteractionMode;
-  latestTurnSettled: boolean;
-  hasActionableProposedPlan: boolean;
-  hasComposerAttachments: boolean;
-}): boolean {
-  return (
-    input.pendingUserInputCount === 0 &&
-    input.interactionMode === "plan" &&
-    input.latestTurnSettled &&
-    input.hasActionableProposedPlan &&
-    !input.hasComposerAttachments
-  );
-}
-
 // Session-scoped (module-level so it survives ChatView remounts, e.g. route
 // changes). Durable cross-device dismissal is planned as a server-side ack.
 const sessionDismissedBranchMismatchKeys = new Set<string>();
@@ -1051,19 +1005,6 @@ export function getStartedThreadModelChangeBlockReason(input: {
     title: "Start a new chat to change models",
     description: "This provider does not allow switching models after a conversation has started.",
   };
-}
-
-export async function waitForStartedServerThread(
-  threadRef: ScopedThreadRef,
-  timeoutMs = 1_000,
-): Promise<boolean> {
-  const threadAtom = environmentThreadShells.threadShellAtom(threadRef);
-  return waitForAtomValue({
-    registry: appAtomRegistry,
-    atom: threadAtom,
-    predicate: threadHasStarted,
-    timeoutMs,
-  });
 }
 
 /**
@@ -1268,42 +1209,4 @@ export function shouldRefocusComposerOnWindowFocus(
       '[role="dialog"], [role="alertdialog"], [data-slot$="-popup"], [data-terminal-owner]',
     ) === null
   );
-}
-
-export interface PlanFollowUpComposerSnapshot {
-  readonly prompt: string;
-  readonly terminalContexts: ReadonlyArray<TerminalContextDraft>;
-  readonly reviewComments: ReadonlyArray<ReviewCommentContext>;
-  readonly previewAnnotations: ReadonlyArray<PreviewAnnotationPayload>;
-  readonly threadContexts: ReadonlyArray<ThreadContextRecord>;
-}
-
-/**
- * Puts back everything a plan follow-up send cleared when the send fails. The
- * caller clears the composer before awaiting the send, so every field it held
- * has to be written back here: a dropped field silently discards user context.
- */
-export function restorePlanFollowUpComposer(input: {
-  readonly snapshot: PlanFollowUpComposerSnapshot;
-  readonly writePrompt: (prompt: string) => void;
-  readonly writeTerminalContexts: (contexts: ReadonlyArray<TerminalContextDraft>) => void;
-  readonly writeReviewComments: (comments: ReadonlyArray<ReviewCommentContext>) => void;
-  readonly writePreviewAnnotations: (annotations: ReadonlyArray<PreviewAnnotationPayload>) => void;
-  readonly writeThreadContexts: (records: ReadonlyArray<ThreadContextRecord>) => void;
-  readonly resetCursor: (options: {
-    cursor: number;
-    prompt: string;
-    detectTrigger: boolean;
-  }) => void;
-}): void {
-  input.writePrompt(input.snapshot.prompt);
-  input.writeTerminalContexts(input.snapshot.terminalContexts);
-  input.writeReviewComments(input.snapshot.reviewComments);
-  input.writePreviewAnnotations(input.snapshot.previewAnnotations);
-  input.writeThreadContexts(input.snapshot.threadContexts);
-  input.resetCursor({
-    cursor: collapseExpandedComposerCursor(input.snapshot.prompt, input.snapshot.prompt.length),
-    prompt: input.snapshot.prompt,
-    detectTrigger: true,
-  });
 }

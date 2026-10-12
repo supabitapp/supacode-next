@@ -28,7 +28,6 @@ import {
 import {
   getCustomModelOptionsByInstance,
   resolveAppModelSelectionState,
-  selectsPlanAgent,
 } from "../../modelSelection";
 import { EMPTY_SERVER_PROVIDERS } from "../../state/server";
 import { ProviderModelPicker } from "../chat/ProviderModelPicker";
@@ -415,9 +414,6 @@ export function SourceControlWritingSettingsSection() {
                   onPromptChange={() => {}}
                   modelOptions={activeSelection.options ?? []}
                   allowPromptInjectedEffort={false}
-                  planModeEnabled={
-                    settings.planModeEnabled || selectsPlanAgent(activeSelection.options)
-                  }
                   triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
                   onModelOptionsChange={(options) =>
                     updateSettings({
@@ -527,9 +523,6 @@ export function SourceControlWritingSettingsSection() {
                       onPromptChange={() => {}}
                       modelOptions={reviewGuideSelection.options ?? []}
                       allowPromptInjectedEffort={false}
-                      planModeEnabled={
-                        settings.planModeEnabled || selectsPlanAgent(reviewGuideSelection.options)
-                      }
                       triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
                       onModelOptionsChange={(options) =>
                         updateSettings({

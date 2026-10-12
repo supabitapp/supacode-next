@@ -439,21 +439,6 @@ export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMod
   });
 }
 
-/**
- * Whether the legacy sidebar (Settings → General → Legacy features) replaces
- * the default one.
- *
- * Held at the default sidebar until client settings hydrate: the pre-hydration
- * snapshot is just the schema defaults, so resolving against it could mount one
- * sidebar and then swap it out once persisted settings land — remounting the
- * whole tree for everyone instead of only for legacy opt-ins.
- */
-export function useLegacySidebarEnabled(): boolean {
-  const settingsHydrated = useClientSettingsHydrated();
-  const legacySidebarEnabled = useClientSettingsValue().legacySidebarEnabled;
-  return settingsHydrated && legacySidebarEnabled;
-}
-
 /** Hydrate legacy preferences before a mutation can claim either server-owned list. */
 export async function prepareModelPreferencesPatch(
   settings: ServerSettings,

@@ -10,7 +10,7 @@ import {
   formatContextWindowCompactionMessage,
   formatContextWindowCost,
   usageFillColor,
-} from "./ContextWindowMeter.logic";
+} from "./ContextWindow.logic";
 
 export function ContextWindowDetails(props: {
   usage: ContextWindowSnapshot;

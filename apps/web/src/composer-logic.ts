@@ -1,15 +1,10 @@
 import type { ClientSettings } from "@supacode/contracts/settings";
 import type { AssistantCitation, ResolvedKeybindingsConfig } from "@supacode/contracts";
-import { parseKeybindingShortcut } from "@supacode/shared/keybindings";
 import {
   serializeAssistantCitation,
   withAssistantCitationComment,
 } from "@supacode/shared/assistantCitations";
-import {
-  detectComposerTrigger,
-  type ComposerSlashCommand,
-  type ComposerTrigger,
-} from "@supacode/shared/composerTrigger";
+import { detectComposerTrigger, type ComposerTrigger } from "@supacode/shared/composerTrigger";
 import {
   splitPromptIntoComposerSegments,
   type ComposerPromptSegment,
@@ -72,9 +67,6 @@ export function composerSubmissionIntentForKey(input: {
     return null;
   return "foreground";
 }
-
-/** The plan mode toggle, which the composer handles itself rather than the keybinding registry. */
-export const INTERACTION_MODE_TOGGLE_SHORTCUT = parseKeybindingShortcut("shift+tab")!;
 
 export type ComposerSendAction = ComposerSubmissionIntent | "newLine";
 
@@ -347,16 +339,4 @@ export function composerStateAtPromptEnd(
       ? null
       : detectComposerTrigger(text, expandCollapsedComposerCursor(text, cursor)),
   };
-}
-
-export function parseStandaloneComposerSlashCommand(
-  text: string,
-): Exclude<ComposerSlashCommand, "model"> | null {
-  const match = /^\/(plan|default)\s*$/i.exec(text.trim());
-  if (!match) {
-    return null;
-  }
-  const command = match[1]?.toLowerCase();
-  if (command === "plan") return "plan";
-  return "default";
 }

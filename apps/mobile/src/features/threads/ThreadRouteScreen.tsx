@@ -24,6 +24,7 @@ import {
   AuthOrchestrationOperateScope,
   AuthTerminalOperateScope,
   AuthTerminalReadScope,
+  DEFAULT_PROVIDER_INTERACTION_MODE,
   DEFAULT_SERVER_SETTINGS,
   EnvironmentId,
   ThreadId,
@@ -453,10 +454,9 @@ function ThreadRouteContent(
             ...selectedThread,
             modelSelection: composer.modelSelection ?? selectedThread.modelSelection,
             runtimeMode: composer.runtimeMode ?? selectedThread.runtimeMode,
-            interactionMode: composer.interactionMode ?? selectedThread.interactionMode,
           }
         : null,
-    [composer.interactionMode, composer.modelSelection, composer.runtimeMode, selectedThread],
+    [composer.modelSelection, composer.runtimeMode, selectedThread],
   );
 
   /* ─── Native header theming ──────────────────────────────────────── */
@@ -931,7 +931,7 @@ function ThreadRouteContent(
           uploadedAttachments: setupMessage.attachments,
           modelSelection: selectedThread.modelSelection,
           runtimeMode: selectedThread.runtimeMode,
-          interactionMode: selectedThread.interactionMode,
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
           workspaceMode: "local",
           branch: null,
           worktreePath: null,
@@ -1091,7 +1091,6 @@ function ThreadRouteContent(
           canSwitchThreadProvider={composer.canSwitchThreadProvider}
           onUpdateThreadModelSelection={composer.onUpdateModelSelection}
           onUpdateThreadRuntimeMode={composer.onUpdateRuntimeMode}
-          onUpdateThreadInteractionMode={composer.onUpdateInteractionMode}
           onRespondToApproval={requests.onRespondToApproval}
           onSelectUserInputOption={requests.onSelectUserInputOption}
           onChangeUserInputCustomAnswer={requests.onChangeUserInputCustomAnswer}

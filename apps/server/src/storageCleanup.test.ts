@@ -333,7 +333,7 @@ const cleanupFixture = Effect.gen(function* () {
     disable: () => {
       settings = {
         ...settings,
-        storageCleanup: { ...settings.storageCleanup, worktreeAfterDays: null },
+        worktreeCleanup: { mode: "off" },
       };
     },
     setThreads: (next: typeof threads) => {

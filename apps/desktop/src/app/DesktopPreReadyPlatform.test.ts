@@ -31,6 +31,8 @@ vi.mock("electron", () => ({
     getVersion: () => "0.0.37",
     isPackaged: true,
     getAppPath: () => "/tmp/.mount_Supacode/resources/app.asar",
+    on: vi.fn(),
+    removeListener: vi.fn(),
     commandLine: {
       appendSwitch: appendSwitchMock,
       getSwitchValue: getSwitchValueMock,

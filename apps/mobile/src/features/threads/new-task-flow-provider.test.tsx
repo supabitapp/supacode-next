@@ -97,9 +97,7 @@ vi.mock("../../state/queries", () => ({
 vi.mock("../../state/project-grouping", () => ({
   useMobileProjectGroupingSettings: () => ({ sidebarProjectGroupingMode: "separate" }),
 }));
-vi.mock("./use-legacy-plan-mode-enabled", () => ({
-  useLegacyPlanModeState: () => ({ enabled: false, loaded: true }),
-}));
+
 vi.mock("../../state/use-remote-environment-registry", () => ({
   useSavedRemoteConnections: () => ({
     savedConnectionsById: Object.fromEntries(

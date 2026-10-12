@@ -3,7 +3,6 @@ import { readEnvironmentScope, useEnvironmentsWithScope } from "../../state/sess
 import { AutoSettleDaysField } from "./components/AutoSettleDaysField";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/reactivity";
 import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,11 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_SERVER_SETTINGS } from "@supacode/contracts";
 import { supportsSharedSettingsSync } from "@supacode/client-runtime/state/shared-settings";
 import { AppText as Text } from "../../components/AppText";
-import {
-  mobilePreferencesAtom,
-  showSkillsInSlashMenuAtom,
-  updateMobilePreferencesAtom,
-} from "../../state/preferences";
+import { showSkillsInSlashMenuAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SettingsSection } from "./components/SettingsSection";
@@ -52,7 +47,6 @@ export function SettingsThreadsRouteScreen() {
         >
           <ThreadBehaviorSettingsRows />
           <ComposerSettingsSection />
-          <LegacySettingsSection />
         </ScrollView>
       </SettingsScreen>
     </>
@@ -275,34 +269,5 @@ function ComposerSettingsSection() {
         onValueChange={(value) => savePreferences({ showSkillsInSlashMenu: value })}
       />
     </SettingsSection>
-  );
-}
-
-/**
- * Device-local legacy toggles. Mobile has no client-settings sync, so this is
- * the counterpart of web's Settings → General → Legacy features backed by
- * mobile preferences.
- */
-function LegacySettingsSection() {
-  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
-  const preferences = useAtomValue(mobilePreferencesAtom);
-  const planModeEnabled =
-    AsyncResult.isSuccess(preferences) && preferences.value.planModeEnabled === true;
-
-  return (
-    <View className="gap-3">
-      <SettingsSection title="Legacy">
-        <SettingsSwitchRow
-          icon="hammer"
-          label="Plan Mode"
-          value={planModeEnabled}
-          onValueChange={(value) => savePreferences({ planModeEnabled: value })}
-        />
-      </SettingsSection>
-      <Text className="px-2 text-sm text-foreground-muted">
-        Opt into retired interfaces kept for compatibility. Plan Mode restores the Build/Plan
-        control; otherwise every task runs in Build mode.
-      </Text>
-    </View>
   );
 }

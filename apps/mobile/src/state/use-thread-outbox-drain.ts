@@ -408,7 +408,6 @@ export async function recoverEditedCreationAfterDelivery(
     updateComposerDraftSettings(draftKey, {
       ...(kept.modelSelection !== undefined ? { modelSelection: kept.modelSelection } : {}),
       ...(kept.runtimeMode !== undefined ? { runtimeMode: kept.runtimeMode } : {}),
-      ...(kept.interactionMode !== undefined ? { interactionMode: kept.interactionMode } : {}),
     });
     // The append only schedules a debounced write; the queue entry is the
     // only durable copy until the draft lands, so flush before removing.
@@ -511,7 +510,6 @@ export async function restoreRejectedQueuedMessage(
     updateComposerDraftSettings(draftKey, {
       ...(queuedMessage.modelSelection ? { modelSelection: queuedMessage.modelSelection } : {}),
       ...(queuedMessage.runtimeMode ? { runtimeMode: queuedMessage.runtimeMode } : {}),
-      ...(queuedMessage.interactionMode ? { interactionMode: queuedMessage.interactionMode } : {}),
       ...(queuedMessage.creation
         ? {
             workspaceSelection: {

@@ -1317,8 +1317,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     ? resolveThreadCurrentPullRequestLink(thread.pullRequests)
     : null;
 
-  // Same semantics as the legacy sidebar (never-visited counts as read):
-  // switching sidebars must not light up every historical thread as unread.
+  // Never-visited threads count as read so historical threads do not light up
+  // as unread on first load.
   const isUnread = hasUnseenCompletion({ ...thread, lastVisitedAt });
   const status = resolveSidebarThreadStatus(thread);
   const showDuration = environmentConnected && shouldShowSidebarV2Duration(status);

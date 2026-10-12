@@ -42,7 +42,15 @@ describe("resolveReviewGuideModelSelection", () => {
     auth: { status: "authenticated" },
     checkedAt: "2026-07-27T00:00:00.000Z",
     supportsReviewGuides,
-    models: [{ slug: "review-model", name: "Review model", isDefault: true }],
+    models: [
+      {
+        slug: "review-model",
+        name: "Review model",
+        isDefault: true,
+        isCustom: false,
+        capabilities: { optionDescriptors: [] },
+      },
+    ],
     slashCommands: [],
     skills: [],
   });

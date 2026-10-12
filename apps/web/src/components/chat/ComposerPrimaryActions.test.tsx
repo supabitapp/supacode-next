@@ -40,8 +40,6 @@ function renderPendingActions(isRunning: boolean) {
       },
       isRunning,
       canInterrupt: isRunning,
-      showPlanFollowUpPrompt: false,
-      promptHasText: false,
       isSendBusy: false,
       sendDisabledReason: null,
       isConnecting: false,
@@ -50,7 +48,6 @@ function renderPendingActions(isRunning: boolean) {
       hasSendableContent: false,
       onPreviousPendingQuestion: () => {},
       onInterrupt: () => {},
-      onImplementPlanInNewThread: () => {},
     }),
   );
 }
@@ -65,8 +62,6 @@ function renderRunningActions(hasSendableContent: boolean) {
       isRunning: true,
       canInterrupt: true,
       followUpBehavior: "queue",
-      showPlanFollowUpPrompt: false,
-      promptHasText: hasSendableContent,
       isSendBusy: false,
       sendDisabledReason: null,
       isConnecting: false,
@@ -75,7 +70,6 @@ function renderRunningActions(hasSendableContent: boolean) {
       hasSendableContent,
       onPreviousPendingQuestion: () => {},
       onInterrupt: () => {},
-      onImplementPlanInNewThread: () => {},
     }),
   );
 }
@@ -92,8 +86,6 @@ function renderSendButton(
       pendingAction: null,
       isRunning: false,
       canInterrupt: false,
-      showPlanFollowUpPrompt: false,
-      promptHasText: true,
       isSendBusy: false,
       sendDisabledReason,
       isConnecting: false,
@@ -102,7 +94,6 @@ function renderSendButton(
       hasSendableContent: true,
       onPreviousPendingQuestion: () => {},
       onInterrupt: () => {},
-      onImplementPlanInNewThread: () => {},
       ...overrides,
     }),
   );

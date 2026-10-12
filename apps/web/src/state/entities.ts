@@ -111,12 +111,6 @@ export function useThreadShellsForProjectRefs(
   return useAtomValue(environmentThreadShells.threadShellsForProjectRefsAtom(refs));
 }
 
-export function useSidebarThreadShellsForProjectRefs(
-  refs: ReadonlyArray<ScopedProjectRef>,
-): ReadonlyArray<EnvironmentThreadShell> {
-  return useAtomValue(sidebarThreadShells.threadShellsForProjectRefsAtom(refs));
-}
-
 export function useProject(ref: ScopedProjectRef | null): EnvironmentProject | null {
   return useAtomValue(ref === null ? EMPTY_PROJECT_ATOM : environmentProjects.projectAtom(ref));
 }

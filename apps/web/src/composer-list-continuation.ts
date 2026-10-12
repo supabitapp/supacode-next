@@ -126,8 +126,7 @@ export function listContinuationForEnter(value: string, cursor: number): Compose
 
 /**
  * Tab on a list item line: indent by two spaces. Ranged selections, non-list
- * lines, and carets inside an inline chip fall through (Shift+Tab stays the
- * plan-mode toggle and is handled before this is consulted).
+ * lines, and carets inside an inline chip fall through.
  */
 export function listIndentForTab(
   value: string,

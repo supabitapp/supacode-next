@@ -18,7 +18,6 @@ import {
 } from "./ChatView.logic";
 import * as DateTime from "effect/DateTime";
 import { createUserInputAutoDismissPause } from "@supacode/client-runtime/user-input-auto-dismiss-pause";
-import { restorePlanFollowUpComposer } from "./ChatView.logic";
 import { assistantCitationsToPlainText } from "@supacode/shared/assistantCitations";
 import { prepareQueuedEditAttachments, recoverQueuedMessageEdit } from "./chat/queuedMessageEdit";
 import {
@@ -182,7 +181,6 @@ import { useShallow } from "zustand/react/shallow";
 import {
   isAtomCommandInterrupted,
   mapAtomCommandResult,
-  settlePromise,
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@supacode/client-runtime/state/runtime";
@@ -193,10 +191,7 @@ import { readLocalApi } from "../localApi";
 import { useDiffPanelStore } from "../diffPanelStore";
 import { useActiveThreadRef } from "../hooks/useActiveThreadRef";
 import { useForkThread } from "../hooks/useForkThread";
-import {
-  type ComposerSubmissionIntent,
-  parseStandaloneComposerSlashCommand,
-} from "../composer-logic";
+import { type ComposerSubmissionIntent } from "../composer-logic";
 import {
   derivePendingApprovals,
   derivePendingUserInputs,
@@ -208,8 +203,6 @@ import {
   deriveActivePlanState,
   deriveActiveWorkStartedAt,
   deriveCanInterruptRunningThread,
-  findLatestProposedPlan,
-  hasActionableProposedPlan,
   isLatestRunSettled,
 } from "../session-logic";
 import { type LegendListRef } from "@legendapp/list/react";
@@ -232,11 +225,6 @@ import {
 import { seedUserInputDraftAnswers } from "@supacode/client-runtime/state/thread-requests";
 import { useUiStateStore } from "../uiStateStore";
 import { useWorkspaceMutationRefresh } from "../hooks/useWorkspaceMutationRefresh";
-import {
-  buildPlanImplementationThreadTitle,
-  buildPlanImplementationPrompt,
-  resolvePlanFollowUpSubmission,
-} from "../proposedPlan";
 import {
   DEFAULT_INTERACTION_MODE,
   DEFAULT_THREAD_TERMINAL_ID,
@@ -504,7 +492,7 @@ import {
   hasAvailableCompactionProvider,
   hasDismissedResumeCompaction,
   shouldOfferResumeCompaction,
-} from "./chat/ContextWindowMeter.logic";
+} from "./chat/ContextWindow.logic";
 import {
   deriveLatestContextWindowSnapshot,
   latestProviderTurnTokenUsage,
@@ -524,7 +512,6 @@ import {
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
   collectUserMessageBlobPreviewUrls,
-  createLocalDispatchSnapshot,
   deriveCommittedServerUserMessageIds,
   deriveComposerSendState,
   dismissBranchMismatchForSession,
@@ -533,7 +520,6 @@ import {
   hasServerAcknowledgedLocalDispatch,
   isBranchMismatchDismissedForSession,
   shouldShowBranchMismatchBanner,
-  shouldShowPlanFollowUpPrompt,
   shouldOpenProactivePullRequest,
   shouldRetargetThreadPullRequestPanel,
   shouldOpenProactiveTurnDiff,
@@ -550,7 +536,6 @@ import {
   prepareRevertedMessageAttachments,
   waitForRevertedMessage,
   reconcileMountedTerminalThreadIds,
-  resolveComposerInteractionMode,
   resolveComposerProviderSelection,
   getAntigravitySendBlockReason,
   observeProactivePanelUserChoice,
@@ -561,7 +546,6 @@ import {
   revokeUserMessagePreviewUrls,
   startNewThreadForProject,
   codexArtifactTemplatePromptToAppend,
-  waitForStartedServerThread,
   shouldRefocusComposerOnWindowFocus,
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
@@ -912,29 +896,7 @@ function useLocalDispatchState(input: {
     ],
   );
   const activeLocalDispatch = serverAcknowledgedLocalDispatch ? null : localDispatch;
-  const beginLocalDispatch = useCallback(
-    (options?: { preparingWorktree?: boolean; submissionIntent?: ComposerSubmissionIntent }) => {
-      const preparingWorktree = Boolean(options?.preparingWorktree);
-      setLocalDispatch((current) => {
-        const active = serverAcknowledgedLocalDispatch ? null : current;
-        if (active) {
-          const submissionIntent = options?.submissionIntent ?? active.submissionIntent;
-          return active.preparingWorktree === preparingWorktree &&
-            active.submissionIntent === submissionIntent
-            ? active
-            : { ...active, preparingWorktree, submissionIntent };
-        }
-        return createLocalDispatchSnapshot(input.activeThread, {
-          ...options,
-          latestUserMessageId: input.latestUserMessageId,
-        });
-      });
-    },
-    [input.activeThread, input.latestUserMessageId, serverAcknowledgedLocalDispatch],
-  );
-
   return {
-    beginLocalDispatch,
     resetLocalDispatch,
     localDispatchStartedAt: activeLocalDispatch?.startedAt ?? null,
     isPreparingWorktree: activeLocalDispatch?.preparingWorktree ?? false,
@@ -1694,8 +1656,6 @@ export default function ChatView(props: ChatViewProps) {
   const openTerminal = useAtomCommand(terminalEnvironment.open, "terminal open");
   const writeTerminal = useAtomCommand(terminalEnvironment.write, "terminal write");
   const closeTerminalMutation = useAtomCommand(terminalEnvironment.close, "terminal close");
-  const createThread = useOrchestrationCommand(threadEnvironment.create, { reportFailure: false });
-  const deleteThread = useOrchestrationCommand(threadEnvironment.delete, { reportFailure: false });
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
   });
@@ -1911,9 +1871,6 @@ export default function ChatView(props: ChatViewProps) {
   const composerRuntimeMode = useComposerDraftStore(
     (store) => store.getComposerDraft(composerDraftTarget)?.runtimeMode ?? null,
   );
-  const composerInteractionMode = useComposerDraftStore(
-    (store) => store.getComposerDraft(composerDraftTarget)?.interactionMode ?? null,
-  );
   const composerActiveProvider = useComposerDraftStore(
     (store) => store.getComposerDraft(composerDraftTarget)?.activeProvider ?? null,
   );
@@ -1927,19 +1884,8 @@ export default function ChatView(props: ChatViewProps) {
     return draft ? composerDraftHasUserContent({ ...draft, prompt: "" }) : false;
   });
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
-  const setComposerDraftTerminalContexts = useComposerDraftStore(
-    (store) => store.setTerminalContexts,
-  );
-  const setComposerDraftPreviewAnnotations = useComposerDraftStore(
-    (store) => store.setPreviewAnnotations,
-  );
-  const setComposerDraftReviewComments = useComposerDraftStore((store) => store.setReviewComments);
-  const setComposerDraftThreadContexts = useComposerDraftStore((store) => store.setThreadContexts);
   const setComposerDraftModelSelection = useComposerDraftStore((store) => store.setModelSelection);
   const setComposerDraftRuntimeMode = useComposerDraftStore((store) => store.setRuntimeMode);
-  const setComposerDraftInteractionMode = useComposerDraftStore(
-    (store) => store.setInteractionMode,
-  );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
   const getDraftSessionByLogicalProjectKey = useComposerDraftStore(
@@ -3014,7 +2960,6 @@ export default function ChatView(props: ChatViewProps) {
           threadId: activeDraftSession.threadId,
           createdAt: activeDraftSession.createdAt,
           runtimeMode: activeDraftSession.runtimeMode,
-          interactionMode: activeDraftSession.interactionMode,
           ...input,
         });
         return activeDraftSession.threadId;
@@ -3027,7 +2972,6 @@ export default function ChatView(props: ChatViewProps) {
         createdAt: new Date().toISOString(),
         runtimeMode: resolveProjectSettings(settings, activeProject.id, activeProject).settings
           .defaultRuntimeMode,
-        interactionMode: DEFAULT_INTERACTION_MODE,
         ...input,
       });
       await navigate({
@@ -3420,12 +3364,7 @@ export default function ChatView(props: ChatViewProps) {
   const selectedProvider = selectedProviderEntry?.driverKind ?? requestedDriverKind;
   const activeProviderInstanceId = selectedProviderEntry?.instanceId ?? null;
   const activeProviderStatus = selectedProviderEntry?.snapshot ?? null;
-  const { enabled: interactionModeEnabled, interactionMode } = resolveComposerInteractionMode({
-    planModeEnabled: settings.planModeEnabled,
-    provider: activeProviderStatus,
-    interactionMode:
-      composerInteractionMode ?? activeThread?.interactionMode ?? DEFAULT_INTERACTION_MODE,
-  });
+  const interactionMode = DEFAULT_INTERACTION_MODE;
   const conversationProviderStatus =
     providerStatuses.find((status) => status.instanceId === activeRuntime?.providerInstanceId) ??
     activeProviderStatus;
@@ -3600,19 +3539,6 @@ export default function ChatView(props: ChatViewProps) {
     ? activePendingUserInput.responseCapability === "not_resumable" ||
       respondingUserInputRequestIds.includes(activePendingUserInput.requestId)
     : false;
-  const activeProposedPlan = useMemo(() => {
-    if (!latestRunSettled) {
-      return null;
-    }
-    return findLatestProposedPlan(serverProjection, activeLatestRun?.runId ?? null);
-  }, [activeLatestRun?.runId, latestRunSettled, serverProjection]);
-  const showPlanFollowUpPrompt = shouldShowPlanFollowUpPrompt({
-    pendingUserInputCount: pendingUserInputs.length,
-    interactionMode,
-    latestTurnSettled: latestRunSettled,
-    hasActionableProposedPlan: hasActionableProposedPlan(activeProposedPlan),
-    hasComposerAttachments: composerHasAttachments,
-  });
   const activePendingApproval = pendingApprovals[0] ?? null;
   // The open /usage-limits panel for this thread, model and turn. Only the open
   // moment is stored: the rows read live provider data, so a redeemed reset
@@ -3720,7 +3646,6 @@ export default function ChatView(props: ChatViewProps) {
     [],
   );
   const {
-    beginLocalDispatch,
     resetLocalDispatch,
     localDispatchStartedAt,
     isPreparingWorktree: isLocallyPreparingWorktree,
@@ -4841,7 +4766,7 @@ export default function ChatView(props: ChatViewProps) {
         },
       ]);
     },
-    [activeThreadId, environmentId, interactionMode, isServerThread, runtimeMode],
+    [activeThreadId, environmentId, isServerThread, runtimeMode],
   );
   const editQueuedRunCommand = useAtomCommand(threadEnvironment.editQueuedRun, {
     reportFailure: false,
@@ -5601,30 +5526,6 @@ export default function ChatView(props: ChatViewProps) {
     ],
   );
 
-  const handleInteractionModeChange = useCallback(
-    (mode: ProviderInteractionMode) => {
-      if (mode === "plan" && !interactionModeEnabled) return;
-      if (mode === interactionMode) return;
-      setComposerDraftInteractionMode(composerDraftTarget, mode);
-      if (isLocalDraftThread) {
-        setDraftThreadContext(composerDraftTarget, { interactionMode: mode });
-      }
-      scheduleComposerFocus();
-    },
-    [
-      interactionMode,
-      interactionModeEnabled,
-      isLocalDraftThread,
-      scheduleComposerFocus,
-      composerDraftTarget,
-      setComposerDraftInteractionMode,
-      setDraftThreadContext,
-    ],
-  );
-  const toggleInteractionMode = useCallback(() => {
-    if (!interactionModeEnabled) return;
-    handleInteractionModeChange(interactionMode === "plan" ? "default" : "plan");
-  }, [handleInteractionModeChange, interactionMode, interactionModeEnabled]);
   const openProviderSetup = useCallback(
     (instanceId: ProviderInstanceId) => {
       void navigate({
@@ -7925,8 +7826,7 @@ export default function ChatView(props: ChatViewProps) {
     activeEnvironmentUnavailable ||
     feedbackUploading ||
     pendingApprovals.length > 0 ||
-    pendingUserInputs.length > 0 ||
-    showPlanFollowUpPrompt;
+    pendingUserInputs.length > 0;
   const compactDisabled = compactThreadUnavailable;
   const compactDisabledReason = compactDisabled
     ? !canOperateThread
@@ -9104,7 +9004,6 @@ export default function ChatView(props: ChatViewProps) {
       selectedPromptEffort: ctxSelectedPromptEffort,
       selectedModelSelection: ctxSelectedModelSelection,
       interactionMode: sendInteractionMode,
-      interactionModeEnabled: sendInteractionModeEnabled,
     } = sendCtx;
     const annotationImageAlreadyAttached =
       directAnnotation?.image !== undefined &&
@@ -9341,97 +9240,6 @@ export default function ChatView(props: ChatViewProps) {
 
       return;
     }
-    if (
-      !directAnnotation &&
-      sendInteractionModeEnabled &&
-      showPlanFollowUpPrompt &&
-      activeProposedPlan &&
-      composerImages.length === 0 &&
-      composerFiles.length === 0
-    ) {
-      const followUp = resolvePlanFollowUpSubmission({
-        draftText: promptForSend,
-        planMarkdown: activeProposedPlan.planMarkdown,
-      });
-      const outgoingFollowUpText = formatOutgoingPrompt({
-        provider: ctxSelectedProvider,
-        model: ctxSelectedModel,
-        models: ctxSelectedProviderModels,
-        effort: ctxSelectedPromptEffort,
-        text: followUp.text.trim(),
-      });
-      if (composerRef.current?.validateProviderInput(outgoingFollowUpText) === false) {
-        return;
-      }
-      // The composer is cleared before the send resolves, so hold everything it carried: a
-      // transient failure must give the prose and its context back, as the ordinary send does.
-      // Snapshot exactly what was sent, copied, so later mutations cannot alias the backup.
-      const followUpPromptSnapshot = promptRef.current;
-      const followUpTerminalContexts = [...sendableComposerTerminalContexts];
-      const followUpReviewComments = [...composerReviewComments];
-      const followUpPreviewAnnotations = [...composerPreviewAnnotations];
-      const followUpThreadContexts = [...composerThreadContexts];
-      promptRef.current = "";
-      clearComposerDraftContent(composerDraftTarget);
-      composerRef.current?.resetCursorState();
-      const followUpSent = await onSubmitPlanFollowUp({
-        text: followUp.text,
-        context: buildMessageContext({
-          terminalContexts: sendableComposerTerminalContexts,
-          reviewComments: composerReviewComments,
-          previewAnnotations: composerPreviewAnnotations,
-          threadContexts: composerThreadContexts,
-        }),
-        interactionMode: followUp.interactionMode,
-      });
-      if (!followUpSent) {
-        promptRef.current = followUpPromptSnapshot;
-        composerTerminalContextsRef.current = [...followUpTerminalContexts];
-        restorePlanFollowUpComposer({
-          snapshot: {
-            prompt: followUpPromptSnapshot,
-            terminalContexts: followUpTerminalContexts,
-            reviewComments: followUpReviewComments,
-            previewAnnotations: followUpPreviewAnnotations,
-            threadContexts: followUpThreadContexts,
-          },
-          writePrompt: (prompt) => setComposerDraftPrompt(composerDraftTarget, prompt),
-          writeTerminalContexts: (contexts) =>
-            setComposerDraftTerminalContexts(composerDraftTarget, [...contexts]),
-          writeReviewComments: (comments) =>
-            setComposerDraftReviewComments(composerDraftTarget, [...comments]),
-          writePreviewAnnotations: (annotations) =>
-            setComposerDraftPreviewAnnotations(composerDraftTarget, [...annotations]),
-          writeThreadContexts: (records) =>
-            setComposerDraftThreadContexts(composerDraftTarget, [...records]),
-          resetCursor: (options) => composerRef.current?.resetCursorState(options),
-        });
-      } else if (
-        submissionIntent === "background" &&
-        currentRouteThreadKeyRef.current === routeThreadKey
-      ) {
-        handleNewThreadInActiveProject();
-      }
-      return;
-    }
-    // Providers without the legacy toggle receive their native commands unchanged.
-    const standaloneSlashCommand =
-      sendInteractionModeEnabled &&
-      composerImages.length === 0 &&
-      composerFiles.length === 0 &&
-      sendableComposerTerminalContexts.length === 0 &&
-      composerPreviewAnnotations.length === 0 &&
-      composerReviewComments.length === 0 &&
-      composerThreadContexts.length === 0
-        ? parseStandaloneComposerSlashCommand(trimmed)
-        : null;
-    if (standaloneSlashCommand && multipleModelSelections === null) {
-      handleInteractionModeChange(standaloneSlashCommand);
-      promptRef.current = "";
-      clearComposerDraftContent(composerDraftTarget);
-      composerRef.current?.resetCursorState();
-      return;
-    }
     if (!hasSendableContent) {
       if (expiredTerminalContextCount > 0) {
         const toastCopy = buildExpiredTerminalContextToastCopy(
@@ -9546,7 +9354,6 @@ export default function ChatView(props: ChatViewProps) {
         models: provider.models,
         modelOptions: selection.options,
         promptInjectionState: getComposerPromptInjectionState(messageTextForSend),
-        planModeEnabled: settings.planModeEnabled,
       });
       const text = formatOutgoingPrompt({
         provider: provider.driverKind,
@@ -9563,11 +9370,7 @@ export default function ChatView(props: ChatViewProps) {
           providerState.modelOptionsForDispatch,
         ),
         text,
-        interactionMode: resolveComposerInteractionMode({
-          planModeEnabled: settings.planModeEnabled,
-          provider: provider.snapshot,
-          interactionMode: sendInteractionMode,
-        }).interactionMode,
+        interactionMode: sendInteractionMode,
       });
     }
 
@@ -10062,264 +9865,6 @@ export default function ChatView(props: ChatViewProps) {
     }
     setActivePendingUserInputQuestionIndex(Math.max(activePendingProgress.questionIndex - 1, 0));
   }, [activePendingProgress, setActivePendingUserInputQuestionIndex]);
-
-  async function onSubmitPlanFollowUp({
-    text,
-    context,
-    interactionMode: nextInteractionMode,
-  }: {
-    text: string;
-    context?: ReturnType<typeof buildMessageContext>;
-    interactionMode: "default" | "plan";
-  }) {
-    if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
-      !activeThread ||
-      !isServerThread ||
-      isSendBusy ||
-      isConnecting ||
-      sendInFlightRef.current
-    ) {
-      return false;
-    }
-
-    const trimmed = text.trim();
-    if (!trimmed) {
-      return false;
-    }
-
-    const sendCtx = composerRef.current?.getSendContext();
-    if (!sendCtx?.providerAvailable || !sendCtx.interactionModeEnabled) {
-      return false;
-    }
-    const {
-      selectedProvider: ctxSelectedProvider,
-      selectedModel: ctxSelectedModel,
-      selectedProviderModels: ctxSelectedProviderModels,
-      selectedPromptEffort: ctxSelectedPromptEffort,
-      selectedModelSelection: ctxSelectedModelSelection,
-    } = sendCtx;
-
-    const threadIdForSend = activeThread.id;
-    const messageIdForSend = newMessageId();
-    const messageCreatedAt = new Date().toISOString();
-    const outgoingMessageText = formatOutgoingPrompt({
-      provider: ctxSelectedProvider,
-      model: ctxSelectedModel,
-      models: ctxSelectedProviderModels,
-      effort: ctxSelectedPromptEffort,
-      text: trimmed,
-    });
-
-    sendInFlightRef.current = true;
-    setThreadError(threadIdForSend, null);
-    try {
-      await enqueueThreadOutboxTurns([
-        {
-          environmentId,
-          input: {
-            threadId: threadIdForSend,
-            message: {
-              messageId: messageIdForSend,
-              role: "user",
-              text: outgoingMessageText,
-              ...(context ? { context } : {}),
-              attachments: [],
-            },
-            modelSelection: ctxSelectedModelSelection,
-            titleSeed: activeThread.title,
-            runtimeMode,
-            interactionMode: nextInteractionMode,
-            ...(nextInteractionMode === "default" && activeProposedPlan
-              ? {
-                  sourceProposedPlan: {
-                    threadId: activeThread.id,
-                    planId: activeProposedPlan.id,
-                  },
-                }
-              : {}),
-            createdAt: messageCreatedAt,
-          },
-          ...(localCheckoutBranchMismatch
-            ? { branch: localCheckoutBranchMismatch.currentBranch }
-            : {}),
-        },
-      ]);
-      setComposerDraftInteractionMode(
-        scopeThreadRef(activeThread.environmentId, threadIdForSend),
-        nextInteractionMode,
-      );
-      scrollToEnd();
-      return true;
-    } catch (error) {
-      setThreadError(
-        threadIdForSend,
-        error instanceof Error ? error.message : "Could not save the pending plan follow-up.",
-      );
-      return false;
-    } finally {
-      sendInFlightRef.current = false;
-    }
-  }
-
-  const onImplementPlanInNewThread = useCallback(async () => {
-    if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
-      !activeThread ||
-      !activeProject ||
-      !activeProposedPlan ||
-      !isServerThread ||
-      isSendBusy ||
-      isConnecting ||
-      activeEnvironmentUnavailable ||
-      sendInFlightRef.current
-    ) {
-      return;
-    }
-
-    const sendCtx = composerRef.current?.getSendContext();
-    if (!sendCtx?.providerAvailable || !sendCtx.interactionModeEnabled) {
-      return;
-    }
-    const {
-      selectedProvider: ctxSelectedProvider,
-      selectedModel: ctxSelectedModel,
-      selectedProviderModels: ctxSelectedProviderModels,
-      selectedPromptEffort: ctxSelectedPromptEffort,
-      selectedModelSelection: ctxSelectedModelSelection,
-    } = sendCtx;
-
-    const createdAt = new Date().toISOString();
-    const nextThreadId = newThreadId();
-    const planMarkdown = activeProposedPlan.planMarkdown;
-    const implementationPrompt = buildPlanImplementationPrompt(planMarkdown);
-    const outgoingImplementationPrompt = formatOutgoingPrompt({
-      provider: ctxSelectedProvider,
-      model: ctxSelectedModel,
-      models: ctxSelectedProviderModels,
-      effort: ctxSelectedPromptEffort,
-      text: implementationPrompt,
-    });
-    const nextThreadTitle = truncate(buildPlanImplementationThreadTitle(planMarkdown));
-    const nextThreadModelSelection: ModelSelection = ctxSelectedModelSelection;
-
-    sendInFlightRef.current = true;
-    beginLocalDispatch({ preparingWorktree: false });
-    const finish = () => {
-      sendInFlightRef.current = false;
-      resetLocalDispatch();
-    };
-
-    const createResult = await createThread({
-      environmentId,
-      input: {
-        threadId: nextThreadId,
-        projectId: activeProject.id,
-        title: nextThreadTitle,
-        modelSelection: nextThreadModelSelection,
-        runtimeMode: defaultRuntimeMode,
-        interactionMode: "default",
-        branch: activeThreadBranch,
-        worktreePath: activeThread.worktreePath,
-        createdAt,
-      },
-    });
-    let failure: AtomCommandResult<unknown, unknown> | null =
-      createResult._tag === "Failure" ? createResult : null;
-
-    if (failure === null) {
-      const startResult = await startThreadTurn({
-        environmentId,
-        input: {
-          threadId: nextThreadId,
-          message: {
-            messageId: newMessageId(),
-            role: "user",
-            text: outgoingImplementationPrompt,
-            attachments: [],
-          },
-          modelSelection: ctxSelectedModelSelection,
-          titleSeed: nextThreadTitle,
-          runtimeMode: defaultRuntimeMode,
-          interactionMode: "default",
-          sourceProposedPlan: {
-            threadId: activeThread.id,
-            planId: activeProposedPlan.id,
-          },
-          createdAt,
-        },
-      });
-      failure = startResult._tag === "Failure" ? startResult : null;
-    }
-
-    if (failure === null) {
-      const startedResult = await settlePromise(() =>
-        waitForStartedServerThread(scopeThreadRef(activeThread.environmentId, nextThreadId)),
-      );
-      failure = startedResult._tag === "Failure" ? startedResult : null;
-    }
-
-    if (failure === null) {
-      const navigateResult = await settlePromise(() =>
-        navigate({
-          to: "/$environmentId/$threadId",
-          params: {
-            environmentId: activeThread.environmentId,
-            threadId: nextThreadId,
-          },
-        }),
-      );
-      failure = navigateResult._tag === "Failure" ? navigateResult : null;
-    }
-
-    if (failure !== null) {
-      const cleanupResult = await deleteThread({
-        environmentId,
-        input: {
-          threadId: nextThreadId,
-        },
-      });
-      if (cleanupResult._tag === "Failure" && !isAtomCommandInterrupted(cleanupResult)) {
-        console.warn(
-          "Failed to clean up implementation thread after start failure.",
-          squashAtomCommandFailure(cleanupResult),
-        );
-      }
-      if (!isAtomCommandInterrupted(failure)) {
-        const error = squashAtomCommandFailure(failure);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Could not start implementation thread",
-            description:
-              error instanceof Error
-                ? error.message
-                : "An error occurred while creating the new thread.",
-          }),
-        );
-      }
-    }
-    finish();
-  }, [
-    activeProject,
-    activeProposedPlan,
-    activeThreadBranch,
-    activeThread,
-    beginLocalDispatch,
-    activeEnvironmentUnavailable,
-    createThread,
-    deleteThread,
-    isConnecting,
-    isSendBusy,
-    isServerThread,
-    navigate,
-    resetLocalDispatch,
-    defaultRuntimeMode,
-    startThreadTurn,
-    environmentId,
-    composerRef,
-    sendInFlightRef,
-  ]);
 
   const getModelDisabledReason = useCallback(
     (instanceId: ProviderInstanceId, model: string): string | null => {
@@ -11413,15 +10958,10 @@ export default function ChatView(props: ChatViewProps) {
                               activePendingDraftAnswers={activePendingDraftAnswers}
                               activePendingQuestionIndex={activePendingQuestionIndex}
                               respondingRequestIds={respondingRequestIds}
-                              showPlanFollowUpPrompt={
-                                outboxEditor.editing ? false : showPlanFollowUpPrompt
-                              }
-                              activeProposedPlan={activeProposedPlan}
                               threadSyncPhase={
                                 activeEnvironmentUnavailable ? null : threadSyncPhase
                               }
                               runtimeMode={runtimeMode}
-                              interactionMode={interactionMode}
                               lockedProvider={modelPickerLockedProvider}
                               providerStatuses={providerStatuses as ServerProvider[]}
                               providerCatalogKnown={serverConfig !== null}
@@ -11430,7 +10970,6 @@ export default function ChatView(props: ChatViewProps) {
                               }
                               activeThreadModelSelection={activeThread?.modelSelection}
                               activeProjectId={activeProject?.id ?? null}
-                              activeContextWindow={activeContextWindow}
                               activeTasksProgress={activeComposerTasksProgress}
                               activeTaskSteps={activeComposerTaskSteps}
                               compactThreadUnavailable={compactThreadUnavailable}
@@ -11471,7 +11010,6 @@ export default function ChatView(props: ChatViewProps) {
                               onSend={onComposerSend}
                               onResume={onComposerResume}
                               onInterrupt={onInterrupt}
-                              onImplementPlanInNewThread={onImplementPlanInNewThread}
                               onRespondToApproval={onRespondToApproval}
                               onSelectActivePendingUserInputOption={
                                 onSelectActivePendingUserInputOption
@@ -11487,9 +11025,7 @@ export default function ChatView(props: ChatViewProps) {
                               onProviderModelSelect={onProviderModelSelect}
                               onOpenProviderSetup={openProviderSetup}
                               getModelDisabledReason={getModelDisabledReason}
-                              toggleInteractionMode={toggleInteractionMode}
                               handleRuntimeModeChange={handleRuntimeModeChange}
-                              handleInteractionModeChange={handleInteractionModeChange}
                               focusComposer={focusComposer}
                               scheduleComposerFocus={scheduleComposerFocus}
                               setThreadError={setThreadError}

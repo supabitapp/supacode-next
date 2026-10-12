@@ -23,7 +23,6 @@ import type {
   MessageId,
   ModelSelection,
   ProviderApprovalDecision,
-  ProviderInteractionMode,
   RuntimeMode,
   RuntimeRequestId,
   ServerConfig as SupacodeServerConfig,
@@ -233,7 +232,6 @@ export interface ThreadDetailScreenProps {
   readonly canSwitchThreadProvider: boolean;
   readonly onUpdateThreadModelSelection: (modelSelection: ModelSelection) => void;
   readonly onUpdateThreadRuntimeMode: (runtimeMode: RuntimeMode) => void;
-  readonly onUpdateThreadInteractionMode: (interactionMode: ProviderInteractionMode) => void;
   readonly onRespondToApproval: (
     requestId: RuntimeRequestId,
     decision: ProviderApprovalDecision,
@@ -1587,7 +1585,6 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
                         canSwitchProvider={props.canSwitchThreadProvider}
                         onUpdateModelSelection={props.onUpdateThreadModelSelection}
                         onUpdateRuntimeMode={props.onUpdateThreadRuntimeMode}
-                        onUpdateInteractionMode={props.onUpdateThreadInteractionMode}
                         onExpandedChange={setComposerExpanded}
                         onEditorFocusChange={handleComposerFocusChange}
                         onCommandMenuOpenChange={setComposerMenuOpen}

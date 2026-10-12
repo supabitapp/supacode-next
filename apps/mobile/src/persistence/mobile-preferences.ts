@@ -78,8 +78,6 @@ export interface Preferences {
   /** @deprecated Kept temporarily so older OTA bundles retain the selected mode. */
   readonly projectGroupingEnabled?: boolean;
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
-  /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
-  readonly planModeEnabled?: boolean;
   /** @deprecated Retained to migrate favorites to the connected environment. */
   readonly modelFavorites?: ReadonlyArray<{
     readonly provider: ProviderInstanceId;
@@ -152,7 +150,6 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     microphones?: ReadonlyArray<MicrophoneEntry>;
     projectGroupingEnabled?: boolean;
     projectGroupingMode?: SidebarProjectGroupingMode;
-    planModeEnabled?: boolean;
     modelFavorites?: Preferences["modelFavorites"];
     threadListPinnedShelfExpanded?: boolean;
     threadListActiveShelfExpanded?: boolean;
@@ -243,9 +240,6 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     parsed.projectGroupingMode === "separate"
   ) {
     preferences.projectGroupingMode = parsed.projectGroupingMode;
-  }
-  if (typeof parsed.planModeEnabled === "boolean") {
-    preferences.planModeEnabled = parsed.planModeEnabled;
   }
   if (Array.isArray(parsed.modelFavorites)) {
     preferences.modelFavorites = parsed.modelFavorites.filter(
