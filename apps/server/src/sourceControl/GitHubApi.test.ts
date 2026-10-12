@@ -38,6 +38,7 @@ function harness(respond: (request: HttpClientRequest.HttpClientRequest) => Resp
           invalidations++;
           tokens = tokens.slice(1);
         }),
+      invalidateAll: Effect.void,
     }),
   );
   const http = Layer.succeed(

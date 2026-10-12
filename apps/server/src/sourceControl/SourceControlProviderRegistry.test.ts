@@ -8,7 +8,8 @@ import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import { ChildProcessSpawner } from "effect/process";
 import * as TestClock from "effect/testing/TestClock";
-import { VcsRepositoryDetectionError } from "@supacode/contracts";
+import { VcsProcessSpawnError, VcsRepositoryDetectionError } from "@supacode/contracts";
+import { HostProcessEnvironment } from "@supacode/shared/hostProcess";
 
 import * as ServerSettings from "../serverSettings.ts";
 import * as ServerConfig from "../config.ts";
@@ -40,6 +41,17 @@ const processOutput = (
   stderrTruncated: false,
 });
 
+const credentialsLayer = (get: GitHubCredentials.GitHubCredentials["Service"]["get"]) =>
+  Layer.mock(GitHubCredentials.GitHubCredentials)({ get, invalidateAll: Effect.void });
+
+const signedInCredential = (host: string) =>
+  Effect.succeed({
+    host,
+    token: Redacted.make("token"),
+    source: "gh" as const,
+    fingerprint: `${host}:fingerprint`,
+  });
+
 function makeRegistry(input: {
   readonly remotes: ReadonlyArray<{
     readonly name: string;
@@ -47,6 +59,7 @@ function makeRegistry(input: {
   }>;
   readonly process?: Partial<VcsProcess.VcsProcess["Service"]>;
   readonly githubApi?: Partial<GitHubApi.GitHubApi["Service"]>;
+  readonly githubCredentials?: typeof GitHubCredentials.layer;
   readonly gitlab?: Partial<GitLabCli.GitLabCli["Service"]>;
   readonly resolve?: VcsDriverRegistry.VcsDriverRegistry["Service"]["resolve"];
 }) {
@@ -95,9 +108,7 @@ function makeRegistry(input: {
   return SourceControlProviderRegistry.make.pipe(
     Effect.provide(
       Layer.mergeAll(
-        NodeServices.layer,
         layerRegistry,
-        layerProcess,
         Layer.mock(AzureDevOpsCli.AzureDevOpsCli)({}),
         Layer.mock(BitbucketApi.BitbucketApi)({
           probeAuth: Effect.succeed({
@@ -107,17 +118,26 @@ function makeRegistry(input: {
             detail: Option.none(),
           }),
         }),
-        ServerSettings.ServerSettingsService.layerTest(),
-        Layer.mock(GitHubApi.GitHubApi)({
-          credential: (host) => Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host })),
-          ...input.githubApi,
-        }),
+        Layer.mock(GitHubApi.GitHubApi)(input.githubApi ?? {}),
+        input.githubCredentials ??
+          credentialsLayer((host) =>
+            Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host })),
+          ),
         Layer.mock(GitVcsDriver.GitVcsDriver)({}),
         Layer.mock(GitLabCli.GitLabCli)(input.gitlab ?? {}),
         Layer.mock(ForgejoCli.ForgejoCli)({ listLogins: () => Effect.succeed([]) }),
         ServerConfig.layerTest(process.cwd(), {
           prefix: "supacode-source-control-registry-test-",
         }).pipe(Layer.provide(NodeServices.layer)),
+      ).pipe(
+        Layer.provideMerge(
+          Layer.mergeAll(
+            NodeServices.layer,
+            layerProcess,
+            ServerSettings.ServerSettingsService.layerTest(),
+            Layer.succeed(HostProcessEnvironment, {}),
+          ),
+        ),
       ),
     ),
   );
@@ -387,16 +407,14 @@ it.effect.each([
           return Effect.succeed(processOutput(""));
         },
       },
-      githubApi: {
-        credential: (host) => {
-          hosts.push(host);
-          return scenario.credential === "found"
-            ? Effect.succeed({ token: Redacted.make("token"), fingerprint: `${host}:fingerprint` })
-            : scenario.credential === "disabled"
-              ? Effect.fail(new GitHubCredentials.GitHubHostDisabledError({ host }))
-              : Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host }));
-        },
-      },
+      githubCredentials: credentialsLayer((host) => {
+        hosts.push(host);
+        return scenario.credential === "found"
+          ? signedInCredential(host)
+          : scenario.credential === "disabled"
+            ? Effect.fail(new GitHubCredentials.GitHubHostDisabledError({ host }))
+            : Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host }));
+      }),
     });
     const handle = yield* registry.resolveHandle({ cwd: "/repo" });
     assert.strictEqual(handle.provider.kind, scenario.expected);
@@ -413,15 +431,10 @@ it.effect("skips GitHub discovery for the identity resolver's empty base URL", (
     const remoteUrl = "git@githubenterprise.dev.example.com:team/workspace.git";
     const registry = yield* makeRegistry({
       remotes: [{ name: "origin", url: remoteUrl }],
-      githubApi: {
-        credential: (host) => {
-          hosts.push(host);
-          return Effect.succeed({
-            token: Redacted.make("token"),
-            fingerprint: `${host}:fingerprint`,
-          });
-        },
-      },
+      githubCredentials: credentialsLayer((host) => {
+        hosts.push(host);
+        return signedInCredential(host);
+      }),
     });
     const context = {
       provider: { kind: "unknown" as const, name: "Unknown", baseUrl: "" },
@@ -450,17 +463,17 @@ it.effect("refines an unrecognized remote once per TTL however often it is resol
     const registry = yield* makeRegistry({
       remotes: [{ name: "origin", url: remoteUrl }],
       process: {
-        run: ({ command }) => {
+        run: ({ operation, command, cwd }) => {
           commands.push(command);
-          return Effect.succeed(processOutput(""));
+          return Effect.fail(
+            new VcsProcessSpawnError({ operation, command, cwd, cause: new Error("not found") }),
+          );
         },
       },
-      githubApi: {
-        credential: (host) => {
-          hosts.push(host);
-          return Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host }));
-        },
-      },
+      githubCredentials: credentialsLayer((host) => {
+        hosts.push(host);
+        return Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host }));
+      }),
     });
     const context = {
       provider: { kind: "unknown" as const, name: "github-work", baseUrl: "https://github-work" },
@@ -490,24 +503,68 @@ it.effect("refines an unrecognized remote once per TTL however often it is resol
   }),
 );
 
-it.effect("applies a fresh sign-in on the next discovery instead of waiting out the cache", () =>
-  Effect.gen(function* () {
-    let signedIn = false;
-    const registry = yield* makeRegistry({
-      remotes: [{ name: "origin", url: "git@code.example.test:team/project.git" }],
-      githubApi: {
-        credential: (host) =>
-          signedIn
-            ? Effect.succeed({ token: Redacted.make("token"), fingerprint: `${host}:fingerprint` })
-            : Effect.fail(new GitHubCredentials.GitHubNotSignedInError({ host })),
+function makeRegistryWithGhLogin(isSignedIn: () => boolean) {
+  let spawns = 0;
+  return makeRegistry({
+    remotes: [{ name: "origin", url: "git@code.example.test:team/project.git" }],
+    githubCredentials: GitHubCredentials.layer,
+    process: {
+      run: ({ command, args }) => {
+        spawns++;
+        const isTokenRequest = command === "gh" && args[0] === "auth" && args[1] === "token";
+        return Effect.succeed(processOutput(isTokenRequest && isSignedIn() ? "gh-token\n" : ""));
       },
-    });
+    },
+  }).pipe(Effect.map((registry) => ({ registry, spawns: () => spawns })));
+}
 
-    assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "unknown");
-    signedIn = true;
-    assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "unknown");
+it.effect(
+  "applies a fresh gh sign-in on the next discovery instead of waiting out the caches",
+  () =>
+    Effect.gen(function* () {
+      let signedIn = false;
+      const { registry } = yield* makeRegistryWithGhLogin(() => signedIn);
 
-    yield* registry.discover;
-    assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "github");
+      assert.strictEqual(
+        (yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind,
+        "unknown",
+      );
+      signedIn = true;
+      assert.strictEqual(
+        (yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind,
+        "unknown",
+      );
+
+      yield* registry.discover;
+      assert.strictEqual((yield* registry.resolveHandle({ cwd: "/repo" })).provider.kind, "github");
+    }),
+);
+
+it.effect("keeps a request's pinned GitHub credential out of the shared refinement", () =>
+  Effect.gen(function* () {
+    const { registry, spawns } = yield* makeRegistryWithGhLogin(() => true);
+    const context = {
+      provider: {
+        kind: "unknown" as const,
+        name: "code.example.test",
+        baseUrl: "https://code.example.test",
+      },
+      remoteName: "origin",
+      remoteUrl: "git@code.example.test:team/project.git",
+    };
+
+    const pinned = yield* registry.resolveHandle({ cwd: "/repo", context }).pipe(
+      Effect.provideService(GitHubApi.PinnedGitHubCredential, {
+        host: "github.com",
+        token: Redacted.make("pinned-token"),
+        credentialFingerprint: "github.com:pinned",
+      }),
+    );
+    assert.strictEqual(pinned.provider.kind, "github");
+    const spawnsAfterPinned = spawns();
+
+    const unpinned = yield* registry.resolveHandle({ cwd: "/repo", context });
+    assert.strictEqual(unpinned.provider.kind, "github");
+    assert.strictEqual(spawns(), spawnsAfterPinned);
   }),
 );

@@ -296,18 +296,19 @@ export const makeWithProviders = Effect.fn("makeSourceControlProviderRegistryWit
       get,
       resolveHandle,
       resolve: (input) => resolveHandle(input).pipe(Effect.map((handle) => handle.provider)),
-      discover: Cache.invalidateAll(providerRefinementCache).pipe(
-        Effect.andThen(Cache.invalidateAll(providerContextCache)),
-        Effect.andThen(
-          Effect.forEach(
-            discoverySpecs,
-            (spec) =>
-              probeSourceControlProvider({
-                spec,
-                process,
-                cwd: config.cwd,
-              }),
-            { concurrency: "unbounded" },
+      discover: Effect.forEach(
+        discoverySpecs,
+        (spec) =>
+          probeSourceControlProvider({
+            spec,
+            process,
+            cwd: config.cwd,
+          }),
+        { concurrency: "unbounded" },
+      ).pipe(
+        Effect.ensuring(
+          Cache.invalidateAll(providerRefinementCache).pipe(
+            Effect.andThen(Cache.invalidateAll(providerContextCache)),
           ),
         ),
       ),

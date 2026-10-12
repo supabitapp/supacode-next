@@ -484,6 +484,7 @@ it.effect(
               fingerprint: `${host}:${activeToken.length}${activeToken.at(-1)}`,
             })),
           invalidate: () => Effect.void,
+          invalidateAll: Effect.void,
         }),
       );
       const http = Layer.succeed(

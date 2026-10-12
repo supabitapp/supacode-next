@@ -93,6 +93,7 @@ export class GitHubCredentials extends Context.Service<
     ) => Effect.Effect<GitHubCredential, GitHubCredentialUnavailableError>;
     /** Drops the held token after GitHub refused it, so the next read asks its source again. */
     readonly invalidate: (host: string) => Effect.Effect<void>;
+    readonly invalidateAll: Effect.Effect<void>;
   }
 >()("supacode/sourceControl/GitHubCredentials") {}
 
@@ -256,6 +257,7 @@ export const make = Effect.gen(function* () {
         Effect.flatMap((choice) => Cache.invalidate(cache, cacheKey(host, choice?.account))),
       );
     },
+    invalidateAll: Cache.invalidateAll(cache),
   });
 });
 

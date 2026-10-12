@@ -1198,6 +1198,7 @@ function probeGitHubDiscovery(input: {
         settings,
         process,
         Layer.mock(GitHubApi.GitHubApi)({ rest: ({ host }) => input.rest(host) }),
+        Layer.mock(GitHubCredentials.GitHubCredentials)({ invalidateAll: Effect.void }),
       ),
     ),
     Effect.provideService(HostProcessEnvironment, input.environment ?? {}),

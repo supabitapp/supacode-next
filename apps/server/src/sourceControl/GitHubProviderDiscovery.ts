@@ -203,6 +203,7 @@ function discoveryTokenAuthAccounts(cli: SourceControlProviderDiscoveryItem) {
  */
 export const make = Effect.gen(function* () {
   const api = yield* GitHubApi.GitHubApi;
+  const credentials = yield* GitHubCredentials.GitHubCredentials;
   const process = yield* VcsProcess.VcsProcess;
   const environment = yield* HostProcessEnvironment;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
@@ -213,6 +214,7 @@ export const make = Effect.gen(function* () {
     label: discovery.label,
     installHint: discovery.installHint,
     probe: Effect.fn("GitHubSourceControlProvider.discovery")(function* (cwd: string) {
+      yield* credentials.invalidateAll;
       const settings = yield* serverSettings.getSettings.pipe(
         Effect.map((current) => current.github),
         Effect.orElseSucceed(() => DEFAULT_SERVER_SETTINGS.github),
@@ -308,7 +310,7 @@ export const make = Effect.gen(function* () {
     refineUnknownRemote: ({ context }) => {
       const url = URL.parse(context.provider.baseUrl);
       if (!url?.host) return Effect.succeed(null);
-      return api.credential(url.host).pipe(
+      return credentials.get(url.host).pipe(
         Effect.as(true),
         Effect.catchTags({ GitHubHostDisabledError: () => Effect.succeed(true) }),
         Effect.orElseSucceed(() => false),
