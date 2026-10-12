@@ -59,7 +59,6 @@ export function BranchNamingSettings() {
         serverScoped
         settingKeys={["branchNamingMode", "branchNamePrefixFromRepository"]}
         {...searchableSetting("worktree-branch-naming")}
-        description="Choose how new worktree branches are named from your first message."
         status={modeMixed ? undefined : MODE_STATUS[choice]}
         resetAction={
           choice !== DEFAULT_CHOICE || modeMixed ? (
@@ -98,7 +97,7 @@ export function BranchNamingSettings() {
           serverScoped
           settingKeys={["branchNamePrefix"]}
           title="Branch prefix"
-          description="For example, supacode or supacode/ produces supacode/add-search. Leave empty for no prefix."
+          description="supacode/ gives supacode/add-search. Leave empty for no prefix."
           resetAction={
             prefixMixed ||
             settings.branchNamePrefix !== DEFAULT_SERVER_SETTINGS.branchNamePrefix ? (
@@ -136,7 +135,7 @@ export function BranchNamingSettings() {
           serverScoped
           settingKeys={["branchNameInstructions"]}
           title="Branch naming instructions"
-          description="Appended to the naming prompt. The model returns the complete branch name; no prefix or suffix is added."
+          description="Appended to the naming prompt. The model returns the full branch name."
           resetAction={
             instructionsMixed || settings.branchNameInstructions !== "" ? (
               <SettingResetButton

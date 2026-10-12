@@ -1,17 +1,11 @@
 import type { StorageCleanupSettings, WorktreeCleanupRules } from "@supacode/contracts";
 import { resolveWorktreeCleanup } from "@supacode/shared/projectSettings";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
-import {
-  NumberField,
-  NumberFieldDecrement,
-  NumberFieldGroup,
-  NumberFieldIncrement,
-  NumberFieldInput,
-} from "../ui/number-field";
+import { DaysField } from "./DaysField";
 import {
   SettingResetButton,
   SettingsPageContainer,
@@ -47,9 +41,7 @@ function WorktreesDirectoryRow() {
   return (
     <SettingsRow
       {...searchableSetting("storage-worktrees-location")}
-      description={
-        "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the Supacode home folder."
-      }
+      description="Where new worktrees are created. Existing worktrees stay put."
       serverScoped
       settingKeys={["worktreesDirectory"]}
       resetAction={
@@ -92,55 +84,17 @@ function RetentionControl({
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
-  const [draft, setDraft] = useState(value);
-  const [savedValue, setSavedValue] = useState(value);
-  if (savedValue !== value) {
-    setSavedValue(value);
-    setDraft(value);
-  }
-
   return (
-    <div className="flex items-center gap-3">
+    <>
       {value !== null ? (
-        <NumberField
-          value={draft}
-          min={1}
-          max={3650}
-          step={1}
-          size="sm"
-          className="w-auto"
-          onValueChange={setDraft}
-          onValueCommitted={(next) => {
-            if (next === null) setDraft(value);
-            else {
-              const days = Math.min(3650, Math.max(1, Math.round(next)));
-              setDraft(days);
-              onChange(days);
-            }
-          }}
-        >
-          <NumberFieldGroup>
-            <NumberFieldDecrement aria-label={`Decrease ${label}`} />
-            <NumberFieldInput
-              aria-label={`${label} in days`}
-              size={new Intl.NumberFormat().format(draft ?? value).length}
-              className="field-sizing-content w-auto min-w-[1ch] grow-0 text-right"
-            />
-            <span aria-hidden="true" className="self-center pr-2 text-xs">
-              days
-            </span>
-            <NumberFieldIncrement aria-label={`Increase ${label}`} />
-          </NumberFieldGroup>
-        </NumberField>
-      ) : (
-        <span className="text-xs text-muted-foreground">Off</span>
-      )}
+        <DaysField label={label} value={value} min={1} max={3650} onCommit={onChange} />
+      ) : null}
       <Switch
         aria-label={label}
         checked={value !== null}
         onCheckedChange={(enabled) => onChange(enabled ? 8 : null)}
       />
-    </div>
+    </>
   );
 }
 
@@ -263,7 +217,7 @@ export function StorageSettingsPanel() {
             <SettingsRow
               title="Delete worktrees with deleted threads"
               status={ruleStatus("worktreeOnDelete")}
-              description="Remove unused worktrees when active or archived threads are deleted. Worktrees with local changes are kept."
+              description="Worktrees with local changes are kept."
               serverScoped={!isProjectScope}
               control={
                 <Switch
@@ -276,7 +230,7 @@ export function StorageSettingsPanel() {
             <SettingsRow
               title="Delete inactive worktrees"
               status={ruleStatus("worktreeAfterDays")}
-              description="Remove worktrees after their threads have been inactive for this many days. Branches and thread history are kept."
+              description="Remove worktrees whose threads have gone inactive. Branches are kept."
               serverScoped={!isProjectScope}
               control={
                 <RetentionControl
@@ -289,7 +243,7 @@ export function StorageSettingsPanel() {
             <SettingsRow
               title="Delete merged worktrees"
               status={ruleStatus("worktreeOnMerge")}
-              description="Remove worktrees whose pull request is merged and whose commits are included in the default branch."
+              description="Remove worktrees once their commits land in the default branch."
               serverScoped={!isProjectScope}
               control={
                 <Switch
@@ -321,7 +275,7 @@ export function StorageSettingsPanel() {
           <SettingsRow
             title="Delete old browser artifacts"
             status={ruleStatus("browserArtifactsAfterDays")}
-            description="Delete saved browser captures after this many days. Older capture links will no longer open."
+            description="Older capture links stop opening."
             serverScoped
             control={
               <RetentionControl
@@ -334,7 +288,7 @@ export function StorageSettingsPanel() {
           <SettingsRow
             title="Delete old rotated logs"
             status={ruleStatus("logsAfterDays")}
-            description="Delete inactive rotated log files after this many days. Current logs are kept."
+            description="Current logs are kept."
             serverScoped
             control={
               <RetentionControl

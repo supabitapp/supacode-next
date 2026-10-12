@@ -35,8 +35,8 @@ describe("serverSettings helpers", () => {
     ).toEqual({
       worktreeAfterDays: null,
       worktreeOnMerge: true,
-      worktreeOnDelete: false,
-      worktreeUnchanged: false,
+      worktreeOnDelete: true,
+      worktreeUnchanged: true,
       browserArtifactsAfterDays: null,
       logsAfterDays: 30,
     });
