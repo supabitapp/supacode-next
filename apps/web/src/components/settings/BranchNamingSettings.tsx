@@ -1,5 +1,11 @@
 import { useRef } from "react";
-import { BranchNamingMode, DEFAULT_SERVER_SETTINGS } from "@supacode/contracts";
+import {
+  BRANCH_NAMING_CHOICES,
+  type BranchNamingChoice,
+  branchNamingChoiceOf,
+  branchNamingChoicePatch,
+  DEFAULT_SERVER_SETTINGS,
+} from "@supacode/contracts";
 
 import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -18,7 +24,19 @@ const MODES = {
   repository: "Repository name prefix",
   semantic: "Semantic prefix",
   custom: "Custom instructions",
-} satisfies Record<BranchNamingMode, string>;
+} satisfies Record<BranchNamingChoice, string>;
+
+const MODE_STATUS: Partial<Record<BranchNamingChoice, string>> = {
+  repository:
+    "Branches start with the repository name, such as supacode-next/add-search. A fork uses its own name.",
+  semantic:
+    "The model chooses a prefix that describes the work, such as feat/add-search, fix/login-timeout, or refactor/auth.",
+};
+
+const DEFAULT_CHOICE = branchNamingChoiceOf(
+  DEFAULT_SERVER_SETTINGS.branchNamingMode,
+  DEFAULT_SERVER_SETTINGS.branchNamePrefixFromRepository,
+);
 
 export function BranchNamingSettings() {
   const settings = useScopedSettings();
@@ -27,7 +45,11 @@ export function BranchNamingSettings() {
   const prefixEdited = useRef(false);
   const instructionsEdited = useRef(false);
   const updateSettings = useUpdateScopedSettings();
-  const modeMixed = useScopedSettingsMixed(["branchNamingMode"]);
+  const modeMixed = useScopedSettingsMixed(["branchNamingMode", "branchNamePrefixFromRepository"]);
+  const choice = branchNamingChoiceOf(
+    settings.branchNamingMode,
+    settings.branchNamePrefixFromRepository,
+  );
   const prefixMixed = useScopedSettingsMixed(["branchNamePrefix"]);
   const instructionsMixed = useScopedSettingsMixed(["branchNameInstructions"]);
 
@@ -35,40 +57,34 @@ export function BranchNamingSettings() {
     <>
       <SettingsRow
         serverScoped
-        settingKeys={["branchNamingMode"]}
+        settingKeys={["branchNamingMode", "branchNamePrefixFromRepository"]}
         {...searchableSetting("worktree-branch-naming")}
         description="Choose how new worktree branches are named from your first message."
-        status={
-          !modeMixed && settings.branchNamingMode === "semantic"
-            ? "The model chooses a prefix that describes the work, such as feat/add-search, fix/login-timeout, or refactor/auth."
-            : undefined
-        }
+        status={modeMixed ? undefined : MODE_STATUS[choice]}
         resetAction={
-          settings.branchNamingMode !== DEFAULT_SERVER_SETTINGS.branchNamingMode || modeMixed ? (
+          choice !== DEFAULT_CHOICE || modeMixed ? (
             <SettingResetButton
               label="branch naming"
-              onClick={() =>
-                updateSettings({ branchNamingMode: DEFAULT_SERVER_SETTINGS.branchNamingMode })
-              }
+              onClick={() => updateSettings(branchNamingChoicePatch(DEFAULT_CHOICE))}
             />
           ) : null
         }
         control={
           <Select
-            value={modeMixed ? null : settings.branchNamingMode}
+            value={modeMixed ? null : choice}
             onValueChange={(value) => {
-              if (BranchNamingMode.literals.includes(value as BranchNamingMode)) {
-                updateSettings({ branchNamingMode: value as BranchNamingMode });
+              if (BRANCH_NAMING_CHOICES.includes(value as BranchNamingChoice)) {
+                updateSettings(branchNamingChoicePatch(value as BranchNamingChoice));
               }
             }}
           >
             <SelectTrigger size="sm" aria-label="Worktree branch naming">
               <SelectValue>
-                {(value: BranchNamingMode | null) => (value === null ? "Mixed" : MODES[value])}
+                {(value: BranchNamingChoice | null) => (value === null ? "Mixed" : MODES[value])}
               </SelectValue>
             </SelectTrigger>
             <SelectPopup align="end" alignItemWithTrigger={false}>
-              {BranchNamingMode.literals.map((mode) => (
+              {BRANCH_NAMING_CHOICES.map((mode) => (
                 <SelectItem key={mode} value={mode}>
                   {MODES[mode]}
                 </SelectItem>
@@ -77,7 +93,7 @@ export function BranchNamingSettings() {
           </Select>
         }
       />
-      {!modeMixed && settings.branchNamingMode === "static" ? (
+      {!modeMixed && choice === "static" ? (
         <SettingsRow
           serverScoped
           settingKeys={["branchNamePrefix"]}

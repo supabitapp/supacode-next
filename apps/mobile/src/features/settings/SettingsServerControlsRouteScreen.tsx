@@ -57,6 +57,7 @@ const PAGE_PROJECT_KEYS: Record<SettingsPage, readonly ProjectScopedServerSettin
     "newWorktreesStartFromOrigin",
     "branchNamingMode",
     "branchNamePrefix",
+    "branchNamePrefixFromRepository",
     "branchNameInstructions",
   ],
   "agent-behavior": ["responseStreamingMode", "enableAgentBrowserAccess"],
@@ -354,6 +355,7 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
                       .map((target) => `${target.environment.environmentId}:${target.projectId}`)
                       .join(",")}
                     mode={uniform("branchNamingMode")}
+                    prefixFromRepository={uniform("branchNamePrefixFromRepository")}
                     prefix={uniform("branchNamePrefix")}
                     instructions={uniform("branchNameInstructions")}
                     disabled={disabledFor("branchNamingMode")}

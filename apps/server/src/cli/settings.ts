@@ -50,6 +50,7 @@ const SETTABLE_SETTINGS = {
   addProjectBaseDirectory: STRING_SETTING,
   branchNamingMode: { kind: "string", expected: BranchNamingMode.literals.join(" | ") },
   branchNamePrefix: STRING_SETTING,
+  branchNamePrefixFromRepository: BOOLEAN_SETTING,
   branchNameInstructions: STRING_SETTING,
   removeAgentCreditsOnMerge: BOOLEAN_SETTING,
   pullRequestMergeMethod: {

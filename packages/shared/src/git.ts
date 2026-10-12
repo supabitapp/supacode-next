@@ -1,11 +1,13 @@
-import type {
-  BranchNamingOptions,
-  VcsRef,
-  SourceControlProviderInfo,
-  VcsStatusLocalResult,
-  VcsStatusRemoteResult,
-  VcsStatusResult,
-  VcsStatusStreamEvent,
+import {
+  repositoryGroupingKeyOf,
+  type BranchNamingOptions,
+  type RepositoryIdentity,
+  type VcsRef,
+  type SourceControlProviderInfo,
+  type VcsStatusLocalResult,
+  type VcsStatusRemoteResult,
+  type VcsStatusResult,
+  type VcsStatusStreamEvent,
 } from "@supacode/contracts";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
@@ -55,8 +57,23 @@ export function sanitizeBranchFragment(raw: string): string {
   return branchFragment.length > 0 ? branchFragment : "update";
 }
 
-function sanitizeBranchPrefix(raw: string): string {
-  return raw
+/** A fork names its branches after its own remote; a checkout without one uses its folder. */
+export function repositoryBranchPrefix(
+  identity: RepositoryIdentity | null,
+  workspaceRoot: string,
+): string {
+  const source = identity ? repositoryGroupingKeyOf(identity) : workspaceRoot;
+  return fileBasename(source)
+    .replace(/\.git$/iu, "")
+    .toLowerCase();
+}
+
+/** Custom naming preserves the model's complete ref; Git validates it on rename. */
+export function formatGeneratedBranchName(raw: string, naming?: BranchNamingOptions): string {
+  if (naming?.mode === "custom") return raw.trim();
+  const branch = sanitizeBranchFragment(raw);
+  if (naming?.mode !== "static") return branch;
+  const prefix = naming.prefix
     .split("/")
     .map((part) =>
       part
@@ -66,25 +83,6 @@ function sanitizeBranchPrefix(raw: string): string {
     )
     .filter(Boolean)
     .join("/");
-}
-
-export function deriveRepositoryName(path: string): string {
-  return fileBasename(path).replace(/\.git$/iu, "");
-}
-
-/** Custom naming preserves the model's complete ref; Git validates it on rename. */
-export function formatGeneratedBranchName(
-  raw: string,
-  naming?: BranchNamingOptions,
-  repositoryName?: string,
-): string {
-  if (naming?.mode === "custom") return raw.trim();
-  const branch = sanitizeBranchFragment(raw);
-  if (naming?.mode !== "static" && naming?.mode !== "repository") return branch;
-  const prefix =
-    naming.mode === "repository"
-      ? sanitizeBranchPrefix((repositoryName ?? "").toLowerCase())
-      : sanitizeBranchPrefix(naming.prefix);
   return prefix ? `${prefix}/${branch}` : branch;
 }
 

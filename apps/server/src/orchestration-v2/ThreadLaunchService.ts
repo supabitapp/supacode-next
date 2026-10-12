@@ -14,7 +14,6 @@ import {
   type ProviderDriverKind,
   type ProviderInteractionMode,
   ProjectId,
-  repositoryGroupingDisplayNameOf,
   type RunId,
   type RuntimeMode,
   type ScheduledTaskId,
@@ -31,9 +30,9 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import {
   buildTemporaryWorktreeBranchName,
-  deriveRepositoryName,
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
+  repositoryBranchPrefix,
   WORKTREE_BRANCH_PREFIX,
 } from "@supacode/shared/git";
 
@@ -286,27 +285,19 @@ const make = Effect.gen(function* () {
                   settings,
                   yield* providerRegistry.getProviders,
                 );
-          const repositoryName =
-            settings.branchNamingMode === "repository"
-              ? yield* repositoryIdentities
-                  .resolve(project.workspaceRoot)
-                  .pipe(
-                    Effect.map((identity) =>
-                      deriveRepositoryName(
-                        (identity && repositoryGroupingDisplayNameOf(identity)) ??
-                          project.workspaceRoot,
-                      ),
-                    ),
-                  )
-              : undefined;
           return yield* textGeneration
             .generateBranchName({
               naming: {
                 mode: settings.branchNamingMode,
-                prefix: settings.branchNamePrefix,
+                prefix:
+                  settings.branchNamingMode === "static" && settings.branchNamePrefixFromRepository
+                    ? repositoryBranchPrefix(
+                        yield* repositoryIdentities.resolve(project.workspaceRoot),
+                        project.workspaceRoot,
+                      )
+                    : settings.branchNamePrefix,
                 instructions: settings.branchNameInstructions,
               },
-              ...(repositoryName === undefined ? {} : { repositoryName }),
               cwd,
               message: message.text,
               attachments: message.attachments,

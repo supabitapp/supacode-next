@@ -5,10 +5,10 @@ import {
   applyGitStatusStreamEvent,
   formatGeneratedBranchName,
   buildTemporaryWorktreeBranchName,
-  deriveRepositoryName,
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
+  repositoryBranchPrefix,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
   parseOriginUrlFromGitConfig,
   WORKTREE_BRANCH_PREFIX,
@@ -315,15 +315,6 @@ describe("formatGeneratedBranchName", () => {
       }),
     ).toBe("Team/Julius/add-search");
   });
-  it("uses the repository name as a lowercase prefix", () => {
-    expect(
-      formatGeneratedBranchName(
-        "Add Search",
-        { mode: "repository", prefix: "ignored", instructions: "" },
-        "My Repo",
-      ),
-    ).toBe("my-repo/add-search");
-  });
   it.each([
     ["release..candidate", "release-candidate/add-search"],
     [" Team / Jules.lock/", "Team/Jules-lock/add-search"],
@@ -355,12 +346,25 @@ describe("formatGeneratedBranchName", () => {
   });
 });
 
-describe("deriveRepositoryName", () => {
+describe("repositoryBranchPrefix", () => {
+  const identity = {
+    canonicalKey: "github.com/upstream/project",
+    locator: {
+      source: "git-remote",
+      remoteName: "origin",
+      remoteUrl: "git@github.com:upstream/project.git",
+    },
+  } as const;
+
   it.each([
-    ["/workspaces/my-repo", "my-repo"],
-    ["C:\\workspaces\\MyRepo.git\\", "MyRepo"],
-    ["/workspaces/my-repo/", "my-repo"],
-  ])("derives a repository name from %s", (workspaceRoot, expected) => {
-    expect(deriveRepositoryName(workspaceRoot)).toBe(expected);
+    ["the repository", identity, "project"],
+    [
+      "a fork's own remote",
+      { ...identity, origin: { canonicalKey: "github.com/khoi/project-fork" } },
+      "project-fork",
+    ],
+    ["the folder without a remote", null, "myrepo"],
+  ])("names branches after %s", (_case, repositoryIdentity, expected) => {
+    expect(repositoryBranchPrefix(repositoryIdentity, "/workspaces/MyRepo.git")).toBe(expected);
   });
 });

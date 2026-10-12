@@ -1132,7 +1132,7 @@ it.effect("names the worktree itself when the client provides no branch", () =>
 it.effect("prefixes generated branches with a fork's own repository name", () =>
   Effect.gen(function* () {
     const harness = makeHarness({
-      serverSettings: { branchNamingMode: "repository" },
+      serverSettings: { branchNamingMode: "static", branchNamePrefixFromRepository: true },
       resolveRepositoryIdentity: () =>
         Effect.succeed({
           canonicalKey: "github.com/upstream/project",
@@ -1160,7 +1160,7 @@ it.effect("prefixes generated branches with a fork's own repository name", () =>
         }),
       );
       yield* waitUntil(() => Effect.sync(() => harness.generateBranchName.mock.calls.length === 1));
-      assert.equal(harness.generateBranchName.mock.calls[0]?.[0]?.repositoryName, "project-fork");
+      assert.equal(harness.generateBranchName.mock.calls[0]?.[0]?.naming?.prefix, "project-fork");
     }).pipe(Effect.provide(harness.layer));
   }),
 );

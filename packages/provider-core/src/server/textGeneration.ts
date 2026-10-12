@@ -47,7 +47,6 @@ export interface PrContentGenerationResult {
 
 export interface BranchNameGenerationInput {
   naming?: BranchNamingOptions | undefined;
-  repositoryName?: string | undefined;
   cwd: string;
   message: string;
   attachments?: ReadonlyArray<ChatAttachment> | undefined;

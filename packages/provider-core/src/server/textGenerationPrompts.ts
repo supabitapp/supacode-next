@@ -203,7 +203,7 @@ export function buildBranchNamePrompt(input: BranchNamePromptInput) {
                   "Include a semantic prefix and a slash in the branch name, for example feat/add-search, fix/login-error, refactor/auth, docs/setup, or chore/update-deps. Choose the prefix that best describes the work.",
                 ]
               : [
-                  `Return only the descriptive branch fragment, without a prefix or namespace. The application adds the ${input.naming?.mode === "repository" ? "repository name" : "configured prefix"}.`,
+                  "Return only the descriptive branch fragment, without a prefix or namespace. The application adds the configured prefix.",
                 ]),
           ]),
       "If images are attached, use them as primary context for visual/UI issues.",

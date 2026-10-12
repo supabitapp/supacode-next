@@ -150,14 +150,6 @@ describe("buildBranchNamePrompt", () => {
     expect(prompt).toContain("without a prefix or namespace");
     expect(prompt).not.toContain("ignored instruction");
   });
-  it("asks for just the fragment when the application adds the repository name", () => {
-    const { prompt } = buildBranchNamePrompt({
-      message: "Add search",
-      naming: { mode: "repository", prefix: "ignored", instructions: "ignored instruction" },
-    });
-    expect(prompt).toContain("application adds the repository name");
-    expect(prompt).not.toContain("ignored instruction");
-  });
 
   it("includes the user message in the prompt", () => {
     const result = buildBranchNamePrompt({

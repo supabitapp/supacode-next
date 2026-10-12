@@ -327,9 +327,7 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
       ...buildBranchNamePrompt(input),
       modelSelection: input.modelSelection,
     });
-    return {
-      branch: formatGeneratedBranchName(generated.branch, input.naming, input.repositoryName),
-    };
+    return { branch: formatGeneratedBranchName(generated.branch, input.naming) };
   });
   const generateThreadTitle: ProviderTextGeneration["generateThreadTitle"] = Effect.fn(
     "MuseTextGeneration.generateThreadTitle",

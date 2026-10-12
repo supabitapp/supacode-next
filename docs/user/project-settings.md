@@ -44,9 +44,10 @@ In **Settings → Source Control → Worktree branch naming**, choose a static p
 the repository name as a prefix, a model-selected semantic prefix such as `feat/` or `fix/`,
 or custom instructions for the complete name. The static prefix defaults to `supacode/`; a
 trailing slash is optional, and an empty prefix adds nothing. Invalid characters in a static
-prefix are replaced with hyphens. The repository name is normalized to a lowercase branch
-prefix. Custom instructions are appended to
-the naming prompt and can specify issue IDs, namespaces, and casing.
+prefix are replaced with hyphens. The repository name prefix is lowercase, as in
+`my-app/add-search`. A fork uses its own repository's name rather than the upstream's, and
+a project without a remote uses its folder name. Custom instructions are appended to the
+naming prompt and can specify issue IDs, namespaces, and casing.
 
 These settings apply to automatically named new worktree branches. Select a project
 to override its environment defaults. Worktree directories keep their original names.

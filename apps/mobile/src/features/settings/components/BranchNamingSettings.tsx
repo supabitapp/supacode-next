@@ -1,4 +1,11 @@
-import { BranchNamingMode, type ServerSettingsPatch } from "@supacode/contracts";
+import {
+  BRANCH_NAMING_CHOICES,
+  type BranchNamingChoice,
+  branchNamingChoiceOf,
+  branchNamingChoicePatch,
+  type BranchNamingMode,
+  type ServerSettingsPatch,
+} from "@supacode/contracts";
 import { useRef } from "react";
 import { View } from "react-native";
 
@@ -10,7 +17,7 @@ const MODES = {
   static: { label: "Static prefix", description: "Add your prefix to the generated branch name." },
   repository: {
     label: "Repository name prefix",
-    description: "Prefix generated branches with the repository name.",
+    description: "Prefix generated branches with the repository name. A fork uses its own name.",
   },
   semantic: {
     label: "Semantic prefix",
@@ -20,10 +27,11 @@ const MODES = {
     label: "Custom instructions",
     description: "Generate the complete name with no added prefix or suffix.",
   },
-} satisfies Record<BranchNamingMode, { label: string; description: string }>;
+} satisfies Record<BranchNamingChoice, { label: string; description: string }>;
 
 export function BranchNamingSettings(props: {
   mode: BranchNamingMode | null;
+  prefixFromRepository: boolean | null;
   prefix: string | null;
   instructions: string | null;
   disabled: boolean;
@@ -31,25 +39,29 @@ export function BranchNamingSettings(props: {
 }) {
   const prefixEdited = useRef(false);
   const instructionsEdited = useRef(false);
+  const choice =
+    props.mode === null || props.prefixFromRepository === null
+      ? null
+      : branchNamingChoiceOf(props.mode, props.prefixFromRepository);
   return (
     <SettingsSection
       title="Worktree branch naming"
       trailing={
-        props.mode === null ? <Text className="text-xs text-foreground-muted">Mixed</Text> : null
+        choice === null ? <Text className="text-xs text-foreground-muted">Mixed</Text> : null
       }
     >
-      {BranchNamingMode.literals.map((mode, index) => (
+      {BRANCH_NAMING_CHOICES.map((mode, index) => (
         <SettingsChoiceRow
           key={mode}
           label={MODES[mode].label}
           description={MODES[mode].description}
-          selected={props.mode === mode}
+          selected={choice === mode}
           separated={index > 0}
           disabled={props.disabled}
-          onPress={() => props.onChange({ branchNamingMode: mode })}
+          onPress={() => props.onChange(branchNamingChoicePatch(mode))}
         />
       ))}
-      {props.mode === "static" ? (
+      {choice === "static" ? (
         <View className="gap-2 px-4 py-3">
           <Text className="text-sm text-foreground-muted">
             Use supacode or supacode/ for supacode/add-search. Leave empty for no prefix.
@@ -79,7 +91,7 @@ export function BranchNamingSettings(props: {
           />
         </View>
       ) : null}
-      {props.mode === "custom" ? (
+      {choice === "custom" ? (
         <View className="gap-2 px-4 py-3">
           <Text className="text-sm text-foreground-muted">
             Append instructions to the naming prompt.
