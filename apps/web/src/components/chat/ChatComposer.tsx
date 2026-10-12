@@ -676,11 +676,8 @@ function useComposerRestingTransition(
 
         let stripAnimation: Animation | null = null;
         if (modelStrip) shell?.setAttribute("data-model-strip-transition", "true");
-        // The strip holds collapsed controls on phones and, marked stays-open, the usage meter
-        // while expanded. A resting desktop composer tucks it behind the input.
-        const stripStaysOpen = modelStrip?.dataset.staysOpen === "true";
-        const stripOpen = (collapsed: boolean, resting: boolean) =>
-          collapsed ? !resting : stripStaysOpen;
+        // A resting desktop composer tucks the strip behind the input.
+        const stripOpen = (collapsed: boolean, resting: boolean) => collapsed && !resting;
         const stripWasOpen = stripOpen(
           previousCollapsedRef.current,
           previousTransitionRestingRef.current,

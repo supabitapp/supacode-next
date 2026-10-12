@@ -12,6 +12,7 @@ import {
 } from "../themePalette";
 
 export type SidebarStageBackdropVariant = "nightly" | "dev" | "release";
+export type EnvironmentIdentificationMode = "artwork" | "pill" | "none";
 export type EnvironmentIdentificationPillLabel = "Dev" | "Nightly";
 
 // A wide viewBox keeps the 96-unit art height at a fixed scale while sidebar resizing reveals
