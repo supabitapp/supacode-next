@@ -1,6 +1,6 @@
 /**
  * The sidebar's top rows: start a thread, search through the command palette,
- * and open Automations. Both the default and the legacy sidebar render it.
+ * and open Automations.
  */
 import { Link, useLocation, useParams } from "@tanstack/react-router";
 import { CalendarClockIcon, SearchIcon, SquarePenIcon } from "lucide-react";

@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { formatContextWindowPercentage, formatContextWindowTokens } from "~/lib/contextWindow";
 import { cn } from "~/lib/utils";
-import { formatContextWindowCost } from "./ContextWindowMeter.logic";
+import { formatContextWindowCost } from "./ContextWindow.logic";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { ContextWindowDetails } from "./ContextWindowDetails";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";

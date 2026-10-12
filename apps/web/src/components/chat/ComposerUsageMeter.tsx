@@ -10,7 +10,7 @@ import { useNowMinuteMs } from "../../hooks/useNowMinute";
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { usageFillColor } from "./ContextWindowMeter.logic";
+import { usageFillColor } from "./ContextWindow.logic";
 
 export const ComposerUsageMeter = memo(function ComposerUsageMeter({
   windows,

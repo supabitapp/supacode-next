@@ -150,7 +150,6 @@ export function createThreadOutboxEditor(routeKey: string) {
         replaceOptions: true,
       });
       store.setRuntimeMode(draftTarget, entry.payload.input.runtimeMode);
-      store.setInteractionMode(draftTarget, entry.payload.input.interactionMode);
       editing = {
         entry,
         draftTarget,

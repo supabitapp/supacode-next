@@ -499,10 +499,8 @@ describe("hasUnseenCompletion", () => {
   it("returns true when a thread completed after its last visit", () => {
     expect(
       hasUnseenCompletion({
-        hasActionableProposedPlan: false,
         hasPendingApprovals: false,
         hasPendingUserInput: false,
-        interactionMode: "default",
         latestRun: makeLatestRun(),
         lastVisitedAt: "2026-03-09T10:04:00.000Z",
         runtime: null,
@@ -513,10 +511,8 @@ describe("hasUnseenCompletion", () => {
   it("treats a missing client visit marker as read", () => {
     expect(
       hasUnseenCompletion({
-        hasActionableProposedPlan: false,
         hasPendingApprovals: false,
         hasPendingUserInput: false,
-        interactionMode: "default",
         latestRun: makeLatestRun(),
         lastVisitedAt: undefined,
         runtime: null,
@@ -1140,10 +1136,8 @@ describe("formatWorkingDurationLabel", () => {
 
 describe("resolveThreadStatusPill", () => {
   const baseThread = {
-    hasActionableProposedPlan: false,
     hasPendingApprovals: false,
     hasPendingUserInput: false,
-    interactionMode: "plan" as const,
     latestRun: null,
     lastVisitedAt: undefined,
     runtime: {
@@ -1180,7 +1174,7 @@ describe("resolveThreadStatusPill", () => {
     ).toMatchObject({ label: "Pending Approval", pulse: false });
   });
 
-  it("shows awaiting input when plan mode is blocked on user answers", () => {
+  it("shows awaiting input when user answers are required", () => {
     expect(
       resolveThreadStatusPill({
         thread: {
@@ -1247,23 +1241,6 @@ describe("resolveThreadStatusPill", () => {
     ).toBeNull();
   });
 
-  it("shows plan ready when a settled plan turn has a proposed plan ready for follow-up", () => {
-    expect(
-      resolveThreadStatusPill({
-        thread: {
-          ...baseThread,
-          hasActionableProposedPlan: true,
-          latestRun: makeLatestRun(),
-          runtime: {
-            ...baseThread.runtime,
-            status: "completed",
-            activeRunId: null,
-          },
-        },
-      }),
-    ).toMatchObject({ label: "Plan Ready", pulse: false });
-  });
-
   it("does not manufacture completed state without a client visit marker", () => {
     expect(
       resolveThreadStatusPill({
@@ -1285,7 +1262,6 @@ describe("resolveThreadStatusPill", () => {
       resolveThreadStatusPill({
         thread: {
           ...baseThread,
-          interactionMode: "default",
           latestRun: makeLatestRun(),
           lastVisitedAt: "2026-03-09T10:04:00.000Z",
           runtime: {
@@ -1327,57 +1303,6 @@ describe("resolveProjectStatusIndicator", () => {
         },
       ]),
     ).toMatchObject({ label: "Pending Approval", dotClass: "bg-amber-500" });
-  });
-
-  it("prefers plan-ready over completed when no stronger action is needed", () => {
-    expect(
-      resolveProjectStatusIndicator([
-        {
-          label: "Completed",
-          colorClass: "text-emerald-600",
-          dotClass: "bg-emerald-500",
-          pulse: false,
-        },
-        {
-          label: "Plan Ready",
-          colorClass: "text-violet-600",
-          dotClass: "bg-violet-500",
-          pulse: false,
-        },
-      ]),
-    ).toMatchObject({ label: "Plan Ready", dotClass: "bg-violet-500" });
-  });
-
-  it("ranks waiting below active work and above plan-ready", () => {
-    const waiting = {
-      label: "Waiting" as const,
-      colorClass: "text-sky-600 dark:text-sky-300/80",
-      dotClass: "bg-sky-500 dark:bg-sky-300/80",
-      pulse: false,
-    };
-
-    expect(
-      resolveProjectStatusIndicator([
-        waiting,
-        {
-          label: "Working",
-          colorClass: "text-sky-600",
-          dotClass: "bg-sky-500",
-          pulse: true,
-        },
-      ]),
-    ).toMatchObject({ label: "Working" });
-    expect(
-      resolveProjectStatusIndicator([
-        {
-          label: "Plan Ready",
-          colorClass: "text-violet-600",
-          dotClass: "bg-violet-500",
-          pulse: false,
-        },
-        waiting,
-      ]),
-    ).toMatchObject({ label: "Waiting" });
   });
 });
 
@@ -2089,16 +2014,6 @@ describe("Working shelf", () => {
       isSidebarThreadWorking({
         ...waiting,
         runtime: { ...runtime, status: "failed" as const, lastError: "boom" },
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps a ready plan in the inbox while background work runs", () => {
-    expect(
-      isSidebarThreadWorking({
-        ...waiting,
-        interactionMode: "plan",
-        hasActionableProposedPlan: true,
       }),
     ).toBe(false);
   });

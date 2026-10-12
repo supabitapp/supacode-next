@@ -11,7 +11,6 @@ import {
   type EnvironmentId,
   type MessageId,
   type ModelSelection,
-  type ProviderInteractionMode,
   type RuntimeMode,
   type ServerConfig as SupacodeServerConfig,
   type UsageLimitsReport,
@@ -197,7 +196,6 @@ export interface ThreadComposerProps {
   readonly canSwitchProvider: boolean;
   readonly onUpdateModelSelection: (modelSelection: ModelSelection) => void;
   readonly onUpdateRuntimeMode: (runtimeMode: RuntimeMode) => void;
-  readonly onUpdateInteractionMode: (interactionMode: ProviderInteractionMode) => void;
   readonly onExpandedChange?: (expanded: boolean) => void;
   /** Fires on editor focus/blur; hosts use it to vet stale keyboard state. */
   readonly onEditorFocusChange?: (focused: boolean) => void;
@@ -510,10 +508,6 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     hasThread: true,
     hasCompactableConversation: props.hasCompactableConversation,
     onChangeDraftMessage: props.onChangeDraftMessage,
-    onUpdateInteractionMode:
-      selectedProviderStatus?.showInteractionModeToggle === false
-        ? undefined
-        : props.onUpdateInteractionMode,
     offersUsageLimits: usageLimitsOffered,
     // With attachments aboard the pick just inserts the text, so it sends as a prompt.
     onUsageLimits:

@@ -102,8 +102,6 @@ export function useNewThreadHandler() {
         currentRouteTarget?.kind === "server"
           ? readThreadShell(currentRouteTarget.threadRef)
           : null;
-      const carrySourceDraft =
-        currentRouteTarget?.kind === "draft" ? getDraftSession(currentRouteTarget.draftId) : null;
       // Composer overrides win over the persisted thread state — they are
       // what the user currently sees in the composer controls.
       const carrySourceComposer = currentRouteTarget
@@ -119,11 +117,6 @@ export function useNewThreadHandler() {
         : null;
       const carryModelSelection =
         composerModelSelection ?? carrySourceShell?.modelSelection ?? null;
-      const carryInteractionMode =
-        carrySourceComposer?.interactionMode ??
-        carrySourceShell?.interactionMode ??
-        carrySourceDraft?.interactionMode ??
-        null;
       const project = projects.find(
         (candidate) =>
           candidate.id === projectRef.projectId &&
@@ -264,7 +257,6 @@ export function useNewThreadHandler() {
             setDraftThreadContext(emptyStoredDraftThread.draftId, {
               ...workspaceContext,
               ...(!isDraftAlreadyOpen ? { runtimeMode: defaultRuntimeMode } : {}),
-              ...(carryInteractionMode ? { interactionMode: carryInteractionMode } : {}),
             });
           }
           // Model intent: an explicit human pick always stands. Seeds and
@@ -301,7 +293,6 @@ export function useNewThreadHandler() {
               threadId: emptyStoredDraftThread.threadId,
               ...workspaceContext,
               ...(!isDraftAlreadyOpen ? { runtimeMode: defaultRuntimeMode } : {}),
-              ...(carryInteractionMode ? { interactionMode: carryInteractionMode } : {}),
             },
           );
           const opened = {
@@ -348,7 +339,6 @@ export function useNewThreadHandler() {
           threadId: latestActiveDraftThread.threadId,
           createdAt: latestActiveDraftThread.createdAt,
           runtimeMode: latestActiveDraftThread.runtimeMode,
-          interactionMode: latestActiveDraftThread.interactionMode,
           ...pickExplicitWorkspaceOptions(options),
         });
         return Promise.resolve({
@@ -391,7 +381,6 @@ export function useNewThreadHandler() {
             threadId: racedDraft.threadId,
             createdAt: racedDraft.createdAt,
             runtimeMode: racedDraft.runtimeMode,
-            interactionMode: racedDraft.interactionMode,
             ...pickExplicitWorkspaceOptions(options),
           });
           await router.navigate({
@@ -414,7 +403,6 @@ export function useNewThreadHandler() {
               newWorktreesStartFromOrigin: projectSettings.settings.newWorktreesStartFromOrigin,
             }),
           runtimeMode: defaultRuntimeMode,
-          ...(carryInteractionMode ? { interactionMode: carryInteractionMode } : {}),
         });
         applyStickyState(draftId);
         const modelSelectionOverride = resolveModelSelectionOverride(draftId);

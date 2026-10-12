@@ -1,8 +1,4 @@
-import {
-  ProviderInteractionMode,
-  RuntimeMode,
-  type ResolvedKeybindingsConfig,
-} from "@supacode/contracts";
+import { RuntimeMode, type ResolvedKeybindingsConfig } from "@supacode/contracts";
 import { memo, type ReactNode } from "react";
 import { EllipsisIcon } from "lucide-react";
 import {
@@ -14,21 +10,18 @@ import {
   MenuShortcut,
   MenuTrigger,
 } from "../ui/menu";
-import { INTERACTION_MODE_TOGGLE_SHORTCUT } from "../../composer-logic";
-import { formatShortcutLabel, shortcutLabelForCommand } from "../../keybindings";
+import { shortcutLabelForCommand } from "../../keybindings";
 import { ComposerControl, ComposerControlIcon } from "./ComposerControl";
 import { useComposerMenuProps } from "./composerEventScope";
 import { useComposerMenuState } from "./useComposerMenuState";
 
 export const CompactComposerControlsMenu = memo(function CompactComposerControlsMenu(props: {
-  interactionMode: ProviderInteractionMode;
   runtimeMode: RuntimeMode;
   runtimeModeOptions: ReadonlyArray<{
     readonly mode: RuntimeMode;
     readonly label: string;
   }>;
   keybindings: ResolvedKeybindingsConfig;
-  showInteractionModeToggle: boolean;
   traitsMenuContent?: ReactNode;
   size?: "sm" | "xs";
   /**
@@ -37,7 +30,6 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
    * open menu closes when its trigger hides.
    */
   hidden?: boolean;
-  onToggleInteractionMode: () => void;
   onRuntimeModeChange: (mode: RuntimeMode) => void;
 }) {
   const composerFloatingLayerProps = useComposerMenuProps();
@@ -65,25 +57,6 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
         {props.traitsMenuContent ? (
           <>
             {props.traitsMenuContent}
-            <MenuDivider />
-          </>
-        ) : null}
-        {props.showInteractionModeToggle ? (
-          <>
-            <div className="flex items-center gap-2 px-2 py-1.5 font-medium text-muted-foreground text-xs">
-              Mode
-              <MenuShortcut>{formatShortcutLabel(INTERACTION_MODE_TOGGLE_SHORTCUT)}</MenuShortcut>
-            </div>
-            <MenuRadioGroup
-              value={props.interactionMode}
-              onValueChange={(value) => {
-                if (!value || value === props.interactionMode) return;
-                props.onToggleInteractionMode();
-              }}
-            >
-              <MenuRadioItem value="default">Chat</MenuRadioItem>
-              <MenuRadioItem value="plan">Plan</MenuRadioItem>
-            </MenuRadioGroup>
             <MenuDivider />
           </>
         ) : null}

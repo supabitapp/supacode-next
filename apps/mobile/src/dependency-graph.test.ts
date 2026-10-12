@@ -260,7 +260,6 @@ describe("mobile dependency graph", () => {
       // state -> features: thread ordering reaching the thread-list model,
       // the incoming-share store, the connection controller hook, the
       // terminal launch context, and the pending message feed.
-      // (legacy-plan-mode was pure model logic and moved into state/.)
       ["state", "features", 6, "state must not add imports from features"],
       // lib -> features: the appearance helpers and terminal preferences
       // still need untangling.
