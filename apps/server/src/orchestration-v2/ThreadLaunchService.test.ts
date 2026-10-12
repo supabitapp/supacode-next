@@ -44,6 +44,7 @@ import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
+import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
 import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ProviderRegistryMock from "../provider/testUtils/providerRegistryMock.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -104,6 +105,7 @@ interface HarnessOptions {
   readonly runSetup?: ProjectSetupScriptRunner.ProjectSetupScriptRunner["Service"]["runForThread"];
   readonly generateTitle?: TextGeneration.TextGeneration["Service"]["generateThreadTitle"];
   readonly generateBranchName?: TextGeneration.TextGeneration["Service"]["generateBranchName"];
+  readonly resolveRepositoryIdentity?: RepositoryIdentityResolver.RepositoryIdentityResolver["Service"]["resolve"];
   readonly serverSettings?: Parameters<typeof ServerSettings.layerTest>[0];
   readonly providers?: ReadonlyArray<ServerProvider>;
 }
@@ -177,6 +179,9 @@ function makeHarness(options: HarnessOptions = {}) {
     }),
     Layer.succeed(ProjectSetupScriptRunner.ProjectSetupScriptRunner, {
       runForThread: runSetup,
+    }),
+    Layer.mock(RepositoryIdentityResolver.RepositoryIdentityResolver)({
+      resolve: options.resolveRepositoryIdentity ?? (() => Effect.succeed(null)),
     }),
     Layer.mock(TextGeneration.TextGeneration)({
       generateThreadTitle,
@@ -1001,7 +1006,6 @@ it.effect("uses the available source control writer for generated worktree branc
         harness.generateBranchName.mock.calls[0]?.[0]?.modelSelection,
         writerModelSelection,
       );
-      assert.equal(harness.generateBranchName.mock.calls[0]?.[0]?.repositoryName, "repo");
     }).pipe(Effect.provide(harness.layer));
   }),
 );
@@ -1121,6 +1125,42 @@ it.effect("names the worktree itself when the client provides no branch", () =>
           .getThreadProjection(launched.threadId)
           .pipe(Effect.map((projection) => projection.thread.branch === "generated-branch")),
       );
+    }).pipe(Effect.provide(harness.layer));
+  }),
+);
+
+it.effect("prefixes generated branches with a fork's own repository name", () =>
+  Effect.gen(function* () {
+    const harness = makeHarness({
+      serverSettings: { branchNamingMode: "repository" },
+      resolveRepositoryIdentity: () =>
+        Effect.succeed({
+          canonicalKey: "github.com/upstream/project",
+          locator: {
+            source: "git-remote",
+            remoteName: "upstream",
+            remoteUrl: "git@github.com:upstream/project.git",
+          },
+          displayName: "upstream/project",
+          name: "project",
+          origin: {
+            canonicalKey: "github.com/khoi/project-fork",
+            displayName: "khoi/project-fork",
+          },
+        }),
+    });
+    yield* Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      yield* launches.launch(
+        launchInput({
+          command: "command:launch:repository-branch-prefix",
+          thread: "thread:launch:repository-branch-prefix",
+          message: "Build the feature",
+          workspace: { type: "worktree", baseRef: "main" },
+        }),
+      );
+      yield* waitUntil(() => Effect.sync(() => harness.generateBranchName.mock.calls.length === 1));
+      assert.equal(harness.generateBranchName.mock.calls[0]?.[0]?.repositoryName, "project-fork");
     }).pipe(Effect.provide(harness.layer));
   }),
 );

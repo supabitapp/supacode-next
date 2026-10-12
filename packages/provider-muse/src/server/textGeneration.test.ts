@@ -368,4 +368,17 @@ it.layer(NodeServices.layer)("Muse text generation", (it) => {
       expect(generated.branch).toContain("fix-login");
     }),
   );
+
+  it.effect("applies repository naming to generated branches", () =>
+    Effect.gen(function* () {
+      const test = fixture(finish('{"branch":"Add Search"}'));
+      const service = yield* test.make;
+      const generated = yield* service.generateBranchName({
+        ...titleInput,
+        naming: { mode: "repository", prefix: "ignored", instructions: "" },
+        repositoryName: "My Repo",
+      });
+      expect(generated.branch).toBe("my-repo/add-search");
+    }),
+  );
 });

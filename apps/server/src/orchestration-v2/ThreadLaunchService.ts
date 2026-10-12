@@ -14,6 +14,7 @@ import {
   type ProviderDriverKind,
   type ProviderInteractionMode,
   ProjectId,
+  repositoryGroupingDisplayNameOf,
   type RunId,
   type RuntimeMode,
   type ScheduledTaskId,
@@ -40,6 +41,7 @@ import * as GitWorkflow from "../git/GitWorkflowService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
+import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as TextGeneration from "../textGeneration/TextGeneration.ts";
@@ -180,6 +182,7 @@ const make = Effect.gen(function* () {
   const git = yield* GitWorkflow.GitWorkflowService;
   const setupScripts = yield* ProjectSetupScriptRunner.ProjectSetupScriptRunner;
   const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
+  const repositoryIdentities = yield* RepositoryIdentityResolver.RepositoryIdentityResolver;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const textGeneration = yield* TextGeneration.TextGeneration;
   const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
@@ -283,6 +286,19 @@ const make = Effect.gen(function* () {
                   settings,
                   yield* providerRegistry.getProviders,
                 );
+          const repositoryName =
+            settings.branchNamingMode === "repository"
+              ? yield* repositoryIdentities
+                  .resolve(project.workspaceRoot)
+                  .pipe(
+                    Effect.map((identity) =>
+                      deriveRepositoryName(
+                        (identity && repositoryGroupingDisplayNameOf(identity)) ??
+                          project.workspaceRoot,
+                      ),
+                    ),
+                  )
+              : undefined;
           return yield* textGeneration
             .generateBranchName({
               naming: {
@@ -290,8 +306,7 @@ const make = Effect.gen(function* () {
                 prefix: settings.branchNamePrefix,
                 instructions: settings.branchNameInstructions,
               },
-              repositoryName:
-                project.repositoryIdentity?.name ?? deriveRepositoryName(project.workspaceRoot),
+              ...(repositoryName === undefined ? {} : { repositoryName }),
               cwd,
               message: message.text,
               attachments: message.attachments,

@@ -9,6 +9,7 @@ import type {
 } from "@supacode/contracts";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
+import { fileBasename } from "./path.ts";
 import { detectSourceControlProviderFromRemoteUrl } from "./sourceControl.ts";
 
 export const WORKTREE_BRANCH_PREFIX = "supacode";
@@ -54,9 +55,8 @@ export function sanitizeBranchFragment(raw: string): string {
   return branchFragment.length > 0 ? branchFragment : "update";
 }
 
-function sanitizeBranchPrefix(raw: string, lowercase = false): string {
-  const prefix = raw
-    .trim()
+function sanitizeBranchPrefix(raw: string): string {
+  return raw
     .split("/")
     .map((part) =>
       part
@@ -66,13 +66,10 @@ function sanitizeBranchPrefix(raw: string, lowercase = false): string {
     )
     .filter(Boolean)
     .join("/");
-  return lowercase ? prefix.toLowerCase() : prefix;
 }
 
-export function deriveRepositoryName(workspaceRoot: string): string {
-  const normalized = workspaceRoot.trim().replaceAll("\\", "/").replace(/\/+$/u, "");
-  const name = normalized.slice(normalized.lastIndexOf("/") + 1);
-  return name.replace(/\.git$/iu, "");
+export function deriveRepositoryName(path: string): string {
+  return fileBasename(path).replace(/\.git$/iu, "");
 }
 
 /** Custom naming preserves the model's complete ref; Git validates it on rename. */
@@ -86,7 +83,7 @@ export function formatGeneratedBranchName(
   if (naming?.mode !== "static" && naming?.mode !== "repository") return branch;
   const prefix =
     naming.mode === "repository"
-      ? sanitizeBranchPrefix(repositoryName ?? "", true)
+      ? sanitizeBranchPrefix((repositoryName ?? "").toLowerCase())
       : sanitizeBranchPrefix(naming.prefix);
   return prefix ? `${prefix}/${branch}` : branch;
 }

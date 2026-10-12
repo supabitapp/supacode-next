@@ -6,7 +6,7 @@ import {
   TextGenerationError,
 } from "@supacode/contracts";
 import type { MuseSettings } from "../settings.ts";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@supacode/shared/git";
+import { formatGeneratedBranchName, sanitizeFeatureBranchName } from "@supacode/shared/git";
 import { getModelSelectionStringOptionValue } from "@supacode/shared/model";
 import { extractJsonObject } from "@supacode/shared/schemaJson";
 import * as Effect from "effect/Effect";
@@ -327,7 +327,9 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
       ...buildBranchNamePrompt(input),
       modelSelection: input.modelSelection,
     });
-    return { branch: sanitizeBranchFragment(generated.branch) };
+    return {
+      branch: formatGeneratedBranchName(generated.branch, input.naming, input.repositoryName),
+    };
   });
   const generateThreadTitle: ProviderTextGeneration["generateThreadTitle"] = Effect.fn(
     "MuseTextGeneration.generateThreadTitle",
