@@ -1,5 +1,9 @@
-import type { ServerProvider, ServerProviderUsageWindow } from "@supacode/contracts";
-import { formatResetsIn, headlineUsageWindows } from "@supacode/shared/usageLimits";
+import type { ServerProviderUsageWindow } from "@supacode/contracts";
+import {
+  formatResetsIn,
+  type headlineUsageWindows,
+  remainingPercent,
+} from "@supacode/shared/usageLimits";
 import { memo } from "react";
 
 import { useNowMinuteMs } from "../../hooks/useNowMinute";
@@ -9,14 +13,12 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { usageFillColor } from "./ContextWindowMeter.logic";
 
 export const ComposerUsageMeter = memo(function ComposerUsageMeter({
-  provider,
+  windows,
 }: {
-  readonly provider: ServerProvider | null;
+  readonly windows: ReturnType<typeof headlineUsageWindows>;
 }) {
-  const windows = headlineUsageWindows(provider);
-  if (windows.length === 0) return null;
   return (
-    <div className="hidden items-center gap-4 px-4 pt-2 text-xs tabular-nums transition-[opacity,visibility] duration-150 ease-out peer-has-data-[chat-composer-resting]/composer-shell:invisible peer-has-data-[chat-composer-resting]/composer-shell:opacity-0 motion-reduce:transition-none sm:flex">
+    <div className="flex h-6 shrink-0 items-center gap-3 px-1 text-xs tabular-nums group-has-data-[chat-composer-resting]/composer-surface:hidden group-data-model-strip-transition/composer-surface:invisible">
       {windows.map(({ label, window }) => (
         <UsageWindowMeter key={window.id} label={label} window={window} />
       ))}
@@ -31,7 +33,7 @@ function UsageWindowMeter({
   readonly label: string;
   readonly window: ServerProviderUsageWindow;
 }) {
-  const usedPercent = Math.round(window.usedPercent);
+  const remaining = remainingPercent(window);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -41,8 +43,8 @@ function UsageWindowMeter({
             aria-label={window.label}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={usedPercent}
-            aria-valuetext={`${usedPercent}% used`}
+            aria-valuenow={remaining}
+            aria-valuetext={`${remaining}% left`}
             className="flex cursor-default items-center gap-1.5"
           />
         }
@@ -52,17 +54,17 @@ function UsageWindowMeter({
           <span
             className="block h-full rounded-full transition-[translate,background-color] duration-500 ease-out motion-reduce:transition-none"
             style={{
-              translate: `${usedPercent - 100}% 0`,
-              backgroundColor: usageFillColor(usedPercent),
+              translate: `${remaining - 100}% 0`,
+              backgroundColor: usageFillColor(100 - remaining),
             }}
           />
         </span>
-        <span className="text-muted-foreground">{usedPercent}%</span>
+        <span className="text-muted-foreground">{remaining}% left</span>
       </TooltipTrigger>
       <TooltipPopup side="top">
         <div className="flex flex-col gap-0.5">
           <span className="text-foreground">
-            {window.label}: {usedPercent}% used
+            {window.label}: {remaining}% left
           </span>
           {window.resetsAt ? <WindowReset window={window} resetsAt={window.resetsAt} /> : null}
         </div>

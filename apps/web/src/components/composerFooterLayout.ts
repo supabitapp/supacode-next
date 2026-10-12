@@ -36,8 +36,8 @@ export function shouldUseRestingComposerLayout(input: {
   // line and overlays its actions; non-image attachment and context
   // rows keep their natural height above it while image previews move inline.
   // Banners and the tasks badge dock above the surface, so they are absent
-  // too. The context strip is optional: collapsed controls use it when
-  // present and otherwise occupy a compact row inside the composer.
+  // too, and resting hides them along with the model controls and the strip
+  // below.
   //
   // Only a timeline scroll rests the composer: the user asked for it with the
   // gesture, and it lifts on the next composer interaction. Losing focus never
@@ -81,17 +81,32 @@ export function resolveComposerTimelineInset(input: {
   currentInset: number;
   overlayHeight: number;
   isResting: boolean;
-  restingOnlyHeight?: number;
 }): number {
   return input.isResting
     ? Math.max(
         input.currentInset,
-        input.overlayHeight +
-          (input.currentInset === 0
-            ? COMPOSER_RESTING_EXPANSION_MIN_PX - (input.restingOnlyHeight ?? 0)
-            : 0),
+        input.overlayHeight + (input.currentInset === 0 ? COMPOSER_RESTING_EXPANSION_MIN_PX : 0),
       )
     : input.overlayHeight;
+}
+
+type ComposerUsageMeterSlot = "row" | "context-strip" | "model-strip" | "own-strip";
+
+/**
+ * Where the usage meter goes. History scrolls behind a docked composer, so the meter rides a strip
+ * under it, reusing whichever strip the composer already has so collapsing swaps contents in place.
+ */
+export function resolveComposerUsageMeterSlot(input: {
+  hasUsageWindows: boolean;
+  isMobileViewport: boolean;
+  isDraftHero: boolean;
+  contextStripMounted: boolean;
+  modelStripMounted: boolean;
+}): ComposerUsageMeterSlot | null {
+  if (!input.hasUsageWindows || input.isMobileViewport) return null;
+  if (input.isDraftHero) return "row";
+  if (input.contextStripMounted) return "context-strip";
+  return input.modelStripMounted ? "model-strip" : "own-strip";
 }
 
 /**

@@ -75,6 +75,7 @@ interface BranchToolbarProps {
    */
   projectPicker?: ReactNode;
   contextStripPlacement?: "top" | "bottom";
+  usageMeter?: ReactNode;
 }
 
 const COMPOSER_CONTEXT_MOTION_DURATION_MS = 180;
@@ -301,6 +302,7 @@ export const BranchToolbar = memo(function BranchToolbar({
   contextStripVisible = true,
   projectPicker,
   contextStripPlacement = "bottom",
+  usageMeter,
 }: BranchToolbarProps) {
   const branchSelectorRef = useRef<BranchToolbarBranchSelectorHandle>(null);
   const threadRef = useMemo(
@@ -515,8 +517,8 @@ export const BranchToolbar = memo(function BranchToolbar({
 
       {composerControlsHostRef ? (
         // The host takes whatever the workspace and branch controls leave
-        // over, in both strip layouts, so a collapsed composer can show its
-        // model and mode controls wherever they fit.
+        // over, in both strip layouts, so a collapsed phone composer can show
+        // its model and mode controls wherever they fit.
         <div
           ref={composerControlsHostRef}
           data-composer-context-control
@@ -524,6 +526,7 @@ export const BranchToolbar = memo(function BranchToolbar({
           className="flex min-w-0 flex-1 items-center justify-start overflow-x-clip overflow-y-visible"
         />
       ) : null}
+      {usageMeter}
     </ComposerSurface.ContextStrip>
   );
 });

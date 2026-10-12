@@ -104,9 +104,9 @@ current model's limits without leaving the conversation. The result opens above 
 closes when you dismiss it or send your next message. It uses the same snapshot as **Usage → Limits**, so it does not run the agent or refresh
 anything. The command is offered only for providers that appear under **Usage → Limits**.
 
-On wider windows, a row under the composer shows how much of the current model's session, weekly,
-and monthly limits you have used, taking the busiest window of each length. It reads the same
-snapshot and hides while the composer is collapsed.
+On wider windows, the composer shows how much of the current model's session, weekly, and monthly
+limits is left, taking the busiest window of each length. It reads the same snapshot and hides
+while the composer is collapsed.
 
 OpenCode Go reports its session, weekly, and monthly allowance when OpenCode runs locally in
 the environment. Supacode cannot report limits for external OpenCode servers because their credentials

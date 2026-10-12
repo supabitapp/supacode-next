@@ -8,6 +8,7 @@ import {
   getRestingComposerImagePreviewCounts,
   overlayComposerIsResting,
   resolveComposerTimelineInset,
+  resolveComposerUsageMeterSlot,
   resolveScrollToEndClearance,
   resolveRestingComposerControlsLayout,
   resolveRestingComposerControlsNaturalWidth,
@@ -115,7 +116,7 @@ describe("resolveComposerTimelineInset", () => {
     ).toBe(172);
   });
 
-  it("keeps timeline padding stable when the model-only strip appears on collapse", () => {
+  it("keeps timeline padding stable across collapse and expansion", () => {
     const expanded = resolveComposerTimelineInset({
       currentInset: 0,
       overlayHeight: 172,
@@ -125,7 +126,6 @@ describe("resolveComposerTimelineInset", () => {
       currentInset: expanded,
       overlayHeight: 110,
       isResting: true,
-      restingOnlyHeight: 32,
     });
     expect(collapsed).toBe(expanded);
     expect(
@@ -470,6 +470,41 @@ describe("resolveRestingComposerControlsLayout hysteresis", () => {
         previous: { hiddenCount: 2, visible: false },
       }),
     ).toEqual({ hiddenCount: 2, visible: true });
+  });
+});
+
+describe("resolveComposerUsageMeterSlot", () => {
+  const thread = {
+    hasUsageWindows: true,
+    isMobileViewport: false,
+    isDraftHero: false,
+    contextStripMounted: false,
+    modelStripMounted: true,
+  };
+
+  it("hides without usage windows or on phones", () => {
+    expect(resolveComposerUsageMeterSlot({ ...thread, hasUsageWindows: false })).toBeNull();
+    expect(resolveComposerUsageMeterSlot({ ...thread, isMobileViewport: true })).toBeNull();
+  });
+
+  it("keeps a bare row under a draft hero", () => {
+    expect(
+      resolveComposerUsageMeterSlot({
+        ...thread,
+        isDraftHero: true,
+        contextStripMounted: true,
+      }),
+    ).toBe("row");
+  });
+
+  it("shares the strip a docked composer already has", () => {
+    expect(resolveComposerUsageMeterSlot({ ...thread, contextStripMounted: true })).toBe(
+      "context-strip",
+    );
+    expect(resolveComposerUsageMeterSlot(thread)).toBe("model-strip");
+    expect(resolveComposerUsageMeterSlot({ ...thread, modelStripMounted: false })).toBe(
+      "own-strip",
+    );
   });
 });
 
