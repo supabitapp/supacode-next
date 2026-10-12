@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-export const DEFAULT_PUBLIC_RELAY_URL = "wss://relay.supacode.sh";
+export const DEFAULT_PUBLIC_RELAY_URL = "wss://relay.supaterm.com";
 
 export function normalizeRelayServerUrl(input: string): string | null {
   let url: URL;
