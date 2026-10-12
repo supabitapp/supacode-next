@@ -850,7 +850,7 @@ export const SourceControlWritingStyleSettings = Schema.Struct({
 });
 export type SourceControlWritingStyleSettings = typeof SourceControlWritingStyleSettings.Type;
 
-export const BranchNamingMode = Schema.Literals(["static", "semantic", "custom"]);
+export const BranchNamingMode = Schema.Literals(["static", "repository", "semantic", "custom"]);
 export type BranchNamingMode = typeof BranchNamingMode.Type;
 
 export interface BranchNamingOptions {

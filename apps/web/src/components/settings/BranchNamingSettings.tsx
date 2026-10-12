@@ -15,6 +15,7 @@ import {
 
 const MODES = {
   static: "Static prefix",
+  repository: "Repository name prefix",
   semantic: "Semantic prefix",
   custom: "Custom instructions",
 } satisfies Record<BranchNamingMode, string>;

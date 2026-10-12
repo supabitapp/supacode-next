@@ -30,6 +30,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import {
   buildTemporaryWorktreeBranchName,
+  deriveRepositoryName,
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   WORKTREE_BRANCH_PREFIX,
@@ -289,6 +290,8 @@ const make = Effect.gen(function* () {
                 prefix: settings.branchNamePrefix,
                 instructions: settings.branchNameInstructions,
               },
+              repositoryName:
+                project.repositoryIdentity?.name ?? deriveRepositoryName(project.workspaceRoot),
               cwd,
               message: message.text,
               attachments: message.attachments,

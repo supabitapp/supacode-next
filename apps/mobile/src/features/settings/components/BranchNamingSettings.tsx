@@ -8,6 +8,10 @@ import { SettingsSection } from "./SettingsSection";
 
 const MODES = {
   static: { label: "Static prefix", description: "Add your prefix to the generated branch name." },
+  repository: {
+    label: "Repository name prefix",
+    description: "Prefix generated branches with the repository name.",
+  },
   semantic: {
     label: "Semantic prefix",
     description: "Let the model choose feat/, fix/, refactor/, or another prefix.",

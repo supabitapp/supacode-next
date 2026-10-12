@@ -423,6 +423,12 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
       instruction: "semantic prefix",
     },
     {
+      mode: "repository",
+      output: "Add Search",
+      expected: "team-repo/add-search",
+      instruction: "repository name",
+    },
+    {
       mode: "custom",
       output: "Julius/ABC-123.v2",
       expected: "Julius/ABC-123.v2",
@@ -445,6 +451,7 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
               prefix: "team/",
               instructions: "Preserve the issue ID and capitalization.",
             },
+            ...(example.mode === "repository" ? { repositoryName: "Team Repo" } : {}),
           });
           expect(generated.branch).toBe(example.expected);
         }),

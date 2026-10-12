@@ -1041,7 +1041,7 @@ describe("branch naming settings", () => {
       branchNameInstructions: "",
     });
   });
-  it.each(["static", "semantic", "custom"])(
+  it.each(["static", "repository", "semantic", "custom"])(
     "round-trips %s and project overrides",
     (branchNamingMode) => {
       const naming = {

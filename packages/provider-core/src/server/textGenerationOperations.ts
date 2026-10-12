@@ -124,7 +124,9 @@ export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
         naming: input.naming,
       }),
     });
-    return { branch: formatGeneratedBranchName(generated.branch, input.naming) };
+    return {
+      branch: formatGeneratedBranchName(generated.branch, input.naming, input.repositoryName),
+    };
   });
 
   const generateThreadTitle: ProviderTextGeneration["generateThreadTitle"] = Effect.fn(

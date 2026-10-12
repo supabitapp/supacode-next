@@ -41,10 +41,11 @@ and other phone-only settings ignore the filter.
 ## Worktree branch names
 
 In **Settings → Source Control → Worktree branch naming**, choose a static prefix,
-a model-selected semantic prefix such as `feat/` or `fix/`, or custom instructions
-for the complete name. The static prefix defaults to `supacode/`; a trailing slash is
-optional, and an empty prefix adds nothing. Invalid characters in a static prefix
-are replaced with hyphens. Custom instructions are appended to
+the repository name as a prefix, a model-selected semantic prefix such as `feat/` or `fix/`,
+or custom instructions for the complete name. The static prefix defaults to `supacode/`; a
+trailing slash is optional, and an empty prefix adds nothing. Invalid characters in a static
+prefix are replaced with hyphens. The repository name is normalized to a lowercase branch
+prefix. Custom instructions are appended to
 the naming prompt and can specify issue IDs, namespaces, and casing.
 
 These settings apply to automatically named new worktree branches. Select a project

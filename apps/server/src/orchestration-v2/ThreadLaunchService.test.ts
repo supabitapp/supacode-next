@@ -1001,6 +1001,7 @@ it.effect("uses the available source control writer for generated worktree branc
         harness.generateBranchName.mock.calls[0]?.[0]?.modelSelection,
         writerModelSelection,
       );
+      assert.equal(harness.generateBranchName.mock.calls[0]?.[0]?.repositoryName, "repo");
     }).pipe(Effect.provide(harness.layer));
   }),
 );

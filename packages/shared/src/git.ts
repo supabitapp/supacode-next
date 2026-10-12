@@ -54,12 +54,9 @@ export function sanitizeBranchFragment(raw: string): string {
   return branchFragment.length > 0 ? branchFragment : "update";
 }
 
-/** Custom naming preserves the model's complete ref; Git validates it on rename. */
-export function formatGeneratedBranchName(raw: string, naming?: BranchNamingOptions): string {
-  if (naming?.mode === "custom") return raw.trim();
-  const branch = sanitizeBranchFragment(raw);
-  if (naming?.mode !== "static") return branch;
-  const prefix = naming.prefix
+function sanitizeBranchPrefix(raw: string, lowercase = false): string {
+  const prefix = raw
+    .trim()
     .split("/")
     .map((part) =>
       part
@@ -69,6 +66,28 @@ export function formatGeneratedBranchName(raw: string, naming?: BranchNamingOpti
     )
     .filter(Boolean)
     .join("/");
+  return lowercase ? prefix.toLowerCase() : prefix;
+}
+
+export function deriveRepositoryName(workspaceRoot: string): string {
+  const normalized = workspaceRoot.trim().replaceAll("\\", "/").replace(/\/+$/u, "");
+  const name = normalized.slice(normalized.lastIndexOf("/") + 1);
+  return name.replace(/\.git$/iu, "");
+}
+
+/** Custom naming preserves the model's complete ref; Git validates it on rename. */
+export function formatGeneratedBranchName(
+  raw: string,
+  naming?: BranchNamingOptions,
+  repositoryName?: string,
+): string {
+  if (naming?.mode === "custom") return raw.trim();
+  const branch = sanitizeBranchFragment(raw);
+  if (naming?.mode !== "static" && naming?.mode !== "repository") return branch;
+  const prefix =
+    naming.mode === "repository"
+      ? sanitizeBranchPrefix(repositoryName ?? "", true)
+      : sanitizeBranchPrefix(naming.prefix);
   return prefix ? `${prefix}/${branch}` : branch;
 }
 

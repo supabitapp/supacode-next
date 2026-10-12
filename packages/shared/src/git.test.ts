@@ -5,6 +5,7 @@ import {
   applyGitStatusStreamEvent,
   formatGeneratedBranchName,
   buildTemporaryWorktreeBranchName,
+  deriveRepositoryName,
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
@@ -314,6 +315,15 @@ describe("formatGeneratedBranchName", () => {
       }),
     ).toBe("Team/Julius/add-search");
   });
+  it("uses the repository name as a lowercase prefix", () => {
+    expect(
+      formatGeneratedBranchName(
+        "Add Search",
+        { mode: "repository", prefix: "ignored", instructions: "" },
+        "My Repo",
+      ),
+    ).toBe("my-repo/add-search");
+  });
   it.each([
     ["release..candidate", "release-candidate/add-search"],
     [" Team / Jules.lock/", "Team/Jules-lock/add-search"],
@@ -342,5 +352,15 @@ describe("formatGeneratedBranchName", () => {
         instructions: "",
       }),
     ).toBe(branch);
+  });
+});
+
+describe("deriveRepositoryName", () => {
+  it.each([
+    ["/workspaces/my-repo", "my-repo"],
+    ["C:\\workspaces\\MyRepo.git\\", "MyRepo"],
+    ["/workspaces/my-repo/", "my-repo"],
+  ])("derives a repository name from %s", (workspaceRoot, expected) => {
+    expect(deriveRepositoryName(workspaceRoot)).toBe(expected);
   });
 });
