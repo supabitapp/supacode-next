@@ -86,7 +86,7 @@ export function OrchestrationSkillsSettings() {
       ),
   );
   return (
-    <SettingsSection {...searchableSetting("orchestration-skills")}>
+    <SettingsSection {...searchableSetting("orchestration-skills")} hideTitle>
       {connectedEnvironments.length === 0 ? (
         <SettingsRow
           title="Orchestration skills"

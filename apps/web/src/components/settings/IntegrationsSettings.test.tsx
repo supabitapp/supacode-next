@@ -51,9 +51,9 @@ vi.mock("./settingsLayout", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./settingsLayout")>()),
   SettingsPageContainer: ({ children }: { children: ReactNode }) => children,
 }));
-// The scoped agent-access rows need the settings layout's scope provider;
-// this test covers the device-local browser sections only.
-vi.mock("./ProjectDefaultsSettings", () => ({ ProjectDefaultsSettings: () => null }));
+// The scoped agent-access row needs the settings layout's scope provider;
+// this test covers the device-local browser rows only.
+vi.mock("./ProjectDefaultsSettings", () => ({ AgentBrowserAccessRow: () => null }));
 vi.mock("./SettingsScopeContext", () => ({
   useSettingsScope: () => ({
     scope: { kind: "all", environmentIds: [] },
