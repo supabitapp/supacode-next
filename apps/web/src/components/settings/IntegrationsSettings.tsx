@@ -121,7 +121,7 @@ import {
 } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 import { OrchestrationSkillsSettings } from "./OrchestrationSkillsSettings";
-import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
+import { AgentBrowserAccessRow } from "./ProjectDefaultsSettings";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { BrowserImportWizard, type WizardTarget } from "./BrowserImportWizard";
 import type { ImportOutcome } from "./browserImportWizard.logic";
@@ -301,7 +301,7 @@ function BrowserViewportSetting({ disabled }: { readonly disabled: boolean }) {
   return (
     <SettingsRow
       {...searchableSetting("browser-default-viewport")}
-      description="Size of new tabs for you and agents."
+      description="Sets the size of new tabs for you and agents."
       resetAction={
         !disabled && viewport._tag !== DEFAULT_BROWSER_VIEWPORT._tag ? (
           <SettingResetButton
@@ -497,12 +497,12 @@ function BrowserRecordingInputSettings({ disabled }: { readonly disabled: boolea
   return (
     <SettingsRow
       {...searchableSetting("browser-recording-input")}
-      description="Overlays in new recordings. Password fields are excluded."
+      description="Show input in new recordings. Password fields are excluded."
       control={
         <ToggleGroup
           multiple
           disabled={disabled}
-          aria-label="Show in recordings"
+          aria-label="Browser recording overlays"
           value={[...(showKeys ? ["keys"] : []), ...(showMouse ? ["mouse"] : [])]}
           onValueChange={(value) =>
             updateSettings({
@@ -511,8 +511,8 @@ function BrowserRecordingInputSettings({ disabled }: { readonly disabled: boolea
             })
           }
         >
-          <Toggle value="keys">Key presses</Toggle>
-          <Toggle value="mouse">Clicks</Toggle>
+          <Toggle value="keys">Keys</Toggle>
+          <Toggle value="mouse">Mouse</Toggle>
         </ToggleGroup>
       }
     />
@@ -580,7 +580,7 @@ function BrowserLinkTargetSetting({ disabled }: { readonly disabled: boolean }) 
   return (
     <SettingsRow
       {...searchableSetting("browser-link-target")}
-      description="Chat and terminal links. ⌘ or Ctrl-click always uses your default browser."
+      description="Applies to chat and terminal links. ⌘ or Ctrl-click always uses your default browser."
       resetAction={
         !disabled && linkTarget !== DEFAULT_BROWSER_LINK_TARGET ? (
           <SettingResetButton
@@ -894,7 +894,7 @@ function BrowserAutoShowFloatingPreviewSetting({ disabled }: { readonly disabled
   return (
     <SettingsRow
       {...searchableSetting("browser-auto-show-floating-preview")}
-      description="When an agent opens a browser or device."
+      description="Show the preview when an agent opens a browser or device."
       resetAction={
         !disabled && autoShow !== DEFAULT_BROWSER_AUTO_SHOW_FLOATING_PREVIEW ? (
           <SettingResetButton
@@ -1564,7 +1564,8 @@ export function IntegrationsSettingsPanel() {
       {/* Server-authoritative agent access is scoped by the header selection;
           the preview defaults below are device-local and ignore it. */}
       <OrchestrationSkillsSettings />
-      <ProjectDefaultsSettings category="integrations">
+      <SettingsSection id="browser" title="Browser">
+        <AgentBrowserAccessRow />
         {previewDefaultsDisabled ? (
           <SettingsUnavailableGroup message="Only available in the desktop app.">
             {previewDefaults}
@@ -1572,7 +1573,7 @@ export function IntegrationsSettingsPanel() {
         ) : (
           previewDefaults
         )}
-      </ProjectDefaultsSettings>
+      </SettingsSection>
       <DeviceIntegrationSettings />
     </SettingsPageContainer>
   );

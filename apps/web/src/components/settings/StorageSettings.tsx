@@ -85,7 +85,7 @@ function RetentionControl({
   onChange: (value: number | null) => void;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <>
       {value !== null ? (
         <DaysField label={label} value={value} min={1} max={3650} onCommit={onChange} />
       ) : null}
@@ -94,7 +94,7 @@ function RetentionControl({
         checked={value !== null}
         onCheckedChange={(enabled) => onChange(enabled ? 8 : null)}
       />
-    </div>
+    </>
   );
 }
 
@@ -230,7 +230,7 @@ export function StorageSettingsPanel() {
             <SettingsRow
               title="Delete inactive worktrees"
               status={ruleStatus("worktreeAfterDays")}
-              description="After their threads are inactive this many days. Branches are kept."
+              description="Remove worktrees whose threads have gone inactive. Branches are kept."
               serverScoped={!isProjectScope}
               control={
                 <RetentionControl
@@ -243,7 +243,7 @@ export function StorageSettingsPanel() {
             <SettingsRow
               title="Delete merged worktrees"
               status={ruleStatus("worktreeOnMerge")}
-              description="Once their commits land in the default branch."
+              description="Remove worktrees once their commits land in the default branch."
               serverScoped={!isProjectScope}
               control={
                 <Switch
@@ -256,7 +256,7 @@ export function StorageSettingsPanel() {
             <SettingsRow
               title="Delete unchanged worktrees"
               status={ruleStatus("worktreeUnchanged")}
-              description="No commits beyond the default branch."
+              description="Remove worktrees with no commits beyond the default branch."
               serverScoped={!isProjectScope}
               control={
                 <Switch

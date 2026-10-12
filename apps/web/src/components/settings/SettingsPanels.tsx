@@ -568,7 +568,7 @@ export function useSettingsRestore(onRestored?: () => void) {
         : []),
       ...getChangedTypographySettingLabels(settings),
       ...(settings.diffFilesCollapsed !== DEFAULT_UNIFIED_SETTINGS.diffFilesCollapsed
-        ? ["Default diff file state"]
+        ? ["Collapse diff files"]
         : []),
       ...(settings.diffIgnoreWhitespace !== DEFAULT_UNIFIED_SETTINGS.diffIgnoreWhitespace
         ? ["Diff whitespace changes"]
@@ -1082,7 +1082,7 @@ export function AppearanceSettingsPanel() {
     resolveEnvironmentIdentificationModes(environmentStageLabel);
   const environmentIdentificationDescription = environmentIdentificationModes.includes("pill")
     ? "How Dev and Nightly environments are marked."
-    : "Sidebar artwork under dark themes.";
+    : "Shows sidebar artwork under dark themes.";
   const glassOpacityRatio =
     (settings.glassOpacity - MIN_GLASS_OPACITY) / (MAX_GLASS_OPACITY - MIN_GLASS_OPACITY);
   const glassOpacitySliderStyle = {
@@ -1167,7 +1167,7 @@ export function AppearanceSettingsPanel() {
 
         <SettingsRow
           {...searchableSetting("setting-glass-opacity")}
-          description="Menus, dialogs, and the composer."
+          description="Applies to menus, dialogs, and the composer."
           resetAction={
             settings.glassOpacity !== DEFAULT_UNIFIED_SETTINGS.glassOpacity ? (
               <SettingResetButton
@@ -1427,7 +1427,7 @@ function PromptFontRow() {
   return (
     <FontFamilySettingsRow
       {...searchableSetting("prompt-font")}
-      description="The box you write prompts in."
+      description="Applies to the box you write prompts in."
       defaultFamily={defaults.interfaceFamily}
       defaultValue={DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer}
       value={settings.fontFamilyComposer}
@@ -1568,7 +1568,7 @@ function WordWrapRow() {
   return (
     <SettingsRow
       {...searchableSetting("word-wrap")}
-      description="Code blocks, tables, diffs, and file previews."
+      description="Applies to code blocks, tables, diffs, and file previews."
       resetAction={
         settings.wordWrap !== DEFAULT_UNIFIED_SETTINGS.wordWrap ? (
           <SettingResetButton
@@ -1931,7 +1931,7 @@ function LegacyFeaturesSection() {
   }, [searchTargetId]);
 
   return (
-    <section id="legacy-features" ref={targetRef} tabIndex={-1} className="space-y-2.5">
+    <section id="legacy-features" ref={targetRef} tabIndex={-1} className="space-y-2">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="group flex min-h-8 w-full items-center gap-2 px-3 sm:px-4">
           <h2 className="text-sm font-normal text-foreground/70 transition-colors group-hover:text-foreground">
@@ -1989,6 +1989,11 @@ function LegacyFeaturesSection() {
 
 export function GeneralSettingsPanel() {
   const modifierLabel = isMacPlatform(navigator.platform) ? "⌘" : "Ctrl";
+  const followUpOverrideShortcut = {
+    enter: `${modifierLabel} + Enter`,
+    "mod-enter": `${modifierLabel} + Shift + Enter`,
+    "mod-enter-multiline": `${modifierLabel} + Enter, or ${modifierLabel} + Shift + Enter in multiline prompts,`,
+  } as const;
   const sendShortcutOptions = [
     { value: "enter", label: "Enter" },
     { value: "mod-enter-multiline", label: `${modifierLabel} + Enter for multiline prompts` },
@@ -2076,44 +2081,13 @@ export function GeneralSettingsPanel() {
 
   return (
     <SettingsPageContainer>
-      <ProjectDefaultsSettings category="general">
-        <SettingsRow
-          serverScoped
-          settingKeys={["newWorktreesStartFromOrigin"]}
-          {...searchableSetting("start-from-origin")}
-          description="Base new worktrees on origin instead of your local branch."
-          resetAction={
-            settings.newWorktreesStartFromOrigin !==
-            DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin ? (
-              <SettingResetButton
-                label="new worktrees start from origin"
-                onClick={() =>
-                  updateSettings({
-                    newWorktreesStartFromOrigin:
-                      DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin,
-                  })
-                }
-              />
-            ) : null
-          }
-          control={
-            <ScopedSwitch
-              settingKeys={["newWorktreesStartFromOrigin"]}
-              checked={settings.newWorktreesStartFromOrigin}
-              onCheckedChange={(checked) =>
-                updateSettings({ newWorktreesStartFromOrigin: Boolean(checked) })
-              }
-              aria-label="Start new worktrees from origin by default"
-            />
-          }
-        />
-      </ProjectDefaultsSettings>
+      <ProjectDefaultsSettings category="general" />
 
       <SettingsSection id="threads" title="Threads">
         <NotificationSettings />
         <SettingsRow
           {...searchableSetting("in-app-notifications")}
-          description="Toasts for other threads while Supacode is focused."
+          description="Show toasts for other threads while Supacode is focused."
           control={
             <Switch
               checked={settings.inAppNotificationsEnabled}
@@ -2232,7 +2206,7 @@ export function GeneralSettingsPanel() {
               serverScoped
               settingKeys={["sidebarAutoSettleAfterDays"]}
               {...searchableSetting("auto-settle-inactive-threads")}
-              description="Settle threads after this many days without activity."
+              description="Settle threads with no recent activity."
               resetAction={
                 settings.sidebarAutoSettleAfterDays !==
                 DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays ? (
@@ -2251,7 +2225,7 @@ export function GeneralSettingsPanel() {
                 <>
                   {settings.sidebarAutoSettleAfterDays !== null ? (
                     <DaysField
-                      label="Days of inactivity before auto-settle"
+                      label="Auto-settle inactive threads"
                       min={MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS}
                       max={MAX_SIDEBAR_AUTO_SETTLE_AFTER_DAYS}
                       value={settings.sidebarAutoSettleAfterDays}
@@ -2360,11 +2334,7 @@ export function GeneralSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("follow-up-behavior")}
-          description={
-            settings.sendShortcut === "mod-enter-multiline"
-              ? `While the agent runs. ${modifierLabel} + Enter, or ${modifierLabel} + Shift + Enter in multiline prompts, does the opposite once.`
-              : `While the agent runs. ${modifierLabel}${settings.sendShortcut === "mod-enter" ? " + Shift" : ""} + Enter does the opposite once.`
-          }
+          description={`While the agent runs. ${followUpOverrideShortcut[settings.sendShortcut]} does the opposite once.`}
           resetAction={
             settings.followUpBehavior !== DEFAULT_UNIFIED_SETTINGS.followUpBehavior ? (
               <SettingResetButton
@@ -3066,7 +3036,7 @@ export function GeneralSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("diagnostics")}
-          description="Processes, resource use, and logs."
+          description="Inspect processes, resource use, and logs."
           control={
             <Button
               render={
