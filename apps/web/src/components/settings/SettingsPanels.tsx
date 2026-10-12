@@ -2395,6 +2395,7 @@ export function GeneralSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("composer-collapse")}
+          description="Focus the composer or start typing to expand it."
           resetAction={
             settings.composerCollapseOnScroll !==
             DEFAULT_UNIFIED_SETTINGS.composerCollapseOnScroll ? (
@@ -2420,6 +2421,7 @@ export function GeneralSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("skills-in-slash-menu")}
+          description="Skills always appear when you type $."
           resetAction={
             settings.showSkillsInSlashMenu !== DEFAULT_UNIFIED_SETTINGS.showSkillsInSlashMenu ? (
               <SettingResetButton
@@ -2447,7 +2449,7 @@ export function GeneralSettingsPanel() {
       <SettingsSection id="review" title="Review">
         <SettingsRow
           {...searchableSetting("proactive-panels")}
-          description="Open the linked pull request, or Changes after larger edits."
+          description="Open the linked pull request, or Changes once edits reach 3 files or 50 lines."
           resetAction={
             settings.proactivePanelsEnabled !== DEFAULT_UNIFIED_SETTINGS.proactivePanelsEnabled ? (
               <SettingResetButton

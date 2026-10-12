@@ -412,7 +412,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             settingKeys={["removeAgentCreditsOnMerge"]}
             mixed={mixedAgentCredits}
             {...searchableSetting("remove-agent-credits-on-merge")}
-            description="Strip agent credit lines from GitHub merge and squash messages."
+            description="Keeps human co-authors. Covers auto-merge; skips merge queues and stack merges."
             resetAction={
               settings.removeAgentCreditsOnMerge ? (
                 <SettingResetButton
@@ -438,6 +438,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             settingKeys={["pullRequestMergeMethod"]}
             mixed={mixedMergeMethod}
             {...searchableSetting("pull-request-merge-method")}
+            description="Last selected reuses your most recent choice on this device."
             resetAction={
               settings.pullRequestMergeMethod !== null ? (
                 <SettingResetButton
@@ -492,7 +493,7 @@ export function AgentBrowserAccessRow() {
       settingKeys={["enableAgentBrowserAccess"]}
       mixed={mixed}
       {...searchableSetting("agent-browser-access")}
-      description="Let agents drive the shared browser."
+      description="Let agents drive the shared browser. Applies when an agent session starts."
       resetAction={
         settings.enableAgentBrowserAccess !== DEFAULT_SERVER_SETTINGS.enableAgentBrowserAccess ? (
           <SettingResetButton
