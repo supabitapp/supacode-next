@@ -6,7 +6,6 @@ import { Pressable, View } from "react-native";
 import { AppText } from "../../components/AppText";
 import { SymbolView } from "../../components/AppSymbol";
 import { GlassSurface } from "../../components/GlassSurface";
-import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { useWorkspaceTabSelection } from "./useWorkspaceTabSelection";
 import { WORKSPACE_DOCK } from "./workspace-tabs-state";
@@ -15,9 +14,9 @@ export function WorkspaceDock(props: {
   readonly onNewTask: () => void;
   readonly filter?: ReactNode;
   readonly floating?: boolean;
+  readonly showTabs?: boolean;
 }) {
   const workspace = useWorkspaceTabs()!;
-  const { layout } = useAdaptiveWorkspaceLayout();
   const selectTab = useWorkspaceTabSelection();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
@@ -41,7 +40,7 @@ export function WorkspaceDock(props: {
       }}
     >
       <View style={{ width: WORKSPACE_DOCK.height, alignItems: "center" }}>{props.filter}</View>
-      {!layout.usesSplitView ? (
+      {props.showTabs !== false ? (
         <GlassSurface
           style={{
             flex: 1,

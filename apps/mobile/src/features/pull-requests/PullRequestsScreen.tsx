@@ -340,6 +340,7 @@ export function PullRequestsScreen(
       />
       <WorkspaceDock
         floating
+        showTabs={!props.sidebar}
         onNewTask={startNewTask}
         filter={
           <PullRequestListFilters

@@ -1,5 +1,6 @@
 import { WorkspaceDock } from "../workspace/WorkspaceDock";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { useSidebarWorkspaceTabs } from "../workspace/useSidebarWorkspaceTabs";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { use, useCallback, useEffect, useRef } from "react";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
@@ -22,6 +23,7 @@ export type { HomeHeaderEnvironment } from "./HomeHeader.types";
 export function HomeHeader(props: HomeHeaderProps) {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { layout, panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
+  const sidebarTabs = useSidebarWorkspaceTabs();
   const usesNativeMailSearchToolbar = useNativeMailSearchToolbar();
   const primaryColumn = use(NativePrimaryColumnContext);
   const sidebarHeader =
@@ -63,6 +65,7 @@ export function HomeHeader(props: HomeHeaderProps) {
     return (
       <WorkspaceDock
         floating
+        showTabs={!sidebarTabs}
         onNewTask={props.onStartNewTask}
         filter={<ThreadListFilters {...props} />}
       />

@@ -139,7 +139,11 @@ function WorkspaceRootContent() {
         {sidebarTabs ? <WorkspaceSidebarTabs /> : null}
         {/* The pinned picker already clears the navigation bar; lists must not inset it again. */}
         <SafeAreaInsetsContext value={sidebarTabs ? { ...insets, top: 0 } : insets}>
-          {state.selectedTab === "threads" ? <HomeRouteScreen /> : <PullRequestsScreen />}
+          {state.selectedTab === "threads" ? (
+            <HomeRouteScreen />
+          ) : (
+            <PullRequestsScreen sidebar={sidebarTabs} />
+          )}
         </SafeAreaInsetsContext>
         <WorkspaceToolbar sidebar={sidebarNavigation} onNewTask={startNewTask} />
       </View>
