@@ -103,12 +103,12 @@ type ComposerUsageMeterSlot = "row" | "context-strip" | "model-strip" | "own-str
 export function resolveComposerUsageMeterSlot(input: {
   hasUsageWindows: boolean;
   isMobileViewport: boolean;
-  isCenteredDraft: boolean;
+  isDraftHero: boolean;
   contextStripMounted: boolean;
   modelStripMounted: boolean;
 }): ComposerUsageMeterSlot | null {
   if (!input.hasUsageWindows || input.isMobileViewport) return null;
-  if (input.isCenteredDraft) return "row";
+  if (input.isDraftHero) return "row";
   if (input.contextStripMounted) return "context-strip";
   return input.modelStripMounted ? "model-strip" : "own-strip";
 }

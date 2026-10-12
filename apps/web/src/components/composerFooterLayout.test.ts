@@ -478,7 +478,7 @@ describe("resolveComposerUsageMeterSlot", () => {
   const thread = {
     hasUsageWindows: true,
     isMobileViewport: false,
-    isCenteredDraft: false,
+    isDraftHero: false,
     contextStripMounted: false,
     modelStripMounted: true,
   };
@@ -488,11 +488,11 @@ describe("resolveComposerUsageMeterSlot", () => {
     expect(resolveComposerUsageMeterSlot({ ...thread, isMobileViewport: true })).toBeNull();
   });
 
-  it("keeps a bare row under a centered draft", () => {
+  it("keeps a bare row under a draft hero", () => {
     expect(
       resolveComposerUsageMeterSlot({
         ...thread,
-        isCenteredDraft: true,
+        isDraftHero: true,
         contextStripMounted: true,
       }),
     ).toBe("row");

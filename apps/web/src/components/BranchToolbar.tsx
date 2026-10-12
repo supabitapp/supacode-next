@@ -526,11 +526,7 @@ export const BranchToolbar = memo(function BranchToolbar({
           className="flex min-w-0 flex-1 items-center justify-start overflow-x-clip overflow-y-visible"
         />
       ) : null}
-      {usageMeter ? (
-        <div className="ms-auto flex shrink-0 group-has-data-[chat-composer-resting]/composer-surface:hidden">
-          {usageMeter}
-        </div>
-      ) : null}
+      {usageMeter}
     </ComposerSurface.ContextStrip>
   );
 });

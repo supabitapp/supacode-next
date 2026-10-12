@@ -18,7 +18,7 @@ export const ComposerUsageMeter = memo(function ComposerUsageMeter({
   readonly windows: ReturnType<typeof headlineUsageWindows>;
 }) {
   return (
-    <div className="flex h-6 items-center gap-3 px-1 text-xs tabular-nums">
+    <div className="flex h-6 shrink-0 items-center gap-3 px-1 text-xs tabular-nums group-has-data-[chat-composer-resting]/composer-surface:hidden group-data-model-strip-transition/composer-surface:invisible">
       {windows.map(({ label, window }) => (
         <UsageWindowMeter key={window.id} label={label} window={window} />
       ))}

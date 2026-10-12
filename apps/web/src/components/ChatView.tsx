@@ -2092,7 +2092,6 @@ export default function ChatView(props: ChatViewProps) {
   const [composerTimelineInset, setComposerTimelineInset] = useState(0);
   const composerTimelineInsetRef = useRef(0);
   const composerRestingRef = useRef(false);
-  const [composerResting, setComposerResting] = useState(false);
   // False while a status bar stands in for the composer (a native subagent).
   const composerMountedRef = useRef(true);
   const [scrollToEndClearance, setScrollToEndClearance] = useState(0);
@@ -4445,28 +4444,27 @@ export default function ChatView(props: ChatViewProps) {
     ...composerContextStripInput,
     hostsRestingComposerControls: routeKind === "server",
   });
-  const showComposerContextStrip = shouldShowComposerContextStrip({
-    ...composerContextStripInput,
-    hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
-  });
   const mountComposerModelStrip =
     routeKind === "server" && !mountComposerContextStrip && !showProviderSubagentBar;
-  const showComposerModelStrip = mountComposerModelStrip && restingComposerControlsVisible;
-  const composerUsageWindows = headlineUsageWindows(activeProviderStatus);
+  const composerUsageWindows = useMemo(
+    () => headlineUsageWindows(activeProviderStatus),
+    [activeProviderStatus],
+  );
   const composerUsageMeterSlot = resolveComposerUsageMeterSlot({
     hasUsageWindows: composerUsageWindows.length > 0,
     isMobileViewport,
-    isCenteredDraft: isDraftHeroState,
+    isDraftHero: isDraftHeroState,
     contextStripMounted: mountComposerContextStrip,
     modelStripMounted: mountComposerModelStrip,
   });
-  // The collapsed composer's controls take over the strip it shares with the meter.
-  const showUsageInContextStrip = composerUsageMeterSlot === "context-strip" && !composerResting;
-  const showUsageInModelStrip = composerUsageMeterSlot === "model-strip" && !composerResting;
-  const composerContextStripVisible = showComposerContextStrip || showUsageInContextStrip;
-  const showComposerBottomContextStrip =
-    composerContextStripPlacement === "bottom" && composerContextStripVisible;
-  const composerModelStripOpen = showComposerModelStrip || showUsageInModelStrip;
+  const showComposerContextStrip =
+    shouldShowComposerContextStrip({
+      ...composerContextStripInput,
+      hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
+    }) || composerUsageMeterSlot === "context-strip";
+  const showComposerModelStrip =
+    mountComposerModelStrip &&
+    (restingComposerControlsVisible || composerUsageMeterSlot === "model-strip");
   const composerUsageMeter = <ComposerUsageMeter windows={composerUsageWindows} />;
   const terminalShortcutLabelOptions = useMemo(
     () => ({
@@ -7229,7 +7227,6 @@ export default function ChatView(props: ChatViewProps) {
   // itself once it has measured it.
   const onComposerRestingChange = useCallback((resting: boolean) => {
     composerRestingRef.current = resting;
-    setComposerResting(resting);
   }, []);
   // A held reservation belongs to the previous thread's draft. Rebuild it from
   // this thread's overlay so a tall draft elsewhere does not pad this one.
@@ -10878,9 +10875,9 @@ export default function ChatView(props: ChatViewProps) {
       }
       availableEnvironments={logicalProjectEnvironments}
       composerControlsHostRef={setRestingComposerControlsHost}
-      contextStripVisible={composerContextStripVisible}
+      contextStripVisible={showComposerContextStrip}
       contextStripPlacement={composerContextStripPlacement}
-      usageMeter={showUsageInContextStrip ? composerUsageMeter : null}
+      usageMeter={composerUsageMeterSlot === "context-strip" ? composerUsageMeter : null}
       projectPicker={
         showDraftProjectPicker ? (
           <DraftProjectPicker
@@ -11162,8 +11159,8 @@ export default function ChatView(props: ChatViewProps) {
                   >
                     <ComposerSurface.Shell
                       bottomStrip={
-                        showComposerBottomContextStrip ||
-                        composerModelStripOpen ||
+                        (composerContextStripPlacement === "bottom" && showComposerContextStrip) ||
+                        showComposerModelStrip ||
                         composerUsageMeterSlot === "own-strip"
                       }
                     >
@@ -11426,19 +11423,15 @@ export default function ChatView(props: ChatViewProps) {
                               data-stays-open={
                                 composerUsageMeterSlot === "model-strip" ? "true" : undefined
                               }
-                              aria-hidden={composerModelStripOpen ? undefined : true}
-                              inert={composerModelStripOpen ? undefined : true}
+                              aria-hidden={showComposerModelStrip ? undefined : true}
+                              inert={showComposerModelStrip ? undefined : true}
                               className={cn(
                                 "ps-2",
-                                !composerModelStripOpen &&
+                                !showComposerModelStrip &&
                                   "pointer-events-none invisible absolute inset-x-0 top-full",
                               )}
                             >
-                              {showUsageInModelStrip ? (
-                                <div className="flex shrink-0 group-has-data-[chat-composer-resting]/composer-surface:hidden group-data-model-strip-transition/composer-surface:invisible">
-                                  {composerUsageMeter}
-                                </div>
-                              ) : null}
+                              {composerUsageMeterSlot === "model-strip" ? composerUsageMeter : null}
                               <div
                                 ref={setRestingComposerControlsHost}
                                 className="min-w-0 flex-1"
@@ -11455,7 +11448,7 @@ export default function ChatView(props: ChatViewProps) {
                       </div>
                     </ComposerSurface.Shell>
                     {composerUsageMeterSlot === "row" ? (
-                      <div className="flex px-3 pt-1">{composerUsageMeter}</div>
+                      <div className="px-3 pt-1">{composerUsageMeter}</div>
                     ) : null}
                     <div
                       aria-hidden

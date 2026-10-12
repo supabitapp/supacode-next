@@ -670,9 +670,11 @@ function useComposerRestingTransition(
           const stripStaysOpen = modelStrip.dataset.staysOpen === "true";
           const fromHeight =
             interruptedStripHeight ??
-            (previousCollapsedRef.current || stripStaysOpen
+            (previousCollapsedRef.current
               ? (previousModelStripHeightRef.current ?? stripHeight)
-              : stripOverlap);
+              : stripStaysOpen
+                ? stripHeight
+                : stripOverlap);
           const toHeight = nextIsCollapsed || stripStaysOpen ? stripHeight : stripOverlap;
           modelStrip.style.position = "relative";
           modelStrip.style.top = "auto";
@@ -967,7 +969,7 @@ function useComposerRestingTransition(
     });
     observer.observe(element);
     if (body) observer.observe(body);
-    // Rows beside the composer in the overlay, such as the usage row, move it without resizing it.
+    // Rows beside the composer in the overlay, such as a draft's usage row, move it without resizing it.
     const overlay = element.closest<HTMLElement>('[data-chat-composer-overlay="true"]');
     if (overlay) observer.observe(overlay);
     return () => observer.disconnect();
