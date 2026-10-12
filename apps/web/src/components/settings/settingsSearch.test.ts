@@ -230,8 +230,8 @@ describe("searchSettings", () => {
     });
 
     expect(searchSettings("auto-settle", available).map((item) => item.id)).toEqual([
-      "auto-settle-inactive-threads",
       "auto-settle-merged-threads",
+      "auto-settle-inactive-threads",
       "days-before-auto-settle",
     ]);
   });
@@ -284,11 +284,6 @@ describe("searchSettings", () => {
     expect(searchSettings("composer context")[0]).toMatchObject({
       id: "composer-context",
       to: "/settings/appearance",
-    });
-    expect(searchSettings("environment identification")[0]).toMatchObject({
-      id: "environment-identification",
-      to: "/settings/appearance",
-      targetId: "appearance-interface",
     });
   });
 
@@ -462,8 +457,8 @@ describe("auto-settlement search availability", () => {
       hasThreadAutoSettlement: availability.eligibleEnvironmentIds.length > 0,
     });
     expect(searchSettings("auto-settle", items).map((item) => item.id)).toEqual([
-      "auto-settle-inactive-threads",
       "auto-settle-merged-threads",
+      "auto-settle-inactive-threads",
       "days-before-auto-settle",
     ]);
   });

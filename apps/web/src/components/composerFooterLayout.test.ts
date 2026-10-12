@@ -479,12 +479,12 @@ describe("resolveComposerUsageMeterSlot", () => {
     isMobileViewport: false,
     isDraftHero: false,
     contextStripMounted: false,
-    modelStripMounted: true,
   };
 
-  it("hides without usage windows or on phones", () => {
+  it("hides without usage windows, on phones, or without a context strip", () => {
     expect(resolveComposerUsageMeterSlot({ ...thread, hasUsageWindows: false })).toBeNull();
     expect(resolveComposerUsageMeterSlot({ ...thread, isMobileViewport: true })).toBeNull();
+    expect(resolveComposerUsageMeterSlot({ ...thread, contextStripMounted: false })).toBeNull();
   });
 
   it("keeps a bare row under a draft hero", () => {
@@ -500,10 +500,6 @@ describe("resolveComposerUsageMeterSlot", () => {
   it("shares the strip a docked composer already has", () => {
     expect(resolveComposerUsageMeterSlot({ ...thread, contextStripMounted: true })).toBe(
       "context-strip",
-    );
-    expect(resolveComposerUsageMeterSlot(thread)).toBe("model-strip");
-    expect(resolveComposerUsageMeterSlot({ ...thread, modelStripMounted: false })).toBe(
-      "own-strip",
     );
   });
 });

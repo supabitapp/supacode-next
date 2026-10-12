@@ -102,6 +102,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Switch } from "../ui/switch";
+import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   getClientSettings,
@@ -120,7 +121,7 @@ import {
 } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 import { OrchestrationSkillsSettings } from "./OrchestrationSkillsSettings";
-import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
+import { AgentBrowserAccessRow } from "./ProjectDefaultsSettings";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { BrowserImportWizard, type WizardTarget } from "./BrowserImportWizard";
 import type { ImportOutcome } from "./browserImportWizard.logic";
@@ -300,7 +301,7 @@ function BrowserViewportSetting({ disabled }: { readonly disabled: boolean }) {
   return (
     <SettingsRow
       {...searchableSetting("browser-default-viewport")}
-      description="Tab size for you and agents. Fill fits the panel; other sizes show the device toolbar."
+      description="Sets the size of new tabs for you and agents."
       resetAction={
         !disabled && viewport._tag !== DEFAULT_BROWSER_VIEWPORT._tag ? (
           <SettingResetButton
@@ -409,7 +410,6 @@ function BrowserZoomSetting({ disabled }: { readonly disabled: boolean }) {
   return (
     <SettingsRow
       {...searchableSetting("browser-default-zoom")}
-      description="Page zoom applied to new browser tabs."
       resetAction={
         !disabled && zoomFactor !== DEFAULT_PREVIEW_ZOOM_FACTOR ? (
           <SettingResetButton
@@ -452,7 +452,6 @@ function BrowserAppearanceSetting({ disabled }: { readonly disabled: boolean }) 
   return (
     <SettingsRow
       {...searchableSetting("browser-default-appearance")}
-      description="The color scheme pages are told to prefer. System follows your OS setting."
       resetAction={
         !disabled && appearance !== DEFAULT_PREVIEW_APPEARANCE ? (
           <SettingResetButton
@@ -496,36 +495,27 @@ function BrowserRecordingInputSettings({ disabled }: { readonly disabled: boolea
   const showMouse = useClientSettings((settings) => settings.browserRecordingShowMousePresses);
   const updateSettings = useUpdatePrimarySettings();
   return (
-    <>
-      <SettingsRow
-        {...searchableSetting("browser-recording-key-presses")}
-        description="Show pressed keys and shortcuts in new recordings. Password fields are excluded."
-        control={
-          <Switch
-            disabled={disabled}
-            checked={showKeys}
-            aria-label="Show key presses in recordings"
-            onCheckedChange={(checked) =>
-              updateSettings({ browserRecordingShowKeyPresses: Boolean(checked) })
-            }
-          />
-        }
-      />
-      <SettingsRow
-        {...searchableSetting("browser-recording-mouse-presses")}
-        description="Highlight mouse presses and held buttons in new recordings."
-        control={
-          <Switch
-            disabled={disabled}
-            checked={showMouse}
-            aria-label="Show mouse presses in recordings"
-            onCheckedChange={(checked) =>
-              updateSettings({ browserRecordingShowMousePresses: Boolean(checked) })
-            }
-          />
-        }
-      />
-    </>
+    <SettingsRow
+      {...searchableSetting("browser-recording-input")}
+      description="Show input in new recordings. Password fields are excluded."
+      control={
+        <ToggleGroup
+          multiple
+          disabled={disabled}
+          aria-label="Browser recording overlays"
+          value={[...(showKeys ? ["keys"] : []), ...(showMouse ? ["mouse"] : [])]}
+          onValueChange={(value) =>
+            updateSettings({
+              browserRecordingShowKeyPresses: value.includes("keys"),
+              browserRecordingShowMousePresses: value.includes("mouse"),
+            })
+          }
+        >
+          <Toggle value="keys">Keys</Toggle>
+          <Toggle value="mouse">Mouse</Toggle>
+        </ToggleGroup>
+      }
+    />
   );
 }
 
@@ -536,7 +526,7 @@ function BrowserRecordingFrameRateSetting({ disabled }: { readonly disabled: boo
   return (
     <SettingsRow
       {...searchableSetting("browser-recording-frame-rate")}
-      description="Maximum recording rate. 30 fps saves CPU and storage; 60 fps is smoother."
+      description="60 fps is smoother; 30 fps saves CPU and storage."
       resetAction={
         !disabled && frameRate !== DEFAULT_BROWSER_RECORDING_FRAME_RATE ? (
           <SettingResetButton
@@ -590,7 +580,7 @@ function BrowserLinkTargetSetting({ disabled }: { readonly disabled: boolean }) 
   return (
     <SettingsRow
       {...searchableSetting("browser-link-target")}
-      description="Where links in the chat and terminal open. Hold ⌘ or Ctrl while clicking a link to open it in your default browser either way."
+      description="Applies to chat and terminal links. ⌘ or Ctrl-click always uses your default browser."
       resetAction={
         !disabled && linkTarget !== DEFAULT_BROWSER_LINK_TARGET ? (
           <SettingResetButton
@@ -786,11 +776,13 @@ function DeviceIntegrationControls({
         description={deviceHubDescription}
         control={
           <>
-            <DeviceToolVersions
-              action={versionActions("hub")}
-              kind="hub"
-              tools={state.hosts.find((host) => host.kind === "local")?.tools}
-            />
+            <span className="text-xs">
+              <DeviceToolVersions
+                action={versionActions("hub")}
+                kind="hub"
+                tools={state.hosts.find((host) => host.kind === "local")?.tools}
+              />
+            </span>
             {pending === "hub" ? <DeviceHubSetupStatus state={state} pending compact /> : null}
             <ScopedSwitch
               settingKeys={["enableDeviceSupport"]}
@@ -857,11 +849,13 @@ function DeviceIntegrationControls({
         description={agentDeviceDescription}
         control={
           <>
-            <DeviceToolVersions
-              action={versionActions("agent")}
-              kind="agent"
-              tools={state.hosts.find((host) => host.kind === "local")?.tools}
-            />
+            <span className="text-xs">
+              <DeviceToolVersions
+                action={versionActions("agent")}
+                kind="agent"
+                tools={state.hosts.find((host) => host.kind === "local")?.tools}
+              />
+            </span>
             {pending === "agent" ? <AgentDeviceSetupStatus state={state} pending compact /> : null}
             <ScopedSwitch
               settingKeys={["enableAgentDeviceAccess"]}
@@ -900,7 +894,7 @@ function BrowserAutoShowFloatingPreviewSetting({ disabled }: { readonly disabled
   return (
     <SettingsRow
       {...searchableSetting("browser-auto-show-floating-preview")}
-      description="Show the floating preview when an agent opens a browser or device unless the agent says otherwise."
+      description="Show the preview when an agent opens a browser or device."
       resetAction={
         !disabled && autoShow !== DEFAULT_BROWSER_AUTO_SHOW_FLOATING_PREVIEW ? (
           <SettingResetButton
@@ -1260,7 +1254,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
   return (
     <SettingsRow
       {...searchableSetting("browser-profiles")}
-      description="Profiles separate cookies and logins. Incognito data is cleared when the app closes."
+      description="Separate cookies and logins. Incognito clears when the app quits."
       control={
         <Menu onOpenChange={(open) => open && loadSources()}>
           <MenuTrigger
@@ -1570,8 +1564,8 @@ export function IntegrationsSettingsPanel() {
       {/* Server-authoritative agent access is scoped by the header selection;
           the preview defaults below are device-local and ignore it. */}
       <OrchestrationSkillsSettings />
-      <ProjectDefaultsSettings category="integrations" />
       <SettingsSection id="browser" title="Browser">
+        <AgentBrowserAccessRow />
         {previewDefaultsDisabled ? (
           <SettingsUnavailableGroup message="Only available in the desktop app.">
             {previewDefaults}

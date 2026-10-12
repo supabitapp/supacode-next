@@ -26,7 +26,6 @@ import {
   type ClientSettingsPatch,
   type ClientSettings,
   DEFAULT_CLIENT_SETTINGS,
-  type EnvironmentIdentificationMode,
   type UnifiedSettings,
 } from "@supacode/contracts/settings";
 import { safeErrorLogAttributes } from "@supacode/client-runtime/errors";
@@ -64,6 +63,7 @@ import { useAtomCommand } from "~/state/use-atom-command";
 import { useTheme } from "./useTheme";
 import { environmentSession, readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
+import type { EnvironmentIdentificationMode } from "../components/SidebarStageBackdrop";
 
 const CLIENT_SETTINGS_PERSISTENCE_ERROR_SCOPE = "[CLIENT_SETTINGS]";
 
@@ -406,26 +406,23 @@ export function useClientSettings<T = ClientSettings>(
 }
 
 export function resolveEnvironmentIdentificationMode(input: {
-  mode: EnvironmentIdentificationMode;
   settingsHydrated: boolean;
   appearance: ThemeAppearance;
   paletteThemeActive?: boolean;
   paletteThemeAllowsArtwork?: boolean;
 }): EnvironmentIdentificationMode {
-  // Avoid briefly rendering the default artwork before a persisted pill/none choice loads.
+  // Avoid briefly rendering artwork before client settings hydrate.
   if (!input.settingsHydrated) return "none";
-  // Custom light palettes use the pill; every dark palette supports artwork.
+  // Custom light palettes use the pill; every other palette supports artwork.
   return input.appearance === "light" &&
     input.paletteThemeActive &&
-    !input.paletteThemeAllowsArtwork &&
-    input.mode === "artwork"
+    !input.paletteThemeAllowsArtwork
     ? "pill"
-    : input.mode;
+    : "artwork";
 }
 
 export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
   const settingsHydrated = useClientSettingsHydrated();
-  const mode = useClientSettingsValue().environmentIdentificationMode;
   const { resolvedTheme, theme, themeHalves } = useTheme();
   const previewAppearance = useSyncExternalStore(
     subscribeToThemePreview,
@@ -435,7 +432,6 @@ export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMod
   const activeTheme = resolveThemeHalf(theme, themeHalves, resolvedTheme);
   const activeThemeDefinition = getThemeDefinition(activeTheme);
   return resolveEnvironmentIdentificationMode({
-    mode,
     settingsHydrated,
     appearance: previewAppearance ?? resolvedTheme,
     paletteThemeActive: previewAppearance !== null || activeThemeDefinition !== null,

@@ -126,10 +126,6 @@ function isProviderDiscoveryItem(
   return "auth" in item;
 }
 
-function isVcsNotReady(item: VcsDiscoveryItem | SourceControlProviderDiscoveryItem): boolean {
-  return !isProviderDiscoveryItem(item) && !item.implemented;
-}
-
 function authPresentation(auth: SourceControlProviderAuth): {
   readonly label: string;
   readonly badge: "warning" | null;
@@ -155,7 +151,6 @@ function RedactedAccount(props: { readonly account: string | null }) {
 }
 
 function itemStatusDot(item: VcsDiscoveryItem | SourceControlProviderDiscoveryItem): string {
-  if (isVcsNotReady(item)) return "bg-muted-foreground/35";
   if (item.status !== "available") return "bg-warning";
   if (isProviderDiscoveryItem(item) && item.auth.status !== "authenticated") return "bg-warning";
   return "bg-success";
@@ -205,12 +200,8 @@ function itemSummary({
   readonly auth: SourceControlProviderAuth | null;
   readonly authAccount: string | null;
 }) {
-  if (isVcsNotReady(item)) {
-    return <span>Support for {item.label} is coming soon.</span>;
-  }
-
   if (item.status !== "available") {
-    return <span>Not available on this server: {item.installHint}</span>;
+    return <span>Unavailable. {item.installHint}</span>;
   }
 
   if (auth) {
@@ -273,7 +264,7 @@ function DiscoveryItemRow({
   const version = optionLabel(item.version);
   const enabled = isProviderDiscoveryItem(item)
     ? item.status === "available" && item.auth.status === "authenticated"
-    : item.status === "available" && item.implemented;
+    : item.status === "available";
   const auth = isProviderDiscoveryItem(item) ? item.auth : null;
   const authStatus = auth ? authPresentation(auth) : null;
   const authAccount = auth ? optionLabel(auth.account) : null;
@@ -294,24 +285,14 @@ function DiscoveryItemRow({
   }
 
   return (
-    <div
-      className={cn(
-        "first:rounded-t-xl last:rounded-b-xl transition-colors hover:bg-muted/20",
-        isVcsNotReady(item) && "opacity-80",
-      )}
-    >
-      <div className="px-3 py-3 sm:px-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-1">
+    <div className="first:rounded-t-xl last:rounded-b-xl transition-colors hover:bg-muted/20">
+      <div className="px-3 py-2.5 sm:px-4">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-0.5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <SourceControlItemMark item={item} />
               <span className="truncate text-sm font-medium text-foreground">{item.label}</span>
               {version ? <code className="text-xs text-muted-foreground">{version}</code> : null}
-              {isVcsNotReady(item) ? (
-                <Badge variant="warning" size="sm">
-                  Coming Soon
-                </Badge>
-              ) : null}
               {authStatus?.badge ? (
                 <Badge variant={authStatus.badge} size="sm">
                   {authStatus.label}
@@ -336,9 +317,7 @@ function DiscoveryItemRow({
                 />
               </Button>
             ) : null}
-            {!isVcsNotReady(item) ? (
-              <Switch checked={enabled} disabled aria-label={`${item.label} availability`} />
-            ) : null}
+            <Switch checked={enabled} disabled aria-label={`${item.label} availability`} />
           </div>
         </div>
       </div>
@@ -528,7 +507,8 @@ export function SourceControlSettingsPanel() {
         }),
   );
   const result = discovery.data ?? EMPTY_DISCOVERY_RESULT;
-  const hasVersionControlSystems = result.versionControlSystems.length > 0;
+  const versionControlSystems = result.versionControlSystems.filter((item) => item.implemented);
+  const hasVersionControlSystems = versionControlSystems.length > 0;
   const hasDiscoveryItems = hasVersionControlSystems || result.sourceControlProviders.length > 0;
   const isInitialScanPending = discovery.isPending && discovery.data === null;
   const handleScan = () => {
@@ -594,7 +574,7 @@ export function SourceControlSettingsPanel() {
               title={`Version Control${environmentSuffix}`}
               headerAction={scanButton}
             >
-              {result.versionControlSystems.map((item) => (
+              {versionControlSystems.map((item) => (
                 <DiscoveryItemRow key={`vcs:${item.kind}`} item={item}>
                   {item.kind === "git" ? <GitFetchIntervalSettings /> : undefined}
                 </DiscoveryItemRow>

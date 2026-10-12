@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
-  resolveEnvironmentIdentificationModes,
   resolveEnvironmentIdentificationPillLabel,
   resolveSidebarStageBackdropVariant,
   resolveVisibleSidebarStageBackdropVariant,
@@ -36,12 +35,6 @@ describe("SidebarStageBackdrop", () => {
       expect(resolveVisibleSidebarStageBackdropVariant("Preview", appearance)).toBeNull();
     },
   );
-
-  it("offers only the identification modes that change something", () => {
-    expect(resolveEnvironmentIdentificationModes("Dev")).toEqual(["artwork", "pill", "none"]);
-    expect(resolveEnvironmentIdentificationModes(null)).toEqual(["artwork", "none"]);
-    expect(resolveEnvironmentIdentificationModes("Preview")).toEqual(["none"]);
-  });
 
   it("resolves supported environment pill labels", () => {
     expect(resolveEnvironmentIdentificationPillLabel("Dev")).toBe("Dev");

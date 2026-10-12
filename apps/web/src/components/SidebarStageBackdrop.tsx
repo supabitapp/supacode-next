@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EnvironmentIdentificationMode } from "@supacode/contracts";
 import { type ComponentType, useId, useSyncExternalStore } from "react";
 
 import { APP_STAGE_LABEL } from "../branding";
@@ -13,6 +12,7 @@ import {
 } from "../themePalette";
 
 export type SidebarStageBackdropVariant = "nightly" | "dev" | "release";
+export type EnvironmentIdentificationMode = "artwork" | "pill" | "none";
 export type EnvironmentIdentificationPillLabel = "Dev" | "Nightly";
 
 // A wide viewBox keeps the 96-unit art height at a fixed scale while sidebar resizing reveals
@@ -37,17 +37,6 @@ export function resolveVisibleSidebarStageBackdropVariant(
   const variant = resolveSidebarStageBackdropVariant(stageLabel);
   if (variant === "release" && appearance !== "dark") return null;
   return variant;
-}
-
-const ENVIRONMENT_IDENTIFICATION_MODES = ["artwork", "pill", "none"] as const;
-
-export function resolveEnvironmentIdentificationModes(stageLabel: string | null) {
-  const available = {
-    artwork: resolveSidebarStageBackdropVariant(stageLabel) !== null,
-    pill: resolveEnvironmentIdentificationPillLabel(stageLabel) !== null,
-    none: true,
-  } satisfies Record<EnvironmentIdentificationMode, boolean>;
-  return ENVIRONMENT_IDENTIFICATION_MODES.filter((mode) => available[mode]);
 }
 
 export function resolveEnvironmentIdentificationPillLabel(
