@@ -60,11 +60,13 @@ export function ThreadWorkLogDetail(props: {
         : row.getFullDetail()
       : null;
   const outputImages = fetchedItem ? turnItemOutputImages(fetchedItem) : [];
+  const viewedImagePath = workEntryViewedImagePath(row.workEntry);
   const fetchedOutput =
     shownItem.type === "file_search" || shownItem.type === "web_search"
       ? turnItemOutputText(shownItem)
       : fetchedItem
-        ? (turnItemOutputText(fetchedItem) ?? (outputImages.length > 0 ? null : "No output."))
+        ? (turnItemOutputText(fetchedItem) ??
+          (outputImages.length > 0 || viewedImagePath ? null : "No output."))
         : fetchedDetail.error
           ? `Couldn't load output: ${fetchedDetail.error}`
           : row.fetchesDetail
@@ -72,7 +74,6 @@ export function ThreadWorkLogDetail(props: {
               ? "Output is no longer available."
               : "Loading output…"
             : null;
-  const viewedImagePath = workEntryViewedImagePath(row.workEntry);
   return (
     <View className={reasoning ? "ml-7 py-1" : "pb-1 pt-0.5"}>
       {row.workEntry.questionAnswer ? (
