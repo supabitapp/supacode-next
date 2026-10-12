@@ -7197,12 +7197,14 @@ export default function ChatView(props: ChatViewProps) {
               overlayHeight: nextHeight,
               mainSurfaceTop: mainSurface.getBoundingClientRect().top,
               button: button.getBoundingClientRect(),
+              // A resting composer keeps its docked banners mounted but hidden.
               attachments: Array.from(
                 composerOverlayElement.querySelectorAll<HTMLElement>(
                   '[data-composer-banner-surface="attached"]',
                 ),
-                (element) => element.getBoundingClientRect(),
-              ),
+              )
+                .filter((element) => element.getClientRects().length > 0)
+                .map((element) => element.getBoundingClientRect()),
             })
           : nextHeight;
       setScrollToEndClearance(clearance);

@@ -517,8 +517,8 @@ export const BranchToolbar = memo(function BranchToolbar({
 
       {composerControlsHostRef ? (
         // The host takes whatever the workspace and branch controls leave
-        // over, in both strip layouts, so a collapsed composer can show its
-        // model and mode controls wherever they fit.
+        // over, in both strip layouts, so a collapsed phone composer can show
+        // its model and mode controls wherever they fit.
         <div
           ref={composerControlsHostRef}
           data-composer-context-control

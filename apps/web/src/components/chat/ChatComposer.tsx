@@ -512,6 +512,9 @@ function useComposerRestingTransition(
   useLayoutEffect(() => {
     isCollapsedRef.current = isCollapsed;
     isRestingRef.current = isResting;
+    // Resting can flip without a collapse transition, such as a resting composer crossing to phone width.
+    if (previousCollapsedRef.current === isCollapsed)
+      previousTransitionRestingRef.current = isResting;
   });
 
   const transitionToCurrentGeometry = useCallback(
@@ -5349,9 +5352,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   );
   const videoExits = useAttachmentExits(attachmentTray, composerVideos, (file) => file.id);
   const otherFileExits = useAttachmentExits(attachmentTray, composerOtherFiles, (file) => file.id);
-  // Keep collapsed controls inside the input when workspace context is hidden.
   const composerControlsCollapsed = isComposerResting || isComposerCollapsedMobile;
-  // A scroll-collapsed desktop composer is a bare input; only the phone layout keeps its controls.
+  // A scroll-collapsed desktop composer is a bare input. Only the phone layout keeps its controls,
+  // in the context strip when there is one and otherwise in a compact row inside the input.
   const showInlineRestingControls = isComposerCollapsedMobile && restingControlsHost === null;
   const composerControlsVisibleInStrip =
     isComposerCollapsedMobile && restingControlsHost !== null && restingControlsVisible;
