@@ -3,6 +3,7 @@ import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
 import * as TerminalManager from "../terminal/Manager.ts";
 import { resolveProjectSettings } from "@supacode/shared/projectSettings";
 import {
+  branchNamingChoiceOf,
   CommandId,
   type ChatAttachment,
   type MessageId,
@@ -32,6 +33,7 @@ import {
   buildTemporaryWorktreeBranchName,
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
+  repositoryBranchPrefix,
   WORKTREE_BRANCH_PREFIX,
 } from "@supacode/shared/git";
 
@@ -39,6 +41,7 @@ import * as GitWorkflow from "../git/GitWorkflowService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
+import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as TextGeneration from "../textGeneration/TextGeneration.ts";
@@ -209,6 +212,7 @@ const make = Effect.gen(function* () {
   const git = yield* GitWorkflow.GitWorkflowService;
   const setupScripts = yield* ProjectSetupScriptRunner.ProjectSetupScriptRunner;
   const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
+  const repositoryIdentities = yield* RepositoryIdentityResolver.RepositoryIdentityResolver;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const textGeneration = yield* TextGeneration.TextGeneration;
   const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
@@ -350,11 +354,21 @@ const make = Effect.gen(function* () {
                   yield* providerRegistry.getProviders,
                   input.projectId,
                 );
+          const prefix =
+            branchNamingChoiceOf(
+              settings.branchNamingMode,
+              settings.branchNamePrefixFromRepository,
+            ) === "repository"
+              ? repositoryBranchPrefix(
+                  yield* repositoryIdentities.resolve(project.workspaceRoot),
+                  project.workspaceRoot,
+                )
+              : settings.branchNamePrefix;
           return yield* textGeneration
             .generateBranchName({
               naming: {
                 mode: settings.branchNamingMode,
-                prefix: settings.branchNamePrefix,
+                prefix,
                 instructions: settings.branchNameInstructions,
               },
               cwd,

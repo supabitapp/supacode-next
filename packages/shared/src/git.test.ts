@@ -9,6 +9,7 @@ import {
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
+  repositoryBranchPrefix,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
   parseOriginUrlFromGitConfig,
   resolveAutoFeatureBranchName,
@@ -398,5 +399,29 @@ describe("formatGeneratedBranchName", () => {
         instructions: "",
       }),
     ).toBe(branch);
+  });
+});
+
+describe("repositoryBranchPrefix", () => {
+  const identity = {
+    canonicalKey: "github.com/upstream/project",
+    locator: {
+      source: "git-remote",
+      remoteName: "origin",
+      remoteUrl: "git@github.com:upstream/project.git",
+    },
+  } as const;
+
+  it.each([
+    ["the repository", identity, "project"],
+    [
+      "a fork's own remote",
+      { ...identity, origin: { canonicalKey: "github.com/khoi/project-fork" } },
+      "project-fork",
+    ],
+    ["an owner-less scp remote", { ...identity, canonicalKey: "git@host:project" }, "project"],
+    ["the folder without a remote", null, "myrepo"],
+  ])("names branches after %s", (_case, repositoryIdentity, expected) => {
+    expect(repositoryBranchPrefix(repositoryIdentity, "/workspaces/MyRepo.git")).toBe(expected);
   });
 });

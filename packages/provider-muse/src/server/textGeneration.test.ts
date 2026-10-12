@@ -368,4 +368,16 @@ it.layer(NodeServices.layer)("Muse text generation", (it) => {
       expect(generated.branch).toContain("fix-login");
     }),
   );
+
+  it.effect("applies the configured branch prefix", () =>
+    Effect.gen(function* () {
+      const test = fixture(finish('{"branch":"Add Search"}'));
+      const service = yield* test.make;
+      const generated = yield* service.generateBranchName({
+        ...titleInput,
+        naming: { mode: "static", prefix: "team/", instructions: "" },
+      });
+      expect(generated.branch).toBe("team/add-search");
+    }),
+  );
 });

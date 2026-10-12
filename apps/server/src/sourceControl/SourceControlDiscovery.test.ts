@@ -20,6 +20,7 @@ import * as AzureDevOpsPullRequestCli from "@supacode/source-control-azure-devop
 import * as BitbucketApi from "@supacode/source-control-bitbucket/server/BitbucketApi";
 import * as BitbucketPullRequestApi from "@supacode/source-control-bitbucket/server/BitbucketPullRequestApi";
 import * as GitHubApi from "@supacode/source-control-github/server/GitHubApi";
+import * as GitHubCredentials from "@supacode/source-control-github/server/GitHubCredentials";
 import * as GitHubPullRequestApi from "@supacode/source-control-github/server/GitHubPullRequestApi";
 import * as GitLabCli from "@supacode/source-control-gitlab/server/GitLabCli";
 import * as GitLabPullRequestCli from "@supacode/source-control-gitlab/server/GitLabPullRequestCli";
@@ -49,6 +50,7 @@ const layerSourceControlProviderRegistryTest = (input: {
         ServerSettings.ServerSettingsService.layerTest(),
         Layer.mock(GitHubPullRequestApi.GitHubPullRequestApi)({}),
         Layer.mock(GitHubApi.GitHubApi)({}),
+        Layer.mock(GitHubCredentials.GitHubCredentials)({ invalidateAll: Effect.void }),
         Layer.mock(GitVcsDriver.GitVcsDriver)({}),
         Layer.mock(GitLabCli.GitLabCli)({}),
         Layer.mock(GitLabPullRequestCli.GitLabPullRequestCli)({}),

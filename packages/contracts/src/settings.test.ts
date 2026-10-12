@@ -4,6 +4,9 @@ import * as Schema from "effect/Schema";
 import type { CommandId, ProjectId } from "./baseSchemas.ts";
 import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
 import {
+  BRANCH_NAMING_CHOICES,
+  branchNamingChoiceOf,
+  branchNamingChoicePatch,
   ClientSettingsSchema,
   ClientSettingsPatch,
   ClaudeSettings,
@@ -1070,15 +1073,27 @@ describe("branch naming settings", () => {
     expect(decodeServerSettings({})).toMatchObject({
       branchNamingMode: "static",
       branchNamePrefix: "supacode",
+      branchNamePrefixFromRepository: false,
       branchNameInstructions: "",
     });
   });
+  it.each(BRANCH_NAMING_CHOICES)(
+    "stores the %s choice as a mode older clients decode",
+    (choice) => {
+      const settings = decodeServerSettings(branchNamingChoicePatch(choice));
+      expect(["static", "semantic", "custom"]).toContain(settings.branchNamingMode);
+      expect(
+        branchNamingChoiceOf(settings.branchNamingMode, settings.branchNamePrefixFromRepository),
+      ).toBe(choice);
+    },
+  );
   it.each(["static", "semantic", "custom"])(
     "round-trips %s and project overrides",
     (branchNamingMode) => {
       const naming = {
         branchNamingMode,
         branchNamePrefix: "team/",
+        branchNamePrefixFromRepository: true,
         branchNameInstructions: "Include the issue ID.",
       };
       const input = { ...naming, projectSettingsOverrides: { project: naming } };

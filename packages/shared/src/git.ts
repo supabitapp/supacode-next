@@ -1,14 +1,17 @@
-import type {
-  BranchNamingOptions,
-  VcsRef,
-  SourceControlProviderInfo,
-  VcsStatusLocalResult,
-  VcsStatusRemoteResult,
-  VcsStatusResult,
-  VcsStatusStreamEvent,
+import {
+  repositoryGroupingKeyOf,
+  type BranchNamingOptions,
+  type RepositoryIdentity,
+  type VcsRef,
+  type SourceControlProviderInfo,
+  type VcsStatusLocalResult,
+  type VcsStatusRemoteResult,
+  type VcsStatusResult,
+  type VcsStatusStreamEvent,
 } from "@supacode/contracts";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
+import { fileBasename } from "./path.ts";
 import { detectSourceControlProviderFromRemoteUrl } from "./sourceControl.ts";
 
 export const WORKTREE_BRANCH_PREFIX = "supacode";
@@ -52,6 +55,19 @@ export function sanitizeBranchFragment(raw: string): string {
     .replace(/[./_-]+$/g, "");
 
   return branchFragment.length > 0 ? branchFragment : "update";
+}
+
+/** Names branches after the repository a checkout is grouped under (a fork's own remote), or its folder without a remote. */
+export function repositoryBranchPrefix(
+  identity: RepositoryIdentity | null,
+  workspaceRoot: string,
+): string {
+  const source = identity ? repositoryGroupingKeyOf(identity) : workspaceRoot;
+  const basename = fileBasename(source);
+  return basename
+    .slice(basename.lastIndexOf(":") + 1)
+    .replace(/\.git$/iu, "")
+    .toLowerCase();
 }
 
 /** Custom naming preserves the model's complete ref; Git validates it on rename. */

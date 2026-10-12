@@ -1257,6 +1257,7 @@ function probeGitHubDiscovery(input: {
       Layer.mergeAll(
         host,
         Layer.mock(GitHubApi.GitHubApi)({ rest: ({ host }) => input.rest(host) }),
+        Layer.mock(GitHubCredentials.GitHubCredentials)({ invalidateAll: Effect.void }),
       ),
     ),
     Effect.provideService(HostProcess.Environment, input.environment ?? {}),

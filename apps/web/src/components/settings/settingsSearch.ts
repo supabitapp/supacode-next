@@ -818,7 +818,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "worktree-branch-naming",
     title: "Worktree branch naming",
     to: "/settings/source-control",
-    searchTerms: ["static semantic prefix custom prompt instructions feat fix refactor chore"],
+    searchTerms: [
+      "static repository name semantic prefix custom prompt instructions feat fix refactor chore",
+    ],
     environmentOnly: true,
     scope: "project-defaults",
   },

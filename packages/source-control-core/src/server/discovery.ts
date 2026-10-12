@@ -299,11 +299,8 @@ export const refineUnknownRemoteProvider = Effect.fn("refineUnknownRemoteProvide
     readonly specs: ReadonlyArray<SourceControlProviderDiscoverySpec>;
     readonly process: SourceControlHost.SourceControlHost["Service"]["process"];
     readonly cwd: string;
-    readonly context: SourceControlProvider.SourceControlProviderContext | null;
-  }): Effect.fn.Return<SourceControlProvider.SourceControlProviderContext | null> {
-    if (input.context === null || input.context.provider.kind !== "unknown") {
-      return input.context;
-    }
+    readonly context: SourceControlProvider.SourceControlProviderContext;
+  }): Effect.fn.Return<SourceControlProvider.SourceControlProviderContext> {
     const context = input.context;
 
     const providers = yield* Effect.forEach(input.specs, (spec) => {

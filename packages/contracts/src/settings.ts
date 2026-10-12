@@ -853,6 +853,29 @@ export interface BranchNamingOptions {
   instructions: string;
 }
 
+/**
+ * The naming choices clients offer. Repository naming is static naming with
+ * `branchNamePrefixFromRepository` set, so `branchNamingMode` keeps the literal set older clients decode.
+ */
+export const BRANCH_NAMING_CHOICES = ["static", "repository", "semantic", "custom"] as const;
+export type BranchNamingChoice = (typeof BRANCH_NAMING_CHOICES)[number];
+
+export function branchNamingChoiceOf(
+  mode: BranchNamingMode,
+  prefixFromRepository: boolean,
+): BranchNamingChoice {
+  return mode === "static" && prefixFromRepository ? "repository" : mode;
+}
+
+export function branchNamingChoicePatch(
+  choice: BranchNamingChoice,
+): Pick<ServerSettingsPatch, "branchNamingMode" | "branchNamePrefixFromRepository"> {
+  return {
+    branchNamingMode: choice === "repository" ? "static" : choice,
+    branchNamePrefixFromRepository: choice === "repository",
+  };
+}
+
 export const DEFAULT_AUTOMATIC_GIT_FETCH_INTERVAL = Duration.seconds(30);
 export const DEFAULT_PROVIDER_HEALTH_REFRESH_INTERVAL = Duration.minutes(5);
 
@@ -958,6 +981,7 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "removeAgentCreditsOnMerge",
   "branchNamingMode",
   "branchNamePrefix",
+  "branchNamePrefixFromRepository",
   "branchNameInstructions",
   "pullRequestMergeMethod",
   "sidebarAutoSettleOnMerge",
@@ -1005,6 +1029,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   removeAgentCreditsOnMerge: Schema.optionalKey(Schema.Boolean),
   branchNamingMode: Schema.optionalKey(BranchNamingMode),
   branchNamePrefix: Schema.optionalKey(TrimmedString),
+  branchNamePrefixFromRepository: Schema.optionalKey(Schema.Boolean),
   branchNameInstructions: Schema.optionalKey(TrimmedString),
   pullRequestMergeMethod: Schema.optionalKey(Schema.NullOr(PullRequestMergeMethod)),
   sidebarAutoSettleOnMerge: Schema.optionalKey(Schema.Boolean),
@@ -1277,6 +1302,9 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed("static" as const)),
   ),
   branchNamePrefix: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed("supacode"))),
+  branchNamePrefixFromRepository: Schema.Boolean.pipe(
+    Schema.withDecodingDefault(Effect.succeed(false)),
+  ),
   branchNameInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   removeAgentCreditsOnMerge: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   sourceControlWritingStyle: SourceControlWritingStyleSettings.pipe(
@@ -1587,6 +1615,7 @@ export const ServerSettingsPatch = Schema.Struct({
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
   branchNamingMode: Schema.optionalKey(BranchNamingMode),
   branchNamePrefix: Schema.optionalKey(TrimmedString),
+  branchNamePrefixFromRepository: Schema.optionalKey(Schema.Boolean),
   branchNameInstructions: Schema.optionalKey(TrimmedString),
   removeAgentCreditsOnMerge: Schema.optionalKey(Schema.Boolean),
   sourceControlWritingStyle: Schema.optionalKey(
