@@ -90,23 +90,21 @@ export function resolveComposerTimelineInset(input: {
     : input.overlayHeight;
 }
 
-type ComposerUsageMeterSlot = "row" | "context-strip" | "model-strip" | "own-strip";
+type ComposerUsageMeterSlot = "row" | "context-strip";
 
 /**
- * Where the usage meter goes. History scrolls behind a docked composer, so the meter rides a strip
- * under it, reusing whichever strip the composer already has so collapsing swaps contents in place.
+ * Where the usage meter goes. It shares the context strip with the branch and worktree controls;
+ * without that strip, both pieces stay hidden together.
  */
 export function resolveComposerUsageMeterSlot(input: {
   hasUsageWindows: boolean;
   isMobileViewport: boolean;
   isDraftHero: boolean;
   contextStripMounted: boolean;
-  modelStripMounted: boolean;
 }): ComposerUsageMeterSlot | null {
-  if (!input.hasUsageWindows || input.isMobileViewport) return null;
+  if (!input.hasUsageWindows || input.isMobileViewport || !input.contextStripMounted) return null;
   if (input.isDraftHero) return "row";
-  if (input.contextStripMounted) return "context-strip";
-  return input.modelStripMounted ? "model-strip" : "own-strip";
+  return "context-strip";
 }
 
 /**
