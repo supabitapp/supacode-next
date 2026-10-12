@@ -12,7 +12,6 @@ import {
   type MessageId,
   type ModelSelection,
   type OrchestrationV2ProjectedTurnItem,
-  type ProviderInteractionMode,
   ProviderDriverKind,
   type ProviderInstanceId,
   type ServerProvider,

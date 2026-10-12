@@ -94,7 +94,6 @@ import {
   getAntigravitySendBlockReason,
   readFileAsDataUrl,
   resolveComposerProviderSelection,
-  threadShellHasStarted,
 } from "../ChatView.logic";
 import {
   dataTransferHasComposerMention,
@@ -2837,7 +2836,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isPreparingWorktree,
     isSendBusy,
     phase,
-    prompt,
   ]);
 
   const isComposerMenuLoading =
