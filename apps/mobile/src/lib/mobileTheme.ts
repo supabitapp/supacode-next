@@ -402,21 +402,8 @@ export function getMobileThemeVariables(
           ? colors.toolbarControl
           : colors.surface
         : colors.muted;
-  const mobileColors =
-    themeId === DEFAULT_MOBILE_THEME_ID
-      ? {
-          ...colors,
-          messageSurface: flattenThemeColor(
-            themeColorWithAlpha(
-              appearance === "dark" ? colors.sidebarRowActive : colors.border,
-              0.3,
-            ),
-            colors.messageSurface,
-          ),
-        }
-      : colors;
   const baseVariables = createMobileThemeVariables(
-    mobileColors,
+    colors,
     appearance,
     groupedCard,
     themeId === "supacode-chat" && appearance === "dark"

@@ -76,7 +76,7 @@
     "--color-md-user-fence-bg": "rgba(0, 0, 0, 0.16)",
     "--color-md-user-fence-text": "#45464d",
     "--color-md-hr": "#e6e6ea",
-    "--color-user-bubble": "#e6e6ea",
+    "--color-user-bubble": "#f1f1f3",
     "--color-user-bubble-foreground": "#45464d",
     "--color-user-bubble-foreground-muted": "rgba(69, 70, 77, 0.78)",
     "--color-user-bubble-skill-foreground": "#26272b",

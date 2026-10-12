@@ -41,7 +41,9 @@ class SupacodeWorkspaceNavigationModule : Module() {
       }
       Prop("rail") { view: SupacodeWorkspaceNavigationView, value: Boolean -> view.rail = value }
       Prop("dark") { view: SupacodeWorkspaceNavigationView, value: Boolean -> view.dark = value }
-      Prop("textScale") { view: SupacodeWorkspaceNavigationView, value: Float -> view.textScale = value }
+      Prop("textScale") { view: SupacodeWorkspaceNavigationView, value: Float ->
+        view.textScale = value
+      }
       Prop("containerColor") { view: SupacodeWorkspaceNavigationView, value: Int ->
         view.containerColor = value
       }

@@ -636,7 +636,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       // entry advertises MimeType=x-scheme-handler/supacode; for OAuth deep links.
       assert.deepStrictEqual((linux.linux as Record<string, unknown>).protocols, [
         { name: "Supacode", schemes: ["supacode", "supacode-dev"] },
-        { name: "Web links", schemes: ["http", "https"], role: "Viewer" },
       ]);
       assert.deepStrictEqual(linux.toolsets, { appimage: "1.0.3" });
       assert.notProperty(mac, "toolsets");
