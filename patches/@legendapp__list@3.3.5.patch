@@ -1493,7 +1493,37 @@ diff --git a/react-native.web.js b/react-native.web.js
 index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e03d601a6a 100644
 --- a/react-native.web.js
 +++ b/react-native.web.js
-@@ -5651,6 +5651,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
+@@ -5348,7 +5348,7 @@
+         top: entry.contentRect.top,
+         width: borderBoxSize.inlineSize
+       } : (_a4 = target == null ? void 0 : target.getBoundingClientRect()) != null ? _a4 : entry.contentRect;
+-      const previousRect = prevRect != null ? prevRect : getContainerLayoutBaseline(element);
++      const previousRect = prevRect;
+       const didSizeChange = previousRect === void 0 || rectObserved.width !== previousRect.width || rectObserved.height !== previousRect.height;
+       prevRect = rectObserved;
+       const shouldResyncLayout = !!(webLayoutResync == null ? void 0 : webLayoutResync());
+@@ -5415,11 +5415,6 @@
+     scheduleWebShrinkMeasurement(state, () => {
+       var _a4;
+       if (state.itemKey === currentItemKey) {
+-        const element = ref.current;
+-        const rect = (_a4 = element == null ? void 0 : element.getBoundingClientRect) == null ? void 0 : _a4.call(element);
+-        if (rect) {
+-          layout = { height: rect.height, width: rect.width };
+-        }
+         applyLayout();
+       }
+     });
+@@ -5474,7 +5469,7 @@
+   });
+   const { onLayout } = useOnLayoutSync(
+     {
+-      measureInLayoutEffect: !IsNewArchitecture,
++      measureInLayoutEffect: false,
+       onLayoutChange,
+       ref,
+       webLayoutResync: () => isInMVCPActiveMode(ctx.state)
+@@ -5651,6 +5681,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
  // src/utils/reordering.ts
@@ -1623,7 +1653,37 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
    }
    return nextSize;
  }
-@@ -5651,6 +5658,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
+@@ -5348,7 +5348,7 @@
+         top: entry.contentRect.top,
+         width: borderBoxSize.inlineSize
+       } : (_a4 = target == null ? void 0 : target.getBoundingClientRect()) != null ? _a4 : entry.contentRect;
+-      const previousRect = prevRect != null ? prevRect : getContainerLayoutBaseline(element);
++      const previousRect = prevRect;
+       const didSizeChange = previousRect === void 0 || rectObserved.width !== previousRect.width || rectObserved.height !== previousRect.height;
+       prevRect = rectObserved;
+       const shouldResyncLayout = !!(webLayoutResync == null ? void 0 : webLayoutResync());
+@@ -5415,11 +5415,6 @@
+     scheduleWebShrinkMeasurement(state, () => {
+       var _a4;
+       if (state.itemKey === currentItemKey) {
+-        const element = ref.current;
+-        const rect = (_a4 = element == null ? void 0 : element.getBoundingClientRect) == null ? void 0 : _a4.call(element);
+-        if (rect) {
+-          layout = { height: rect.height, width: rect.width };
+-        }
+         applyLayout();
+       }
+     });
+@@ -5474,7 +5476,7 @@
+   });
+   const { onLayout } = useOnLayoutSync(
+     {
+-      measureInLayoutEffect: !IsNewArchitecture,
++      measureInLayoutEffect: false,
+       onLayoutChange,
+       ref,
+       webLayoutResync: () => isInMVCPActiveMode(ctx.state)
+@@ -5651,6 +5660,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
  // src/utils/reordering.ts
@@ -1699,7 +1759,37 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
    }
    return nextSize;
  }
-@@ -5630,6 +5637,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
+@@ -5327,7 +5327,7 @@
+         top: entry.contentRect.top,
+         width: borderBoxSize.inlineSize
+       } : (_a4 = target == null ? void 0 : target.getBoundingClientRect()) != null ? _a4 : entry.contentRect;
+-      const previousRect = prevRect != null ? prevRect : getContainerLayoutBaseline(element);
++      const previousRect = prevRect;
+       const didSizeChange = previousRect === void 0 || rectObserved.width !== previousRect.width || rectObserved.height !== previousRect.height;
+       prevRect = rectObserved;
+       const shouldResyncLayout = !!(webLayoutResync == null ? void 0 : webLayoutResync());
+@@ -5394,11 +5394,6 @@
+     scheduleWebShrinkMeasurement(state, () => {
+       var _a4;
+       if (state.itemKey === currentItemKey) {
+-        const element = ref.current;
+-        const rect = (_a4 = element == null ? void 0 : element.getBoundingClientRect) == null ? void 0 : _a4.call(element);
+-        if (rect) {
+-          layout = { height: rect.height, width: rect.width };
+-        }
+         applyLayout();
+       }
+     });
+@@ -5453,7 +5455,7 @@
+   });
+   const { onLayout } = useOnLayoutSync(
+     {
+-      measureInLayoutEffect: !IsNewArchitecture,
++      measureInLayoutEffect: false,
+       onLayoutChange,
+       ref,
+       webLayoutResync: () => isInMVCPActiveMode(ctx.state)
+@@ -5630,6 +5639,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
  // src/utils/reordering.ts
