@@ -317,6 +317,7 @@ export type AuthWebSocketTicketResult = typeof AuthWebSocketTicketResult.Type;
 export const AuthPairingCredentialResult = Schema.Struct({
   id: TrimmedNonEmptyString,
   credential: TrimmedNonEmptyString,
+  subject: Schema.optionalKey(TrimmedNonEmptyString),
   label: Schema.optionalKey(TrimmedNonEmptyString),
   expiresAt: Schema.DateTimeUtc,
 });

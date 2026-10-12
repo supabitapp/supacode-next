@@ -88,7 +88,8 @@ it.layer(NodeServices.layer)("PairingGrantStore.layer", (it) => {
 
       expect(first.method).toBe("one-time-token");
       expect(first.scopes).toEqual(AuthStandardClientScopes);
-      expect(first.subject).toBe("one-time-token");
+      expect(first.subject).toBe(`pairing-link:${issued.id}`);
+      expect(issued.subject).toBe(first.subject);
       expect(first.label).toBe("Julius iPhone");
       expect(issued.label).toBe("Julius iPhone");
       expect(second._tag).toBe("UnknownBootstrapCredentialError");
