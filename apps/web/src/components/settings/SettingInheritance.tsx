@@ -35,6 +35,19 @@ const WRITING_STYLE_LABELS: Record<string, string> = {
 };
 
 /** Human labels for the values the chain can show; falls back to a type summary. */
+/** A row backed by several keys explains the first one these values customize. */
+function explainedKey(
+  keys: readonly (keyof ServerSettings)[],
+  values: { readonly [K in keyof ServerSettings]?: unknown },
+): keyof ServerSettings | undefined {
+  return (
+    keys.find(
+      (key) =>
+        values[key] !== undefined && !Equal.equals(values[key], DEFAULT_SERVER_SETTINGS[key]),
+    ) ?? keys[0]
+  );
+}
+
 function formatValue(key: keyof ServerSettings, value: unknown): string {
   if (value === null || value === undefined) {
     return key === "pullRequestMergeMethod"
@@ -193,11 +206,7 @@ export function SettingInheritance({
       (candidate) => candidate.environmentId === target.environmentId,
     );
     if (!environment?.serverConfig) return [];
-    const explained =
-      keys.find(
-        (candidate) =>
-          !Equal.equals(target.settings[candidate], DEFAULT_SERVER_SETTINGS[candidate]),
-      ) ?? key;
+    const explained = explainedKey(keys, target.settings) ?? key;
     return [
       {
         target,
@@ -298,21 +307,25 @@ export function SettingInheritance({
                       ) : null}
                     </div>
                     <ul role="list" className="mt-0.5 text-sm">
-                      {overriding.map((project) => (
-                        <li
-                          key={project.projectId}
-                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-1"
-                        >
-                          <InlineButton className="min-w-0 justify-start" onClick={project.open}>
-                            <span className="truncate">{project.label}</span>
-                          </InlineButton>
-                          <span className="max-w-32 truncate text-muted-foreground tabular-nums">
-                            {isProjectScopedSettingKey(key)
-                              ? formatValue(key, overrides[project.projectId]?.[key])
-                              : null}
-                          </span>
-                        </li>
-                      ))}
+                      {overriding.map((project) => {
+                        const override = overrides[project.projectId] ?? {};
+                        const overrideKey = explainedKey(keys, override) ?? key;
+                        return (
+                          <li
+                            key={project.projectId}
+                            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-1"
+                          >
+                            <InlineButton className="min-w-0 justify-start" onClick={project.open}>
+                              <span className="truncate">{project.label}</span>
+                            </InlineButton>
+                            <span className="max-w-32 truncate text-muted-foreground tabular-nums">
+                              {isProjectScopedSettingKey(overrideKey)
+                                ? formatValue(overrideKey, override[overrideKey])
+                                : null}
+                            </span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 );
