@@ -67,11 +67,16 @@ final class SupacodeWorkspaceDockView: ExpoView, UITabBarDelegate {
     let start = buttonSize + 8
     let width = max(0, bounds.width - start * 2)
     let tabHeight = showTabs ? tabBar.sizeThatFits(CGSize(width: width, height: bounds.height)).height : 0
-    let height = max(buttonSize, tabHeight)
     tabBar.frame = CGRect(x: start, y: 0, width: width, height: tabHeight)
-    let buttonY = max(0, (height - tabBar.safeAreaInsets.bottom - buttonSize) / 2)
+    tabBar.layoutIfNeeded()
+    let contentFrame = tabContentFrame(tabBar)
+    let contentCenter = contentFrame.isNull ? tabHeight / 2 : contentFrame.midY
+    let centerY = max(buttonSize / 2, contentCenter)
+    tabBar.frame.origin.y = centerY - contentCenter
+    let buttonY = centerY - buttonSize / 2
     filterButton.frame = CGRect(x: 0, y: buttonY, width: buttonSize, height: buttonSize)
     composeButton.frame = CGRect(x: bounds.width - buttonSize, y: buttonY, width: buttonSize, height: buttonSize)
+    let height = max(tabBar.frame.maxY, max(filterButton.frame.maxY, composeButton.frame.maxY))
     if lastHeight != height {
       lastHeight = height
       onHeightChange(["height": height])
@@ -85,6 +90,12 @@ final class SupacodeWorkspaceDockView: ExpoView, UITabBarDelegate {
 
   func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
     onTabSelected(["tab": item === pullItem ? "pullRequests" : "threads"])
+  }
+
+  private func tabContentFrame(_ view: UIView) -> CGRect {
+    guard !view.isHidden, view.alpha > 0 else { return .null }
+    if view is UIControl { return view.convert(view.bounds, to: tabBar) }
+    return view.subviews.reduce(.null) { $0.union(tabContentFrame($1)) }
   }
 
   private func configureButton(_ button: UIButton, image: String, label: String) {
