@@ -24,43 +24,13 @@ private final class LocalStream {
   }
 }
 
-private enum RelayFailure {
-  case hostOffline, relayBusy, timeout, unreachable
-
-  init(relayStatus: Int?) {
-    switch relayStatus {
-    case 404: self = .hostOffline
-    case 429, 503: self = .relayBusy
-    default: self = .unreachable
-    }
-  }
-
-  var code: String {
-    switch self {
-    case .hostOffline: "host-offline"
-    case .relayBusy: "relay-busy"
-    case .timeout: "relay-timeout"
-    case .unreachable: "relay-unreachable"
-    }
-  }
-
-  var response: Data {
-    let status = switch self {
-    case .hostOffline, .relayBusy: "503 Service Unavailable"
-    case .timeout: "504 Gateway Timeout"
-    case .unreachable: "502 Bad Gateway"
-    }
-    return Data(("HTTP/1.1 \(status)\r\nX-Supacode-Relay-Error: \(code)\r\nCache-Control: no-store\r\n" +
-                 "Connection: close\r\nContent-Length: 0\r\n\r\n").utf8)
-  }
-}
-
 public final class RelayTunnel: @unchecked Sendable {
   public let identity: RelayIdentity
   private let relayURL: URL
   private let keepaliveInterval: TimeInterval
   private let probeTimeout: TimeInterval
-  private let handshakeTimeoutInterval: TimeInterval
+  private let handshakeTimeout: TimeInterval
+  private let failureCooldown: TimeInterval
   let queue = DispatchQueue(label: "sh.supacode.relay-tunnel", qos: .userInitiated)
   private let onStatus: (RelayTunnelStatus) -> Void
   private(set) var listener: NWListener?
@@ -79,8 +49,9 @@ public final class RelayTunnel: @unchecked Sendable {
   private var cipher: RelayCipher?
   private var mux: TunnelMux?
   private var generation: UInt64 = 0
-  private var handshakeTimeout: DispatchWorkItem?
+  private var handshakeDeadline: DispatchWorkItem?
   private var probeDeadline: DispatchWorkItem?
+  private var cooldown: (failure: RelayFailure, until: Date)?
   private var sending = false
   private var pumpScheduled = false
   private var bytesSent: UInt64 = 0
@@ -91,13 +62,15 @@ public final class RelayTunnel: @unchecked Sendable {
 
   public init(relayURL: String, hostAddress: String, keepaliveInterval: TimeInterval = 15,
               probeTimeout: TimeInterval = 2, handshakeTimeout: TimeInterval = 15,
+              failureCooldown: TimeInterval = 2,
               onStatus: @escaping (RelayTunnelStatus) -> Void = { _ in }) throws {
     identity = try RelayIdentity(address: hostAddress)
     guard let url = URL(string: relayURL), ["ws", "wss"].contains(url.scheme),
           url.host != nil, url.user == nil, url.password == nil,
           url.query == nil, url.fragment == nil else { throw RelayError.invalid("Invalid relay URL") }
     self.relayURL = url; self.keepaliveInterval = keepaliveInterval; self.onStatus = onStatus
-    self.probeTimeout = probeTimeout; handshakeTimeoutInterval = handshakeTimeout
+    self.probeTimeout = probeTimeout; self.handshakeTimeout = handshakeTimeout
+    self.failureCooldown = failureCooldown
   }
 
   public func start(port requested: UInt16? = nil) async throws -> String {
@@ -161,7 +134,11 @@ public final class RelayTunnel: @unchecked Sendable {
   }
 
   private func checkSession() {
-    guard let mux else { return }
+    guard let mux else {
+      if websocket != nil { drop("Relay resumed during handshake", answering: .unreachable) }
+      cooldown = nil
+      return
+    }
     probeDeadline?.cancel()
     let attempt = generation
     let deadline = DispatchWorkItem { [weak self] in
@@ -250,6 +227,9 @@ public final class RelayTunnel: @unchecked Sendable {
     guard !stopped, !suspended, streams.count < 256, nextID < UInt32.max - 2 else {
       connection.cancel(); return
     }
+    if let cooldown, cooldown.until > Date() {
+      connection.start(queue: queue); answer(connection, cooldown.failure); return
+    }
     let stream = LocalStream(id: nextID, connection: connection, authority: "127.0.0.1:\(port)")
     nextID += 2; streams[stream.id] = stream
     connection.stateUpdateHandler = { [weak self, weak stream] result in
@@ -289,7 +269,7 @@ public final class RelayTunnel: @unchecked Sendable {
         guard let self, self.generation == attempt, self.cipher == nil else { return }
         self.fail("Handshake timed out", .timeout)
       }
-      handshakeTimeout = timeout; queue.asyncAfter(deadline: .now() + handshakeTimeoutInterval, execute: timeout)
+      handshakeDeadline = timeout; queue.asyncAfter(deadline: .now() + handshakeTimeout, execute: timeout)
       socket.resume()
       socket.send(.string(handshake!.hello)) { [weak self] error in
         guard let self else { return }
@@ -314,8 +294,8 @@ public final class RelayTunnel: @unchecked Sendable {
               throw RelayError.invalid("Invalid relay welcome")
             }
             self.cipher = try handshake.finish(text); self.handshake = nil
-            self.handshakeTimeout?.cancel(); self.handshakeTimeout = nil
-            self.sessionCount += 1
+            self.handshakeDeadline?.cancel(); self.handshakeDeadline = nil
+            self.cooldown = nil; self.sessionCount += 1
             let mux = TunnelMux(); self.mux = mux
             mux.onPong = { [weak self] in
               self?.probeDeadline?.cancel(); self?.probeDeadline = nil
@@ -335,8 +315,10 @@ public final class RelayTunnel: @unchecked Sendable {
           }
           self.receive(attempt: attempt, socket: socket)
         } catch {
-          let reason = (error as? RelayError)?.description ?? "Relay disconnected"
-          if self.cipher == nil { self.fail(reason) } else { self.drop(reason) }
+          let protocolError = error as? RelayError
+          let reason = protocolError?.description ?? "Relay disconnected"
+          if self.cipher != nil { self.drop(reason) }
+          else { self.fail(reason, protocolError == nil ? nil : .unreachable) }
         }
       }
     }
@@ -354,23 +336,24 @@ public final class RelayTunnel: @unchecked Sendable {
     }
   }
 
-  private func drop(_ reason: String) {
+  private func drop(_ reason: String, answering failure: RelayFailure? = nil) {
     generation += 1
-    handshakeTimeout?.cancel(); handshakeTimeout = nil
+    handshakeDeadline?.cancel(); handshakeDeadline = nil
     probeDeadline?.cancel(); probeDeadline = nil
     websocket?.cancel(with: .goingAway, reason: nil); websocket = nil
     urlSession?.invalidateAndCancel(); urlSession = nil
     cipher = nil; mux = nil; handshake = nil; sending = false
     let old = streams; streams.removeAll()
-    for stream in old.values { stream.connection.cancel() }
-    emit("down", reason: reason)
+    for stream in old.values {
+      if let failure { answer(stream.connection, failure) } else { stream.connection.cancel() }
+    }
+    emit("down", reason: failure.map { "\(reason): \($0.rawValue)" } ?? reason)
   }
 
   private func fail(_ reason: String, _ failure: RelayFailure? = nil) {
     let failure = failure ?? RelayFailure(relayStatus: (websocket?.response as? HTTPURLResponse)?.statusCode)
-    let waiting = streams.values; streams.removeAll()
-    drop("\(reason): \(failure.code)")
-    for stream in waiting { answer(stream.connection, failure) }
+    cooldown = (failure, Date() + failureCooldown)
+    drop(reason, answering: failure)
   }
 
   private func answer(_ connection: NWConnection, _ failure: RelayFailure) {

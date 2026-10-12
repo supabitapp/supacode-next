@@ -1,6 +1,6 @@
 import type { EnvironmentId } from "@supacode/contracts";
 import type { RemoteEnvironmentAuthError } from "../authorization/remote.ts";
-import type { RelayTunnelFailure } from "../rpc/http.ts";
+import type { RelayTunnelFailure } from "@supacode/shared/relay/protocol";
 import {
   ConnectionBlockedError,
   type ConnectionAttemptError,

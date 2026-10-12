@@ -101,29 +101,57 @@ class NativeTunnelTest {
     }
   }
 
+  private fun inBackground(block: () -> String) =
+    java.util.concurrent.FutureTask(block).also { Thread(it).start() }
+
+  private fun MockWebServer.assertNoDialWithin(millis: Long, expectedRequests: Int) {
+    Thread.sleep(millis)
+    assertEquals(expectedRequests, requestCount)
+  }
+
+  private fun tunnelFor(
+    server: MockWebServer,
+    timing: NativeTunnel.Timing = NativeTunnel.Timing()
+  ) =
+    NativeTunnel(
+      server.url("/").toString().replaceFirst("http", "ws"),
+      vector.getString("address"),
+      timing = timing,
+    )
+
+  private val silentUpgrade get() = MockResponse().withWebSocketUpgrade(
+    object : WebSocketListener() {}
+  )
+
   @Test
-  fun offlineHostAnswersEveryWaitingRequestWithoutRedialing() {
+  fun offlineHostAnswersEveryWaitingRequestFromOneDial() {
     MockWebServer().use { server ->
-      repeat(2) {
-        server.enqueue(
-          MockResponse().setResponseCode(404).setHeadersDelay(200, TimeUnit.MILLISECONDS)
-        )
-      }
-      NativeTunnel(
-        server.url("/").toString().replaceFirst("http", "ws"),
-        vector.getString("address"),
-      ).use { tunnel ->
+      server.enqueue(MockResponse().setResponseCode(404))
+      tunnelFor(server).use { tunnel ->
         tunnel.resume()
-        val responses =
-          List(3) { CompletableFuture.supplyAsync { request(tunnel.origin) } }
-            .map { it.get(10, TimeUnit.SECONDS) }
+        val responses = List(3) { inBackground { request(tunnel.origin) } }
+          .map { it.get(10, TimeUnit.SECONDS) } + request(tunnel.origin)
         for (response in responses) {
-          assertTrue(response.startsWith("HTTP/1.1 503 "), response)
-          assertTrue("X-Supacode-Relay-Error: host-offline\r\n" in response, response)
+          assertTrue(
+            response.startsWith(
+              "HTTP/1.1 503 Service Unavailable\r\nX-Supacode-Relay-Error: host-offline\r\n"
+            ),
+            response,
+          )
         }
-        Thread.sleep(500)
         assertEquals(1, server.requestCount)
-        assertTrue(request(tunnel.origin).startsWith("HTTP/1.1 503 "))
+      }
+    }
+  }
+
+  @Test
+  fun requestAfterTheFailureCooldownDialsAgain() {
+    MockWebServer().use { server ->
+      repeat(2) { server.enqueue(MockResponse().setResponseCode(404)) }
+      tunnelFor(server, NativeTunnel.Timing(failureCooldownMillis = 100)).use { tunnel ->
+        request(tunnel.origin)
+        Thread.sleep(200)
+        assertTrue("X-Supacode-Relay-Error: host-offline" in request(tunnel.origin))
         assertEquals(2, server.requestCount)
       }
     }
@@ -138,13 +166,66 @@ class NativeTunnelTest {
     )) {
       MockWebServer().use { server ->
         server.enqueue(MockResponse().setResponseCode(status))
-        NativeTunnel(
-          server.url("/").toString().replaceFirst("http", "ws"),
-          vector.getString("address"),
-        ).use { tunnel ->
+        tunnelFor(server).use { tunnel ->
           val response = request(tunnel.origin)
           assertTrue(response.startsWith(expected), "$status: $response")
         }
+      }
+    }
+  }
+
+  @Test
+  fun hostThatNeverAnswersThePairingReportsOffline() {
+    MockWebServer().use { server ->
+      server.enqueue(
+        MockResponse().withWebSocketUpgrade(
+          object : WebSocketListener() {
+            override fun onMessage(webSocket: WebSocket, text: String) {
+              webSocket.close(1013, "pair timeout")
+            }
+          }
+        )
+      )
+      tunnelFor(server).use { tunnel ->
+        val response = request(tunnel.origin)
+        assertTrue(response.startsWith("HTTP/1.1 503 Service Unavailable\r\n"), response)
+        assertTrue("X-Supacode-Relay-Error: host-offline\r\n" in response, response)
+      }
+    }
+  }
+
+  @Test
+  fun handshakeTimeoutAnswersWithGatewayTimeout() {
+    MockWebServer().use { server ->
+      server.enqueue(silentUpgrade)
+      tunnelFor(server, NativeTunnel.Timing(handshakeTimeoutMillis = 200)).use { tunnel ->
+        val response = request(tunnel.origin)
+        assertTrue(
+          response.startsWith(
+            "HTTP/1.1 504 Gateway Timeout\r\nX-Supacode-Relay-Error: relay-timeout\r\n"
+          ),
+          response,
+        )
+      }
+    }
+  }
+
+  @Test
+  fun foregroundAnswersAStaleHandshakeAndTheNextRequestDials() {
+    MockWebServer().use { server ->
+      repeat(2) { server.enqueue(silentUpgrade) }
+      tunnelFor(server).use { tunnel ->
+        val pending = inBackground { request(tunnel.origin) }
+        checkNotNull(server.takeRequest(10, TimeUnit.SECONDS))
+        tunnel.resume()
+        val response = pending.get(10, TimeUnit.SECONDS)
+        assertTrue(
+          response.startsWith(
+            "HTTP/1.1 502 Bad Gateway\r\nX-Supacode-Relay-Error: relay-unreachable\r\n"
+          ),
+          response,
+        )
+        openStream(tunnel.origin).use { checkNotNull(server.takeRequest(10, TimeUnit.SECONDS)) }
       }
     }
   }
@@ -166,17 +247,17 @@ class NativeTunnelTest {
           if (it["reason"] != null) down.complete(it)
         },
       ).use { tunnel ->
-        val client = openStream(tunnel.origin)
-        connected.get(10, TimeUnit.SECONDS)
-        tunnel.background(100)
-        tunnel.resume(300)
-        host.records.awaitPing()
-        assertFailsWith<java.util.concurrent.TimeoutException> {
-          down.get(600, TimeUnit.MILLISECONDS)
+        openStream(tunnel.origin).use {
+          connected.get(10, TimeUnit.SECONDS)
+          tunnel.background(100)
+          tunnel.resume(300)
+          host.records.awaitPing()
+          assertFailsWith<java.util.concurrent.TimeoutException> {
+            down.get(600, TimeUnit.MILLISECONDS)
+          }
+          assertEquals(1, server.requestCount)
+          assertEquals(1, connected.get()["sessionCount"])
         }
-        assertEquals(1, server.requestCount)
-        assertEquals(1, connected.get()["sessionCount"])
-        client.close()
       }
     }
   }
@@ -205,27 +286,23 @@ class NativeTunnelTest {
           if (it["reason"] == "Backgrounded") down.complete(Unit)
         },
       ).use { tunnel ->
-        openStream(tunnel.origin)
-        connected.get(10, TimeUnit.SECONDS)
-        tunnel.background(100)
-        down.get(10, TimeUnit.SECONDS)
+        openStream(tunnel.origin).use {
+          connected.get(10, TimeUnit.SECONDS)
+          tunnel.background(100)
+          down.get(10, TimeUnit.SECONDS)
+        }
         assertLoopbackClosed(tunnel.origin)
         assertEquals(1, server.requestCount)
         tunnel.resume()
-        Thread.sleep(300)
-        assertEquals(1, server.requestCount)
+        server.assertNoDialWithin(300, expectedRequests = 1)
         openStream(tunnel.origin).use { reconnected.get(10, TimeUnit.SECONDS) }
       }
     }
   }
 
   private fun assertLoopbackClosed(value: String) {
-    val origin = java.net.URI(value)
-    java.net.Socket(origin.host, origin.port).use { socket ->
+    openStream(value).use { socket ->
       socket.soTimeout = 5_000
-      socket.getOutputStream().write(
-        "GET / HTTP/1.1\r\nHost: ${origin.host}:${origin.port}\r\n\r\n".toByteArray()
-      )
       val closed = try {
         socket.getInputStream().read() == -1
       } catch (_: java.net.SocketException) {
@@ -259,12 +336,12 @@ class NativeTunnelTest {
           if (it["reason"] == "Relay resume probe timed out") failed.complete(Unit)
         },
       ).use { tunnel ->
-        openStream(tunnel.origin)
-        connected.get(10, TimeUnit.SECONDS)
-        tunnel.resume(100)
-        failed.get(10, TimeUnit.SECONDS)
-        Thread.sleep(300)
-        assertEquals(1, server.requestCount)
+        openStream(tunnel.origin).use {
+          connected.get(10, TimeUnit.SECONDS)
+          tunnel.resume(100)
+          failed.get(10, TimeUnit.SECONDS)
+        }
+        server.assertNoDialWithin(300, expectedRequests = 1)
         openStream(tunnel.origin).use { reconnected.get(10, TimeUnit.SECONDS) }
         assertEquals(2, server.requestCount)
       }
@@ -281,7 +358,7 @@ class NativeTunnelTest {
         server.url("/").toString().replaceFirst("http", "ws"),
         vector.getString("address"),
         onStatus = { if (it["reason"] == "Relay session timed out") down.complete(it) },
-        keepaliveMillis = 50,
+        timing = NativeTunnel.Timing(keepaliveMillis = 50),
       ).use { tunnel ->
         openStream(tunnel.origin).use {
           host.records.awaitPing()

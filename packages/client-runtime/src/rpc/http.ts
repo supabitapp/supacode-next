@@ -8,6 +8,7 @@ import {
   type EnvironmentResourceNotFoundError,
   type EnvironmentScopeRequiredError,
 } from "@supacode/contracts";
+import { RELAY_ERROR_HEADER, RelayTunnelFailure } from "@supacode/shared/relay/protocol";
 
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
@@ -19,14 +20,6 @@ import { FetchHttpClient, Headers, HttpClient, HttpClientError } from "effect/ht
 import * as HttpApiClient from "effect/http-api/HttpApiClient";
 
 const isEnvironmentHttpCommonError = Schema.is(EnvironmentHttpCommonError);
-
-const RelayTunnelFailure = Schema.Literals([
-  "host-offline",
-  "relay-busy",
-  "relay-timeout",
-  "relay-unreachable",
-]);
-export type RelayTunnelFailure = typeof RelayTunnelFailure.Type;
 const isRelayTunnelFailure = Schema.is(RelayTunnelFailure);
 
 class RemoteEnvironmentAuthFetchError extends Data.TaggedError("RemoteEnvironmentAuthFetchError")<{
@@ -146,7 +139,7 @@ const failRemoteRequest = (
   if (HttpClientError.isHttpClientError(cause) && cause.response !== undefined) {
     const response = cause.response;
     if (response.status < 200 || response.status >= 300) {
-      const relayFailure = Headers.get(response.headers, "x-supacode-relay-error").pipe(
+      const relayFailure = Headers.get(response.headers, RELAY_ERROR_HEADER).pipe(
         Option.filter(isRelayTunnelFailure),
         Option.getOrUndefined,
       );

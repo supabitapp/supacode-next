@@ -7,6 +7,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.RejectedExecutionException
@@ -22,31 +23,8 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 
-private enum class RelayFailure(private val status: String, val code: String) {
-  HOST_OFFLINE("503 Service Unavailable", "host-offline"),
-  RELAY_BUSY("503 Service Unavailable", "relay-busy"),
-  TIMEOUT("504 Gateway Timeout", "relay-timeout"),
-  UNREACHABLE("502 Bad Gateway", "relay-unreachable");
-
-  val response
-    get() =
-      (
-        "HTTP/1.1 $status\r\nX-Supacode-Relay-Error: $code\r\nCache-Control: no-store\r\n" +
-          "Connection: close\r\nContent-Length: 0\r\n\r\n"
-        ).toByteArray(Charsets.ISO_8859_1)
-
-  companion object {
-    fun from(relayStatus: Int?) =
-      when (relayStatus) {
-        404 -> HOST_OFFLINE
-        429, 503 -> RELAY_BUSY
-        else -> UNREACHABLE
-      }
-  }
-}
-
-private class RelayAttemptException(val failure: RelayFailure, message: String) :
-  IllegalStateException("$message: ${failure.code}")
+private class RelayAttemptException(val failure: RelayFailure, message: String, cause: Throwable?) :
+  IllegalStateException("$message: ${failure.code}", cause)
 
 class NativeTunnel(
   private val relayUrl: String,
@@ -54,11 +32,19 @@ class NativeTunnel(
   port: Int = 0,
   private val onStatus: (Map<String, Any>) -> Unit = {},
   private val log: (String) -> Unit = {},
-  private val keepaliveMillis: Long = 15_000
+  private val timing: Timing = Timing()
 ) : AutoCloseable {
   companion object {
     const val BACKGROUND_GRACE_MILLIS = 15_000L
+    private const val SWITCHING_PROTOCOLS = 101
   }
+
+  data class Timing(
+    val keepaliveMillis: Long = 15_000,
+    val handshakeTimeoutMillis: Long = 15_000,
+    val failureCooldownMillis: Long = 2_000
+  )
+
   private val identity = parseRelayIdentity(hostAddress)
   private val hostAddress =
     identity.hex().let { "https://${it.take(32)}.${it.drop(32)}.relay.supacode.invalid/" }
@@ -84,6 +70,8 @@ class NativeTunnel(
   private var keepalive: ScheduledFuture<*>? = null
   private var backgroundClose: ScheduledFuture<*>? = null
   private var probeDeadline: ScheduledFuture<*>? = null
+  private var cooldownFailure: RelayAttemptException? = null
+  private var cooldownUntil = 0L
   private var pumpScheduled = false
   private var state = "down"
   private var suspended = false
@@ -159,8 +147,11 @@ class NativeTunnel(
   private fun connect(): CompletableFuture<TunnelMux> {
     attempt?.let { return it }
     val future = CompletableFuture<TunnelMux>()
+    val recentFailure = cooldownFailure?.takeIf { System.nanoTime() < cooldownUntil }
     if (stopped.get() || suspended) {
       future.completeExceptionally(IllegalStateException("Tunnel unavailable"))
+    } else if (recentFailure != null) {
+      future.completeExceptionally(recentFailure)
     } else {
       attempt = future
       state = "connecting"
@@ -184,9 +175,11 @@ class NativeTunnel(
     val handshake = ClientHandshake(identity)
     future.whenComplete { _, _ -> handshake.destroy() }
     val timeout = actor.schedule(
-      { fail(future, RelayAttemptException(RelayFailure.TIMEOUT, "Relay handshake timed out")) },
-      15,
-      TimeUnit.SECONDS,
+      {
+        fail(future, RelayAttemptException(RelayFailure.TIMEOUT, "Relay handshake timed out", null))
+      },
+      timing.handshakeTimeoutMillis,
+      TimeUnit.MILLISECONDS,
     )
     future.whenComplete { _, _ ->
       timeout.cancel(false)
@@ -220,10 +213,11 @@ class NativeTunnel(
                 },
               )
               mux = session
+              cooldownFailure = null
               keepalive = actor.scheduleWithFixedDelay(
                 { failOnError(future) { session.tick() } },
-                keepaliveMillis,
-                keepaliveMillis,
+                timing.keepaliveMillis,
+                timing.keepaliveMillis,
                 TimeUnit.MILLISECONDS,
               )
               sessions++
@@ -246,11 +240,15 @@ class NativeTunnel(
 
         override fun onClosing(socket: WebSocket, code: Int, reason: String) {
           socket.close(1000, null)
-          post { fail(future, IllegalStateException("Relay disconnected ($code)")) }
+          post {
+            fail(future, IllegalStateException("Relay disconnected ($code)"), SWITCHING_PROTOCOLS)
+          }
         }
 
         override fun onClosed(socket: WebSocket, code: Int, reason: String) {
-          post { fail(future, IllegalStateException("Relay disconnected ($code)")) }
+          post {
+            fail(future, IllegalStateException("Relay disconnected ($code)"), SWITCHING_PROTOCOLS)
+          }
         }
 
         override fun onFailure(socket: WebSocket, error: Throwable, response: Response?) {
@@ -283,9 +281,15 @@ class NativeTunnel(
         else ->
           RelayAttemptException(
             RelayFailure.from(relayStatus),
-            cause.message ?: "Relay disconnected"
+            cause.message ?: "Relay disconnected",
+            cause,
           )
       }
+    if (error is RelayAttemptException) {
+      cooldownFailure = error
+      cooldownUntil =
+        System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timing.failureCooldownMillis)
+    }
     attempt = null
     keepalive?.cancel(false)
     keepalive = null
@@ -298,7 +302,9 @@ class NativeTunnel(
     future.completeExceptionally(error)
     state = "down"
     emit(error.message ?: "Relay disconnected")
-    log("[relay-android] session down: ${error.javaClass.simpleName}: ${error.message}")
+    log(
+      "[relay-android] session down: ${(error.cause ?: error).javaClass.simpleName}: ${error.message}"
+    )
   }
 
   private fun schedulePump() {
@@ -395,33 +401,10 @@ class NativeTunnel(
       val active = stream
       val selected = session
       if (active != null && selected != null) post { selected.reset(active, error) }
-      if (selected == null) {
-        generateSequence<Throwable>(error) { it.cause }
-          .filterIsInstance<RelayAttemptException>()
-          .firstOrNull()
-          ?.let { answer(socket, it.failure) }
-      }
+      val rejected = (error as? ExecutionException)?.cause as? RelayAttemptException
+      if (selected == null && rejected != null) LoopbackHttp.answer(socket, rejected.failure)
       finishSocket()
     }
-  }
-
-  private fun answer(socket: Socket, failure: RelayFailure) {
-    try {
-      socket.soTimeout = 5_000
-      socket.getOutputStream().apply {
-        write(failure.response)
-        flush()
-      }
-      socket.shutdownOutput()
-      val input = socket.getInputStream()
-      val buffer = ByteArray(16384)
-      var budget = 1 shl 16
-      while (budget > 0) {
-        val count = input.read(buffer)
-        if (count < 0) break
-        budget -= count
-      }
-    } catch (_: IOException) {}
   }
 
   fun suspend() = post {
@@ -448,8 +431,13 @@ class NativeTunnel(
     backgroundClose = null
     suspended = false
     log("[relay-android] foregrounded origin=$origin")
-    val current = attempt ?: return@post
-    val session = mux ?: return@post
+    val current = attempt
+    val session = mux
+    if (current != null && session == null) {
+      fail(current, IllegalStateException("Relay resumed during handshake"))
+    }
+    cooldownFailure = null
+    if (current == null || session == null) return@post
     probeDeadline?.cancel(false)
     probeDeadline = actor.schedule({
       fail(current, IllegalStateException("Relay resume probe timed out"))
