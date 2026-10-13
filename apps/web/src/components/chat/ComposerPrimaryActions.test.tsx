@@ -31,6 +31,7 @@ function renderPendingActions(isRunning: boolean) {
       compact: true,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       canOperateThread: true,
+      canQueueMessage: true,
       pendingAction: {
         questionIndex: 0,
         isLastQuestion: true,
@@ -58,6 +59,7 @@ function renderRunningActions(hasSendableContent: boolean) {
       compact: true,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       canOperateThread: true,
+      canQueueMessage: true,
       pendingAction: null,
       isRunning: true,
       canInterrupt: true,
@@ -83,6 +85,7 @@ function renderSendButton(
       compact: true,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       canOperateThread: true,
+      canQueueMessage: true,
       pendingAction: null,
       isRunning: false,
       canInterrupt: false,

@@ -174,7 +174,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
       ...selection,
       entry,
       label: model
-        ? `${getTriggerDisplayModelName(model)}${model.isUnavailable ? " (Unavailable)" : ""}`
+        ? `${getTriggerDisplayModelName(model)}${model.isUnavailable && !props.isComposerOwned ? " (Unavailable)" : ""}`
         : selection.model,
     };
   });
@@ -272,6 +272,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
               {props.triggerLabel ?? multipleLabel ?? triggerTitle}
             </span>
             {selectedModel?.isUnavailable &&
+            !props.isComposerOwned &&
             !selectedEntries &&
             props.triggerLabel === undefined ? (
               <Badge variant="outline" size="sm">

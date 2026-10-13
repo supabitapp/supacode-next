@@ -1464,6 +1464,47 @@ describe("resolveComposerProviderSelection", () => {
     ).toBeNull();
   });
 
+  it("keeps the selected instance when it becomes temporarily unavailable", () => {
+    const selected = entry("codex", "work", { availability: "unavailable" });
+    const fallback = entry("codex");
+    const selection = resolveComposerProviderSelection({
+      entries: [fallback, selected],
+      candidateInstanceIds: [selected.instanceId, fallback.instanceId],
+      lockedProvider: null,
+      lockedInstanceId: null,
+    });
+    expect(selection.selectedProviderEntry).toBe(selected);
+    expect(selection.selectedProviderEntry?.isAvailable).toBe(false);
+  });
+
+  it.each(["missing", "disabled"] as const)(
+    "keeps an explicit %s selection instead of sending with a default provider",
+    (state) => {
+      const selected = entry("codex", "work", { enabled: false });
+      const fallback = entry("codex");
+      const selection = resolveComposerProviderSelection({
+        entries: state === "missing" ? [fallback] : [fallback, selected],
+        candidateInstanceIds: [selected.instanceId, fallback.instanceId],
+        lockedProvider: null,
+        lockedInstanceId: null,
+      });
+      expect(selection.selectedProviderEntry).toBeUndefined();
+      expect(selection.unavailableProviderInstanceId).toBe(selected.instanceId);
+    },
+  );
+
+  it("still chooses a ready default for an untouched draft", () => {
+    const fallback = entry("codex");
+    expect(
+      resolveComposerProviderSelection({
+        entries: [fallback],
+        candidateInstanceIds: [NO_PROVIDER_MODEL_SELECTION.instanceId],
+        lockedProvider: null,
+        lockedInstanceId: null,
+      }).selectedProviderEntry,
+    ).toBe(fallback);
+  });
+
   it("keeps a signed-out selection instead of silently switching providers", () => {
     const signedOutEntry = entry("antigravity", "google_work", {
       status: "error",

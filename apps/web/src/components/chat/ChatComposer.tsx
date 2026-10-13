@@ -1,3 +1,4 @@
+import { readCanQueueComposerMessage } from "../../state/composerQueue";
 import { formatProviderSkillDisplayName } from "@supacode/shared/inlineSkills";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
@@ -279,7 +280,6 @@ import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
 import { ComposerPendingApprovalPanel } from "./ComposerPendingApprovalPanel";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
 import {
-  ComposerControl,
   ComposerControlIcon,
   ComposerControlSeparator,
   ComposerSelectControl,
@@ -1099,7 +1099,6 @@ import { Select, SelectItem, SelectPopup, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
 import { CircleAlertIcon, PaperclipIcon, PlayIcon, ShieldIcon, XIcon } from "lucide-react";
-import { hasProviderSetup } from "./ProviderStatusBanner";
 import {
   applyProviderInstanceSettings,
   deriveProviderInstanceEntries,
@@ -1358,6 +1357,7 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
 const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(props: {
   compact: boolean;
   canOperateThread: boolean;
+  canQueueMessage: boolean;
   isPreparingWorktree: boolean;
   pendingAction: {
     questionIndex: number;
@@ -1397,6 +1397,7 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
       <ComposerPrimaryActions
         compact={props.compact}
         canOperateThread={props.canOperateThread}
+        canQueueMessage={props.canQueueMessage}
         pendingAction={props.pendingAction}
         isRunning={props.isRunning}
         canInterrupt={props.canInterrupt}
@@ -1503,6 +1504,7 @@ export interface ChatComposerProps {
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
   canOperateThread: boolean;
+  canQueueMessage: boolean;
   attachmentUploadsCapabilityKnown: boolean;
   supportsAttachmentUploads: boolean;
   supportsQuestionAttachments: boolean;
@@ -1695,6 +1697,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     composerDraftTarget,
     environmentId,
     canOperateThread,
+    canQueueMessage,
     attachmentUploadsCapabilityKnown,
     supportsAttachmentUploads,
     supportsQuestionAttachments,
@@ -2154,28 +2157,19 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     ],
   );
   const selectedInstanceId =
-    selectedProviderEntry?.instanceId ?? NO_PROVIDER_MODEL_SELECTION.instanceId;
+    selectedProviderEntry?.instanceId ??
+    unavailableProviderInstanceId ??
+    NO_PROVIDER_MODEL_SELECTION.instanceId;
   const noProviderAvailable =
     selectedProviderEntry === undefined && multipleModelSelections === null;
-  // Before the catalog arrives, every thread resolves to "no provider". Send
-  // stays blocked either way; only the chrome waits, keeping the picker with
-  // the thread's own selection instead of swapping in the setup button and
-  // back once the catalog lands.
   const providerCatalogPending = noProviderAvailable && !providerCatalogKnown;
   const showProviderUnavailable = noProviderAvailable && !providerCatalogPending;
-  const providerSetupInstanceId = noProviderAvailable
-    ? (unavailableProviderInstanceId ??
-      (lockedProvider === null
-        ? providerInstanceEntries.find((entry) => hasProviderSetup(entry.snapshot))?.instanceId
-        : undefined))
-    : undefined;
   const resolvedCompactDisabledReason =
     compactDisabledReason ?? (noProviderAvailable ? "Compacting is unavailable right now" : null);
-  // The driver kind follows the instance that will actually run the turn,
-  // which can differ from the persisted selection when that selection is
-  // disabled.
   const selectedProvider: ProviderDriverKind =
-    selectedProviderEntry?.driverKind ?? requestedDriverKind;
+    selectedProviderEntry?.driverKind ??
+    settings.providerInstances[selectedInstanceId]?.driver ??
+    requestedDriverKind;
   const supportedRuntimeModes = selectedProviderEntry?.snapshot.supportedRuntimeModes;
   const compatibleRuntimeModeOptions =
     supportedRuntimeModes && supportedRuntimeModes.length > 0
@@ -2199,10 +2193,17 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     projectModelSelection: activeProjectDefaultModelSelection,
     settings,
   });
-  const providerSendBlockReason = getAntigravitySendBlockReason(
-    selectedProviderEntry?.snapshot,
-    selectedModel,
-  );
+  const canQueueSelectedProvider =
+    !noProviderAvailable ||
+    (environmentUnavailable !== null &&
+      selectedInstanceId !== NO_PROVIDER_MODEL_SELECTION.instanceId &&
+      selectedModel.length > 0);
+  const providerSendBlockReason =
+    environmentUnavailable !== null
+      ? null
+      : selectedProviderEntry?.isAvailable === false
+        ? "This provider is unavailable. Choose another provider or try again later."
+        : getAntigravitySendBlockReason(selectedProviderEntry?.snapshot, selectedModel);
   const sendDisabledReason =
     externalSendDisabledReason ??
     (multipleModelSelections?.length === 0 ? "Select at least one model." : null) ??
@@ -2349,7 +2350,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   );
 
   const selectedPromptEffort = composerProviderState.promptEffort;
-  const selectedModelOptionsForDispatch = composerProviderState.modelOptionsForDispatch;
+  const selectedModelOptionsForDispatch =
+    selectedProviderEntry || selectedProvider === "opencode"
+      ? composerProviderState.modelOptionsForDispatch
+      : composerModelOptions?.[selectedInstanceId];
   const interactionMode: ProviderInteractionMode = "default";
   const selectedModelSelection = useMemo<ModelSelection>(
     () => createModelSelection(selectedInstanceId, selectedModel, selectedModelOptionsForDispatch),
@@ -3005,7 +3009,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isSendBusy ||
     isSendDisabled ||
     isConnecting ||
-    noProviderAvailable ||
+    !canQueueSelectedProvider ||
     projectSelectionRequired ||
     (environmentUnavailable !== null && showResumeAction) ||
     (!composerSendState.hasSendableContent && !showResumeAction);
@@ -4160,7 +4164,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       isSendBusy ||
       isSendDisabled ||
       isConnecting ||
-      noProviderAvailable ||
+      !canQueueSelectedProvider ||
       (environmentUnavailable !== null && activePendingProgress !== null) ||
       phase === "running"
     ) {
@@ -4179,7 +4183,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isMobileViewport,
     isSendBusy,
     isSendDisabled,
-    noProviderAvailable,
+    canQueueSelectedProvider,
     phase,
   ]);
 
@@ -4190,9 +4194,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       submissionIntent?: ComposerSubmissionIntent,
     ) => {
       if (
-        noProviderAvailable ||
+        !canQueueSelectedProvider ||
         isSendDisabled ||
-        !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+        !(activePendingProgress
+          ? readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+          : readCanQueueComposerMessage(environmentId))
       ) {
         event?.preventDefault();
         return;
@@ -4260,7 +4266,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       blurMobileComposerAfterSend,
       environmentId,
       isSendDisabled,
-      noProviderAvailable,
+      canQueueSelectedProvider,
       onSend,
       settings.followUpBehavior,
       phase,
@@ -5158,9 +5164,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isStashMenuOpen ||
     isDragOverComposer ||
     isPreparingWorktree ||
-    showProviderUnavailable ||
     projectSelectionRequired ||
-    environmentUnavailable !== null ||
     composerSubmissionError !== null ||
     providerInputSubmissionError !== null ||
     hasImageAttachmentAttention;
@@ -5485,22 +5489,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const hiddenRestingBlockIds = restingBlockDefs
     .slice(restingBlockDefs.length - restingHiddenBlockCount)
     .map((def) => def.id);
-  const composerControls = showProviderUnavailable ? (
-    <ComposerControl
-      type="button"
-      disabled={!providerSetupInstanceId}
-      onClick={() => {
-        if (providerSetupInstanceId) {
-          onOpenProviderSetup(providerSetupInstanceId);
-        }
-      }}
-      data-chat-provider-unavailable="true"
-      className="shrink-0"
-    >
-      <CircleAlertIcon className="size-4" />
-      {providerSetupInstanceId ? "Open provider settings" : "No provider available"}
-    </ComposerControl>
-  ) : (
+  const composerControls = (
     <>
       {composerControlsCollapsed &&
       restingControlsHost !== null &&
@@ -6604,7 +6593,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             : null,
         providerAvailable:
           multipleModelSelections !== null ||
-          (!noProviderAvailable && providerSendBlockReason === null),
+          (canQueueSelectedProvider && providerSendBlockReason === null),
         selectedProvider,
         selectedModel,
         selectedProviderModels,
@@ -6660,7 +6649,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       multipleModelSelections,
       setMultipleModelSelections,
       routeKind,
-      noProviderAvailable,
+      canQueueSelectedProvider,
       providerSendBlockReason,
       selectedPromptEffort,
       selectedProvider,
@@ -6884,6 +6873,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                             compact
                             keybindings={keybindings}
                             canOperateThread={canOperateThread}
+                            canQueueMessage={canQueueMessage}
                             pendingAction={pendingPrimaryAction}
                             isRunning={false}
                             canInterrupt={false}
@@ -7582,6 +7572,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       compact
                       keybindings={keybindings}
                       canOperateThread={canOperateThread}
+                      canQueueMessage={canQueueMessage}
                       pendingAction={pendingPrimaryAction}
                       isRunning={false}
                       canInterrupt={false}
@@ -7686,6 +7677,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   <ComposerFooterPrimaryActions
                     compact={isComposerResting || isComposerPrimaryActionsCompact}
                     canOperateThread={canOperateThread}
+                    canQueueMessage={canQueueMessage}
                     pendingAction={pendingPrimaryAction}
                     isRunning={phase === "running"}
                     canInterrupt={canInterrupt}
@@ -7697,7 +7689,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     isEnvironmentUnavailable={
                       (environmentUnavailable !== null &&
                         (activePendingProgress !== null || showResumeAction)) ||
-                      noProviderAvailable ||
+                      !canQueueSelectedProvider ||
                       projectSelectionRequired
                     }
                     isPreparingWorktree={isPreparingWorktree}

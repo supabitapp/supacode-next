@@ -38,6 +38,7 @@ interface ComposerPrimaryActionsProps {
   compact: boolean;
   keybindings: ResolvedKeybindingsConfig;
   canOperateThread: boolean;
+  canQueueMessage: boolean;
   pendingAction: PendingActionState | null;
   /** The turn is running: sending steers or queues instead of starting a turn. */
   isRunning: boolean;
@@ -154,6 +155,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   compact,
   keybindings,
   canOperateThread,
+  canQueueMessage,
   pendingAction,
   isRunning,
   canInterrupt,
@@ -190,7 +192,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       activeTurnDefault: followUpBehavior,
       alternateModifier: shortcutModifiers.metaKey || shortcutModifiers.ctrlKey,
     }) === "queue";
-  const isSendDisabled = !canOperateThread || sendDisabledReason !== null;
   const stageBackdropVariant = useSidebarStageBackdropVariant(
     environmentIdentificationMode === "artwork",
   );
@@ -326,7 +327,8 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       onClick={showResume ? onResume : onSubmitMessage}
       disabled={
         isSendBusy ||
-        isSendDisabled ||
+        !(showResume ? canOperateThread : canQueueMessage) ||
+        sendDisabledReason !== null ||
         isConnecting ||
         isEnvironmentUnavailable ||
         (!hasSendableContent && !showResume)

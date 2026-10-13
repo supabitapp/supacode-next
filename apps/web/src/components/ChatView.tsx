@@ -1,3 +1,4 @@
+import { canQueueComposerMessageAtom, readCanQueueComposerMessage } from "../state/composerQueue";
 import {
   pendingThreadCreationMessage,
   resolvePendingThreadCreation,
@@ -1620,6 +1621,7 @@ export default function ChatView(props: ChatViewProps) {
     forceExpandedMobileComposer = false,
   } = props;
   const canOperateThread = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
+  const canQueueMessage = useAtomValue(canQueueComposerMessageAtom(environmentId));
   const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
   const hasTerminalWriteAccess = useCallback(
     () => readEnvironmentScope(environmentId, AuthTerminalOperateScope),
@@ -8950,7 +8952,7 @@ export default function ChatView(props: ChatViewProps) {
       );
     };
     if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
+      !readCanQueueComposerMessage(environmentId) ||
       !activeThread ||
       (pendingThreadCreation && !serverThread) ||
       isSendBusy ||
@@ -8979,7 +8981,7 @@ export default function ChatView(props: ChatViewProps) {
     }
     const sendCtx = composerRef.current?.getSendContext();
     if (activePendingProgress && sendCtx?.answeringPendingUserInput !== false) {
-      if (directAnnotation) {
+      if (directAnnotation || !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
         notifyDirectAnnotationAttached();
         return;
       }
@@ -10919,6 +10921,7 @@ export default function ChatView(props: ChatViewProps) {
                           {!composerMounted ? null : (
                             <ChatComposer
                               canOperateThread={canOperateThread}
+                              canQueueMessage={canQueueMessage}
                               reportedModelSelection={reportedModelSelection}
                               multipleModelSelections={
                                 outboxEditor.editing ? null : multipleModelSelections
@@ -10958,7 +10961,7 @@ export default function ChatView(props: ChatViewProps) {
                               canResume={resumableRunId !== null || hasHeldQueuedRuns}
                               isRevertingCheckpoint={isRevertingCheckpoint}
                               sendDisabledReason={
-                                !canOperateThread
+                                !canQueueMessage
                                   ? "This connection cannot change threads."
                                   : outboxEditor.editing
                                     ? null

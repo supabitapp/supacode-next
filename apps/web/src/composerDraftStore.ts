@@ -1266,6 +1266,23 @@ export function deriveEffectiveComposerModelState(input: {
   projectModelSelection: ModelSelection | null | undefined;
   settings: UnifiedSettings;
 }): EffectiveComposerModelState {
+  if (
+    input.selectedInstanceId &&
+    !input.providers.some((provider) => provider.instanceId === input.selectedInstanceId)
+  ) {
+    const savedSelection =
+      input.draft?.modelSelectionByProvider?.[input.selectedInstanceId] ??
+      (input.threadModelSelection?.instanceId === input.selectedInstanceId
+        ? input.threadModelSelection
+        : null) ??
+      (input.projectModelSelection?.instanceId === input.selectedInstanceId
+        ? input.projectModelSelection
+        : null);
+    return {
+      selectedModel: savedSelection?.model ?? "",
+      modelOptions: providerSelectionsFromModelSelection(savedSelection),
+    };
+  }
   const baseModelCandidate =
     input.threadModelSelection?.model ?? input.projectModelSelection?.model ?? null;
   const preserveThreadModel =
