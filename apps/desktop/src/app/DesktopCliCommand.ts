@@ -133,7 +133,7 @@ export const make = Effect.gen(function* () {
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(CommandResolutionCache, new Map()),
-      Effect.option,
+      Effect.map(Option.fromNullishOr),
     ),
   );
 
