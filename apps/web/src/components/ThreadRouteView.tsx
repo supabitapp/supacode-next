@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import ChatView from "./ChatView";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
 import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
+import { ThreadTimelineLoading } from "./chat/ThreadTimelineLoading";
 import { SidebarInset } from "./ui/sidebar";
 import {
   finalizePromotedDraftThreadByRef,
@@ -204,6 +205,8 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
         routeKind="server"
       />
     );
+  } else if (renderState === "loading") {
+    view = <ThreadTimelineLoading />;
   }
 
   return (

@@ -7,6 +7,7 @@ import {
 import { shouldPreserveAssistantLineBreaks } from "@supacode/shared/markdownPipeline";
 import { MarkdownFindContext, useFindRevealRef } from "./markdownFindContext";
 import { useChatCanvas } from "./ChatCanvasContext";
+import { ThreadTimelineLoading } from "./ThreadTimelineLoading";
 import { WorkLogBlock, WorkLogButton, WorkLogDetails, WorkLogList, WorkLogRow } from "./WorkLog";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
 import type { WorktreeSetupSnapshot } from "@supacode/contracts";
@@ -534,6 +535,7 @@ interface MessagesTimelineProps {
   findOpen?: boolean;
   cancelPositionRestoreRef?: React.RefObject<(() => void) | null> | undefined;
   hideEmptyPlaceholder?: boolean;
+  loading?: boolean;
   topFadeEnabled?: boolean;
   historyControls?: MessagesTimelineHistoryControls | undefined;
   /** Non-null when older turns exist beyond the loaded window. */
@@ -628,6 +630,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   onManualNavigation,
   cancelPositionRestoreRef,
   hideEmptyPlaceholder = false,
+  loading = false,
   topFadeEnabled = false,
   historyControls,
   loadEarlier = null,
@@ -1606,6 +1609,10 @@ const ConversationTimeline = memo(function ConversationTimeline({
     },
     [listRef],
   );
+
+  if (timelineEntries.length === 0 && loading) {
+    return <ThreadTimelineLoading bottomInset={contentInsetEndAdjustment} />;
+  }
 
   if (
     rows.length === 0 &&
