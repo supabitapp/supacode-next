@@ -2,12 +2,12 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*.*.*"
       - "!v*-nightly.*"
       - "!v*-preview.*"
+  schedule:
+    - cron: "8 */4 * * *"
   workflow_dispatch:
     inputs:
       channel:
@@ -24,14 +24,14 @@ on:
         required: false
         type: string
 
-# Serialize nightlies (push and manual) so overlapping runs cannot build
+# Serialize nightlies (scheduled and manual) so overlapping runs cannot build
 # the same commit twice or publish out of order. Stable tag releases get their
 # own group so a nightly never blocks them. Running publishers are never
 # canceled, and queue: max keeps every pending run instead of the default
 # newest-wins single slot, so a queued stable tag can never be silently
 # dropped. Automatic nightlies recheck for new commits after leaving the queue.
 concurrency:
-  group: release-${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.channel == 'nightly' || inputs.channel == 'preview') && 'nightly' || 'stable' }}
+  group: release-${{ (github.event_name == 'schedule' || inputs.channel == 'nightly' || inputs.channel == 'preview') && 'nightly' || 'stable' }}
   cancel-in-progress: false
   queue: max
 
@@ -76,8 +76,7 @@ jobs:
             } = require('./.github/scripts/check-nightly-release.cjs');
 
             const dispatchChannel = process.env.DISPATCH_CHANNEL || 'preview';
-            const automaticNightly = context.eventName === 'push' && context.ref === 'refs/heads/main';
-            const releaseChannel = automaticNightly
+            const releaseChannel = context.eventName === 'schedule'
               ? 'nightly'
               : context.eventName === 'workflow_dispatch'
                 ? dispatchChannel
@@ -85,7 +84,7 @@ jobs:
 
             await assertReleaseSource({ github, context, releaseChannel });
 
-            if (automaticNightly) {
+            if (context.eventName === 'schedule') {
               core.setOutput('has_changes', await shouldReleaseNightly({ github, context, core }));
               core.setOutput('ref', context.sha);
             } else if (context.eventName === 'workflow_dispatch' && dispatchChannel === 'stable') {
@@ -103,7 +102,7 @@ jobs:
     needs: [resolve_commit]
     if: |
       needs.resolve_commit.result == 'success' &&
-      needs.resolve_commit.outputs.has_changes != 'false'
+      (github.event_name != 'schedule' || needs.resolve_commit.outputs.has_changes == 'true')
     runs-on: depot-ubuntu-24.04-8
     timeout-minutes: 10
     outputs:
@@ -142,7 +141,7 @@ jobs:
           NIGHTLY_SHA: ${{ needs.resolve_commit.outputs.ref }}
           NIGHTLY_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          if [[ ( "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == "refs/heads/main" ) || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DISPATCH_CHANNEL:-preview}" == "nightly" ) ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DISPATCH_CHANNEL:-preview}" == "nightly" ) ]]; then
             nightly_date="$(date -u -d "$NIGHTLY_DATE" +%Y%m%d)"
 
             node scripts/resolve-nightly-release.ts \
