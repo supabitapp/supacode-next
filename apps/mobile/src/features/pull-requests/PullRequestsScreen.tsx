@@ -1,4 +1,5 @@
 import { WorkspaceDock } from "../workspace/WorkspaceDock";
+import { WorkspaceHeaderActions } from "../workspace/WorkspaceHeaderActions";
 import { useStartNewTask } from "../threads/use-start-new-task";
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -224,6 +225,16 @@ export function PullRequestsScreen(
     labels: knownFacets.environmentId === environmentId ? knownFacets.labels : facets.labels,
     projects,
   });
+  const headerFilterMenu = {
+    ...filterMenu,
+    onPressAction: (event: Parameters<typeof filterMenu.onPressAction>[0]) => {
+      filterMenu.onPressAction(event);
+      void listRef.current?.scrollToOffset({
+        offset: Platform.OS === "ios" ? -insets.top : 0,
+        animated: false,
+      });
+    },
+  };
   return (
     <View className={sidebar ? "flex-1 bg-drawer" : "flex-1 bg-screen"}>
       <LegendList
@@ -358,21 +369,16 @@ export function PullRequestsScreen(
           )
         }
       />
-      <WorkspaceDock
-        floating
-        showTabs={!props.sidebar}
-        onNewTask={startNewTask}
-        filterMenu={{
-          ...filterMenu,
-          onPressAction: (event) => {
-            filterMenu.onPressAction(event);
-            void listRef.current?.scrollToOffset({
-              offset: Platform.OS === "ios" ? -insets.top : 0,
-              animated: false,
-            });
-          },
-        }}
-      />
+      {Platform.OS === "ios" ? (
+        <WorkspaceHeaderActions filterMenu={headerFilterMenu} />
+      ) : (
+        <WorkspaceDock
+          floating
+          showTabs={!props.sidebar}
+          onNewTask={startNewTask}
+          filterMenu={headerFilterMenu}
+        />
+      )}
     </View>
   );
 }
