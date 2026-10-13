@@ -4,7 +4,7 @@ import {
   Group,
   Panel,
   Separator,
-  usePanelRef,
+  usePanelCallbackRef,
   type GroupProps,
   type PanelProps,
   type PanelSize,
@@ -26,8 +26,6 @@ const GROUP_ANIMATING_ATTRIBUTE = "data-panels-animating";
 interface ResizablePanelGroupContextValue {
   /** Runs after each layout change the user made by pointer or keyboard. */
   readonly subscribe: (listener: () => void) => () => void;
-  /** False while the group mounts; its imperative API is ready only once this flips. */
-  readonly mounted: React.RefObject<boolean>;
 }
 
 const ResizablePanelGroupContext = React.createContext<ResizablePanelGroupContextValue | null>(
@@ -36,13 +34,6 @@ const ResizablePanelGroupContext = React.createContext<ResizablePanelGroupContex
 
 function ResizablePanelGroup({ onLayoutChanged, ...props }: GroupProps) {
   const listeners = React.useRef(new Set<() => void>());
-  const mounted = React.useRef(false);
-  React.useLayoutEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
   const context = React.useMemo<ResizablePanelGroupContextValue>(
     () => ({
       subscribe: (listener) => {
@@ -51,7 +42,6 @@ function ResizablePanelGroup({ onLayoutChanged, ...props }: GroupProps) {
           listeners.current.delete(listener);
         };
       },
-      mounted,
     }),
     [],
   );
@@ -99,7 +89,7 @@ interface ResizablePanelWidthOptions {
   readonly minWidth: number;
   readonly maxWidth?: number | string | undefined;
   readonly open: boolean;
-  /** Mount collapsed and animate open, for panels that mount when they open. */
+  /** Animate open on mount, for panels that mount when they open. */
   readonly animateMount?: boolean | undefined;
   /** The user dragged the panel below its collapse threshold. */
   readonly onCollapse?: (() => void) | undefined;
@@ -131,8 +121,9 @@ function writeStoredWidth(storageKey: string | null, width: number | null) {
  * its handle. Width persists once per drag, not on every pointer move.
  */
 function useCollapsiblePanel(options: ResizablePanelWidthOptions) {
-  const { storageKey, defaultWidth, minWidth, maxWidth, open } = options;
-  const panelRef = usePanelRef();
+  const { storageKey, defaultWidth, minWidth, maxWidth, open, animateMount } = options;
+  // A callback ref re-runs the sync effect whenever the panel remounts.
+  const [panel, setPanel] = usePanelCallbackRef();
   const elementRef = React.useRef<HTMLDivElement | null>(null);
   const [stored, setStored] = React.useState(() => ({
     storageKey,
@@ -143,73 +134,86 @@ function useCollapsiblePanel(options: ResizablePanelWidthOptions) {
     setStored({ storageKey, width: readStoredWidth(storageKey, defaultWidth, minWidth) });
   }
   const width = stored.width;
+  // Changing defaultSize re-registers the panel, so it is fixed at mount.
+  const [defaultSize] = React.useState(defaultWidth);
 
   const latest = React.useRef({ ...options, width });
   React.useLayoutEffect(() => {
     latest.current = { ...options, width };
   });
 
-  const group = React.use(ResizablePanelGroupContext);
-  // The library re-registers a panel whenever defaultSize changes, so it only
-  // describes the mount; later changes go through the imperative API. A panel
-  // mounting with its group has no API yet, so it starts at its size instead.
-  const [mountOpen] = React.useState(
-    () => open && !(options.animateMount && group?.mounted.current),
-  );
-  const applied = React.useRef({ open: mountOpen, width });
-  // A panel registers with its group after its own effects, so imperative
-  // calls wait a frame; until then the panel shows its mount size.
-  const [ready, setReady] = React.useState(false);
-  React.useEffect(() => {
-    const frame = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  const applied = React.useRef<{ open: boolean; width: number } | null>(null);
   const endToggle = React.useRef<(() => void) | null>(null);
+  const mountFrame = React.useRef(0);
   React.useLayoutEffect(() => {
-    const panel = panelRef.current;
     const element = elementRef.current;
-    if (!ready || !panel || !element) return;
+    if (!panel || !element) return;
     element.style.setProperty(PANEL_WIDTH_PROPERTY, `${width}px`);
     const previous = applied.current;
-    if (previous.open === open && previous.width === width) return;
     applied.current = { open, width };
-    if (previous.open !== open && panel.isCollapsed() === open) {
+    if (previous === null) {
+      // This hook runs inside the group, so its effects precede the group's
+      // registration of the panel; the first sync waits for the commit to finish.
+      let pending = true;
+      queueMicrotask(() => {
+        if (!pending) return;
+        pending = false;
+        if (!open) {
+          panel.collapse();
+        } else if (animateMount) {
+          panel.collapse();
+          // Paint the collapsed frame first so the open has somewhere to animate from.
+          mountFrame.current = requestAnimationFrame(() => {
+            const current = latest.current;
+            if (!current.open) return;
+            endToggle.current = animateToggle(element);
+            panel.resize(current.width);
+          });
+        } else {
+          panel.resize(width);
+        }
+      });
+      return () => {
+        if (pending) applied.current = null;
+        pending = false;
+      };
+    }
+    if (previous.open === open && previous.width === width) return;
+    if (previous.open !== open) {
       endToggle.current?.();
       endToggle.current = animateToggle(element);
     }
     if (open) panel.resize(width);
     else panel.collapse();
-  }, [open, panelRef, ready, width]);
-  React.useEffect(() => () => endToggle.current?.(), []);
+  }, [animateMount, open, panel, width]);
+  React.useEffect(
+    () => () => {
+      cancelAnimationFrame(mountFrame.current);
+      endToggle.current?.();
+    },
+    [],
+  );
 
-  const subscribe = group?.subscribe;
-  React.useEffect(() => {
-    if (!subscribe) return;
-    let frame = 0;
-    const commit = () => {
-      const panel = panelRef.current;
-      const current = latest.current;
-      if (!panel || !current.open) return;
-      if (panel.isCollapsed()) {
-        current.onCollapse?.();
-        return;
-      }
-      const nextWidth = Math.round(panel.getSize().inPixels);
-      if (nextWidth === current.width) return;
-      applied.current = { open: true, width: nextWidth };
-      setStored({ storageKey: current.storageKey, width: nextWidth });
-      writeStoredWidth(current.storageKey, nextWidth);
-    };
-    // Keyboard resizes report before the panels re-render, so measure a frame later.
-    const unsubscribe = subscribe(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(commit);
-    });
-    return () => {
-      unsubscribe();
-      cancelAnimationFrame(frame);
-    };
-  }, [panelRef, subscribe]);
+  const subscribe = React.use(ResizablePanelGroupContext)?.subscribe;
+  React.useEffect(
+    () =>
+      subscribe?.(() => {
+        const group = elementRef.current?.parentElement;
+        const current = latest.current;
+        if (!panel || !group || !current.open) return;
+        if (panel.isCollapsed()) {
+          current.onCollapse?.();
+          return;
+        }
+        // The layout is current here but the DOM has not re-rendered yet, so derive pixels from it.
+        const nextWidth = Math.round((panel.getSize().asPercentage / 100) * group.offsetWidth);
+        if (nextWidth === current.width) return;
+        applied.current = { open: true, width: nextWidth };
+        setStored({ storageKey: current.storageKey, width: nextWidth });
+        writeStoredWidth(current.storageKey, nextWidth);
+      }),
+    [panel, subscribe],
+  );
 
   // Sizes are measured, so a toggle reports every animated frame; keep the pinned width.
   const onResize = React.useCallback((size: PanelSize) => {
@@ -223,14 +227,14 @@ function useCollapsiblePanel(options: ResizablePanelWidthOptions) {
     writeStoredWidth(current.storageKey, null);
     applied.current = { open: current.open, width: current.defaultWidth };
     setStored({ storageKey: current.storageKey, width: current.defaultWidth });
-    if (current.open) panelRef.current?.resize(current.defaultWidth);
-  }, [panelRef]);
+    if (current.open) panel?.resize(current.defaultWidth);
+  }, [panel]);
 
   return {
     panelProps: {
-      panelRef,
+      panelRef: setPanel,
       elementRef,
-      defaultSize: mountOpen ? width : 0,
+      defaultSize,
       minSize: minWidth,
       ...(maxWidth !== undefined ? { maxSize: maxWidth } : {}),
       collapsible: true,
