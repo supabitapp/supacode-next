@@ -29,10 +29,14 @@ import { followStreamInEnvironment } from "./runtime.ts";
 import { vcsCommandConcurrency, vcsCommandScheduler } from "./vcsCommandScheduler.ts";
 import {
   invalidateCachedVcsRefs,
-  invalidateVcsRefs,
+  invalidateVcsRefsWithLock,
+  markVcsRefsRefreshPending,
   vcsRefsCacheStateAtom,
+  vcsRefsLiveRevisionAtom,
   withVcsRefsPersistenceLock,
 } from "./vcsRefInvalidation.ts";
+
+export { vcsRefsCacheStateAtom, vcsRefsLiveRevisionAtom } from "./vcsRefInvalidation.ts";
 
 const OFFLINE_BRANCH_LIST_LIMIT = 100;
 const VCS_REFS_IDLE_TTL_MS = 30_000;
@@ -102,13 +106,18 @@ export const commitVcsRefsRefresh = Effect.fn("CachedVcsRefsState.commitRefresh"
             ),
           ),
         );
-        if (persistedCacheReadable !== state.persistedCacheReadable) {
-          registry.update(stateAtom, (current) =>
-            current.revision === input.expectedRevision
-              ? { ...current, persistedCacheReadable }
-              : current,
-          );
-        }
+      }
+      registry.update(stateAtom, (current) =>
+        current.revision === input.expectedRevision &&
+        current.persistedCacheReadable !== persistedCacheReadable
+          ? { ...current, persistedCacheReadable }
+          : current,
+      );
+      if (input.persist) {
+        registry.update(
+          vcsRefsLiveRevisionAtom({ environmentId: input.environmentId, cwd: input.cwd }),
+          (current) => (current === input.expectedRevision ? current : input.expectedRevision),
+        );
       }
       return true;
     }),
@@ -131,6 +140,9 @@ export const makeCachedVcsRefsChanges = Effect.fn("CachedVcsRefsState.makeChange
   const cache = yield* Persistence.EnvironmentCacheStore;
   const environmentId = supervisor.target.environmentId;
   const useCache = canUseVcsRefsCache(input);
+  if (useCache && expectedRevision !== undefined && registry !== undefined) {
+    yield* markVcsRefsRefreshPending(registry, { environmentId, cwd: input.cwd }, expectedRevision);
+  }
   const cached =
     useCache && persistedCacheReadable
       ? yield* cache.loadVcsRefs(environmentId, input.cwd).pipe(
@@ -279,12 +291,9 @@ export function createVcsEnvironmentAtoms<R, E>(
       cwd: target.input.cwd,
     });
   const refreshRefs = (
-    _target: { readonly environmentId: EnvironmentId; readonly input: { readonly cwd: string } },
+    target: { readonly environmentId: EnvironmentId; readonly input: { readonly cwd: string } },
     registry: AtomRegistry.AtomRegistry,
-  ) =>
-    Effect.sync(() => {
-      invalidateVcsRefs(registry, { environmentId: _target.environmentId });
-    });
+  ) => invalidateVcsRefsWithLock(registry, target);
 
   return {
     listRefs,

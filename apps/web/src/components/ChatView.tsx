@@ -7099,15 +7099,18 @@ export default function ChatView(props: ChatViewProps) {
     environmentId,
     cwd: isSelectingWorktreeBase && !selectedThreadBranch ? gitStatusCwd : null,
   });
+  const worktreeBaseRefsLoading =
+    worktreeBaseRefs.isRefreshing ||
+    (worktreeBaseRefs.data === null && worktreeBaseRefs.error === null);
   const activeThreadBranch = isSelectingWorktreeBase
     ? resolveWorktreeBaseBranch({
         selectedBranch: selectedThreadBranch,
         refs: worktreeBaseRefs.refs,
-        refsLoading: worktreeBaseRefs.data === null && worktreeBaseRefs.error === null,
+        refsLoading: worktreeBaseRefsLoading,
         currentGitBranch: gitStatusQuery.data?.refName ?? null,
       })
     : selectedThreadBranch;
-  const worktreeBaseRefsSettled = worktreeBaseRefs.data !== null;
+  const worktreeBaseRefsSettled = worktreeBaseRefs.data !== null && !worktreeBaseRefs.isRefreshing;
   const localCheckoutBranchMismatch = useMemo(
     () =>
       isServerThread

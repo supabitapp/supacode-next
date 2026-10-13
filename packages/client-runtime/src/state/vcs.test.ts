@@ -7,6 +7,7 @@ import {
   type VcsListRefsResult,
 } from "@supacode/contracts";
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -38,7 +39,9 @@ import {
 import {
   invalidateCachedVcsRefs,
   invalidateVcsRefs,
+  invalidateVcsRefsWithLock,
   vcsRefsCacheStateAtom,
+  vcsRefsLiveRevisionAtom,
 } from "./vcsRefInvalidation.ts";
 
 const TARGET = new PrimaryConnectionTarget({
@@ -344,6 +347,92 @@ describe("cached VCS refs", () => {
         expect(AsyncResult.isSuccess(refreshResult)).toBe(true);
         expect(yield* Ref.get(clears)).toBe(1);
         expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(2);
+      }),
+    ),
+  );
+
+  it.effect("serializes status invalidation after an in-flight ref cache write", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), (registry) =>
+          Effect.sync(() => registry.dispose()),
+        );
+        const saveStarted = yield* Deferred.make<void>();
+        const allowSave = yield* Deferred.make<void>();
+        const saved = yield* Ref.make<ReadonlyArray<VcsListRefsResult>>([]);
+        const cache = cacheWithRefs(Option.none(), {
+          saveVcsRefs: (_environmentId, _cwd, refs) =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(saveStarted, undefined);
+              yield* Deferred.await(allowSave);
+              yield* Ref.update(saved, (current) => [...current, refs]);
+            }),
+        });
+        const commit = yield* Effect.forkChild(
+          commitVcsRefsRefresh(registry, cache, {
+            environmentId: TARGET.environmentId,
+            cwd: "/repo",
+            refs: LIVE_REFS,
+            expectedRevision: 0,
+            persist: true,
+          }),
+        );
+        yield* Deferred.await(saveStarted);
+        const invalidate = yield* Effect.forkChild(invalidateVcsRefsWithLock(registry, TARGET));
+        yield* Effect.yieldNow;
+        expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(0);
+        yield* Deferred.succeed(allowSave, undefined);
+        expect(yield* Fiber.join(commit)).toBe(true);
+        yield* Fiber.join(invalidate);
+        expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(1);
+        expect(yield* Ref.get(saved)).toEqual([LIVE_REFS]);
+      }),
+    ),
+  );
+
+  it.effect("tracks live revisions per cacheable repository ref list", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), (registry) =>
+          Effect.sync(() => registry.dispose()),
+        );
+        const cache = cacheWithRefs(Option.none());
+        yield* invalidateVcsRefsWithLock(registry, TARGET);
+
+        expect(
+          yield* commitVcsRefsRefresh(registry, cache, {
+            environmentId: TARGET.environmentId,
+            cwd: "/repo",
+            refs: LIVE_REFS,
+            expectedRevision: 1,
+            persist: false,
+          }),
+        ).toBe(true);
+        expect(
+          registry.get(
+            vcsRefsLiveRevisionAtom({ environmentId: TARGET.environmentId, cwd: "/repo" }),
+          ),
+        ).toBe(-1);
+
+        expect(
+          yield* commitVcsRefsRefresh(registry, cache, {
+            environmentId: TARGET.environmentId,
+            cwd: "/repo",
+            refs: LIVE_REFS,
+            expectedRevision: 1,
+            persist: true,
+          }),
+        ).toBe(true);
+        expect(
+          registry.get(
+            vcsRefsLiveRevisionAtom({ environmentId: TARGET.environmentId, cwd: "/repo" }),
+          ),
+        ).toBe(1);
+        expect(
+          registry.get(
+            vcsRefsLiveRevisionAtom({ environmentId: TARGET.environmentId, cwd: "/other" }),
+          ),
+        ).toBe(-1);
       }),
     ),
   );
