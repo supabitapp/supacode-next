@@ -129,6 +129,36 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
     }).pipe(Effect.provide(Layer.merge(TestClock.layer(), layerResolver)));
   });
 
+  it.effect("resolves a remote annotated by Git partial-clone metadata", () => {
+    const layerProcessRunner = Layer.succeed(ProcessRunner.ProcessRunner, {
+      run: (input) =>
+        Effect.succeed({
+          stdout: input.args.includes("rev-parse")
+            ? "/repo\n"
+            : "origin\thttps://github.com/acme/repo.git (fetch) [blob:none]\n",
+          stderr: "",
+          code: ChildProcessSpawner.ExitCode(0),
+          timedOut: false,
+          stdoutTruncated: false,
+          stderrTruncated: false,
+          stdoutInvalidUtf8: false,
+          stderrInvalidUtf8: false,
+        }),
+    });
+    const layerResolver = Layer.effect(
+      RepositoryIdentityResolver.RepositoryIdentityResolver,
+      RepositoryIdentityResolver.make(),
+    ).pipe(Layer.provide(layerProcessRunner));
+
+    return Effect.gen(function* () {
+      const resolver = yield* RepositoryIdentityResolver.RepositoryIdentityResolver;
+      const identity = yield* resolver.resolve("/repo");
+
+      expect(identity?.canonicalKey).toBe("github.com/acme/repo");
+      expect(identity?.locator.remoteName).toBe("origin");
+    }).pipe(Effect.provide(layerResolver));
+  });
+
   it.effect("retries Git root discovery after the negative TTL", () => {
     const calls: Array<ReadonlyArray<string>> = [];
     let rootAttempts = 0;

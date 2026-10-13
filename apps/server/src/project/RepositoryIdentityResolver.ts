@@ -2,6 +2,7 @@ import type { RepositoryIdentity, SourceControlProviderError } from "@supacode/c
 import {
   detectSourceControlProviderFromGitRemoteUrl,
   normalizeGitRemoteUrl,
+  parseGitRemoteVerboseOutput,
 } from "@supacode/shared/git";
 import * as Cache from "effect/Cache";
 import * as Context from "effect/Context";
@@ -38,22 +39,6 @@ export class RepositoryIdentityResolver extends Context.Service<
     ) => Effect.Effect<RepositoryIdentity | null>;
   }
 >()("supacode/project/RepositoryIdentityResolver") {}
-
-function parseRemoteFetchUrls(stdout: string): Map<string, string> {
-  const remotes = new Map<string, string>();
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) continue;
-    const match = /^(\S+)\s+(\S+)\s+\((fetch|push)\)$/.exec(trimmed);
-    if (!match) continue;
-    const [, remoteName = "", remoteUrl = "", direction = ""] = match;
-    if (direction !== "fetch" || remoteName.length === 0 || remoteUrl.length === 0) {
-      continue;
-    }
-    remotes.set(remoteName, remoteUrl);
-  }
-  return remotes;
-}
 
 function pickPrimaryRemote(
   remotes: ReadonlyMap<string, string>,
@@ -154,7 +139,11 @@ const resolveRepositoryIdentityFromCacheKey = Effect.fn(
     return null;
   }
 
-  const remotes = parseRemoteFetchUrls(remoteResult.value.stdout);
+  const remotes = new Map(
+    parseGitRemoteVerboseOutput(remoteResult.value.stdout)
+      .filter((remote) => remote.direction === "fetch")
+      .map((remote) => [remote.name, remote.url]),
+  );
   const remote = pickPrimaryRemote(remotes);
   return remote
     ? buildRepositoryIdentity({ ...remote, originUrl: remotes.get("origin"), rootPath: cacheKey })

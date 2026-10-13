@@ -32,6 +32,7 @@ import {
 import {
   dedupeRemoteBranchesWithLocalMatches,
   normalizeGitRemoteUrl,
+  parseGitRemoteVerboseOutput,
   resolveAvailableGitBranchName,
 } from "@supacode/shared/git";
 import * as HostProcess from "@supacode/shared/HostProcess";
@@ -349,22 +350,6 @@ function sanitizeRemoteName(value: string): string {
     .replace(/[^A-Za-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return sanitized.length > 0 ? sanitized : "fork";
-}
-
-function parseRemoteFetchUrls(stdout: string): Map<string, string> {
-  const remotes = new Map<string, string>();
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) continue;
-    const match = /^(\S+)\s+(\S+)\s+\((fetch|push)\)$/.exec(trimmed);
-    if (!match) continue;
-    const [, remoteName = "", remoteUrl = "", direction = ""] = match;
-    if (direction !== "fetch" || remoteName.length === 0 || remoteUrl.length === 0) {
-      continue;
-    }
-    remotes.set(remoteName, remoteUrl);
-  }
-  return remotes;
 }
 
 function parseUpstreamRefWithRemoteNames(
@@ -1642,7 +1627,16 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
       "GitVcsDriver.ensureRemote.listRemoteUrls",
       input.cwd,
       ["remote", "-v"],
-    ).pipe(Effect.map((stdout) => parseRemoteFetchUrls(stdout)));
+    ).pipe(
+      Effect.map(
+        (stdout) =>
+          new Map(
+            parseGitRemoteVerboseOutput(stdout)
+              .filter((remote) => remote.direction === "fetch")
+              .map((remote) => [remote.name, remote.url]),
+          ),
+      ),
+    );
 
     for (const [remoteName, remoteUrl] of remoteFetchUrls.entries()) {
       if (normalizeGitRemoteUrl(remoteUrl) === normalizedTargetUrl) {

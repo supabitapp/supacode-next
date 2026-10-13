@@ -238,6 +238,30 @@ export function normalizeGitRemoteUrl(value: string): string {
   return normalized;
 }
 
+export type GitRemoteDirection = "fetch" | "push";
+
+export interface GitRemoteVerboseEntry {
+  readonly name: string;
+  readonly url: string;
+  readonly direction: GitRemoteDirection;
+}
+
+export function parseGitRemoteVerboseOutput(output: string): ReadonlyArray<GitRemoteVerboseEntry> {
+  const remotes: GitRemoteVerboseEntry[] = [];
+  for (const line of output.split("\n")) {
+    const match = /^(\S+)\s+(.+?)\s+\((fetch|push)\)(?:\s+.*)?$/u.exec(line.trim());
+    if (!match) continue;
+    const [, name, url, direction] = match;
+    if (!name || !url || !direction) continue;
+    remotes.push({
+      name,
+      url,
+      direction: direction as GitRemoteDirection,
+    });
+  }
+  return remotes;
+}
+
 /**
  * Unquote a git config value: strip an inline `#` or `;` comment outside
  * quotes, then drop surrounding quotes and backslash escapes.
