@@ -145,10 +145,24 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Build Android showcase APK
+        working-directory: apps/mobile
+        env:
+          APP_VARIANT: production
+          EXPO_NO_GIT_STATUS: "1"
+          SUPACODE_SHOWCASE_CAPTURE_BUILD: "1"
+          NODE_ENV: development
+          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2
+        run: |
+          free -m
+          pnpm exec expo prebuild --clean --platform android
+          cd android
+          ./gradlew app:assembleDebug "-PreactNativeArchitectures=$SUPACODE_SHOWCASE_ANDROID_ABI"
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          free -m
+
       - name: Capture Android showcase
         uses: reactivecircus/android-emulator-runner@v2
-        env:
-          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2
         with:
           api-level: 36
           target: google_apis
@@ -160,7 +174,7 @@ jobs:
           disable-animations: false
           script: |
             adb shell settings put global hide_error_dialogs 1
-            pnpm screenshots:mobile --platform android --appearance "${{ inputs.appearance }}" --theme "${{ inputs.theme }}"
+            pnpm screenshots:mobile --platform android --appearance "${{ inputs.appearance }}" --theme "${{ inputs.theme }}" --skip-build
 
       - name: Validate Google Play assets
         run: pnpm screenshots:mobile --platform android --appearance "${{ inputs.appearance }}" --theme "${{ inputs.theme }}" --validate-only
