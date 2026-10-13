@@ -14,6 +14,17 @@
   }
 }
 
+/* Collapsible resizable panels animate only an explicit open or close. Their content keeps
+   its last expanded width so it slides with the edge instead of reflowing every frame. */
+[data-panel-animations="true"][data-panels-animating] > [data-panel],
+[data-panel-animations="true"] [data-panels-animating] > [data-panel] {
+  transition: flex-grow var(--panel-animation-duration) var(--ease-drawer);
+}
+
+[data-panel][data-panel-toggling] > * > * {
+  min-width: var(--resizable-panel-width);
+}
+
 /* On mobile, morph the expanded hero composer into the compact docked
    composer while it moves; the rest of the app remains visually stationary. */
 html[data-mobile-composer-route-transition="true"]::view-transition-old(root),

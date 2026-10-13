@@ -510,9 +510,6 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     ? 0
     : Math.max(insets.bottom, 12);
   const contentPresentationKind = props.contentPresentation.kind;
-  // The raw sync status enters "synchronizing" on every full fetch, cached or
-  // not. Whether messages are already on screen decides the pill label: no
-  // data yet → "Loading messages", cached data reconciling → "Syncing".
   const realThreadSyncLabel = (() => {
     switch (props.threadSyncStatus) {
       case "empty":
@@ -521,7 +518,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
         if (contentPresentationKind === "ready") {
           return "Syncing messages...";
         }
-        return contentPresentationKind === "loading" ? "Loading messages..." : null;
+        return null;
       default:
         return null;
     }
@@ -536,9 +533,6 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
       props.connectionStateLabel === "unsupported" ||
       props.connectionStateLabel === "available",
   );
-  // One floating pill above the composer: it reads the connection phase while
-  // disconnected, the sync state while messages load, then the working timer
-  // once the feed is settled.
   // The shell's roster is the server's post-settlement view of what still runs.
   const pendingBackgroundWork = presentPendingBackgroundWork(
     props.selectedThread.pendingBackgroundTasks,
