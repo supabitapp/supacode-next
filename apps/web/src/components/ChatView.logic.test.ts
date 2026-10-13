@@ -10,6 +10,7 @@ import {
   type ServerProvider,
 } from "@supacode/contracts";
 import { deriveProviderInstanceEntries, NO_PROVIDER_MODEL_SELECTION } from "../providerInstances";
+import { headlineUsageWindows } from "@supacode/shared/usageLimits";
 import type { RightPanelSurface } from "../rightPanelStore";
 import {
   CommandId,
@@ -1323,6 +1324,55 @@ describe("resolveComposerProviderSelection", () => {
       itemCount: 1,
     });
   }
+
+  it.each([true, false])(
+    "follows model selections for usage limits only when the started thread supports handoff (%s)",
+    (supportsProviderSwitchingViaHandoff) => {
+      const original = entry("codex", "codex_work", {
+        usageLimits: {
+          checkedAt: now,
+          windows: [{ id: "session", kind: "session", label: "Session", usedPercent: 20 }],
+        },
+      });
+      const other = entry("claudeAgent", "claude_work", {
+        usageLimits: {
+          checkedAt: now,
+          windows: [{ id: "session", kind: "session", label: "Session", usedPercent: 70 }],
+        },
+      });
+      const entries = [original, other];
+      const thread = makeThread({
+        modelSelection: { instanceId: original.instanceId, model: "default" },
+        runtime: {
+          ...readySession,
+          providerName: original.driverKind,
+          providerInstanceId: original.instanceId,
+        },
+      });
+
+      for (const selected of [other, original]) {
+        const lockedProvider = deriveLockedProvider({
+          thread,
+          selectedProvider: selected.instanceId,
+          threadProvider: original.instanceId,
+          providers: entries.map((entry) => entry.snapshot),
+          supportsProviderSwitchingViaHandoff,
+        });
+        const { selectedProviderEntry } = resolveComposerProviderSelection({
+          entries,
+          candidateInstanceIds: [selected.instanceId, thread.runtime?.providerInstanceId],
+          lockedProvider,
+          lockedInstanceId: thread.runtime?.providerInstanceId,
+        });
+        const expected = supportsProviderSwitchingViaHandoff ? selected : original;
+
+        expect(selectedProviderEntry?.instanceId).toBe(expected.instanceId);
+        expect(headlineUsageWindows(selectedProviderEntry?.snapshot ?? null)).toEqual(
+          headlineUsageWindows(expected.snapshot),
+        );
+      }
+    },
+  );
 
   it.each([
     ["claudeAgent", "claude_work"],

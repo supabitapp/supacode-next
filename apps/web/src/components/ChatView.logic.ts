@@ -950,8 +950,9 @@ export function deriveLockedProvider(input: {
   selectedProvider: string | null;
   threadProvider: string | null;
   providers: ReadonlyArray<Pick<ServerProvider, "instanceId" | "driver">>;
+  supportsProviderSwitchingViaHandoff?: boolean;
 }): ProviderDriverKind | null {
-  if (!threadHasStarted(input.thread)) {
+  if (input.supportsProviderSwitchingViaHandoff || !threadHasStarted(input.thread)) {
     return null;
   }
   const sessionProvider = input.thread?.runtime?.providerName ?? null;

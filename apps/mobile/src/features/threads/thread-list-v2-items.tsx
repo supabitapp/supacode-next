@@ -97,8 +97,8 @@ const STATUS_LABEL_BY_STATUS: Partial<Record<ThreadListV2Status, StatusLabel>> =
   waiting: {
     label: "Waiting",
     icon: "circle.dashed",
-    className: "text-adaptive-sky-600-400",
-    iconTintClassName: "accent-adaptive-sky-600-400",
+    className: "text-foreground-muted",
+    iconTintClassName: "accent-foreground-muted",
   },
   failed: {
     label: "Failed",
@@ -705,10 +705,12 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           ...rowStatusLabel,
           icon: statusAppearance?.icon ?? ("wifi.slash" as const),
           iconTintClassName:
-            statusAppearance?.iconTintClassName ??
-            (selected
-              ? selectedThreadRowColors.iconTintClassName
-              : rowAppearance.mutedIconTintClassName),
+            status === "waiting"
+              ? rowAppearance.mutedIconTintClassName
+              : (statusAppearance?.iconTintClassName ??
+                (selected
+                  ? selectedThreadRowColors.iconTintClassName
+                  : rowAppearance.mutedIconTintClassName)),
         };
   const recede = environmentConnected && shouldRecedeThreadRow({ status, selected });
   // The timestamp is precomputed on the list item (same stamps the settled

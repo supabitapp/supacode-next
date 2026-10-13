@@ -1627,25 +1627,22 @@ export function NewTaskDraftScreen(props: {
         <Text className="text-center text-2xl font-supacode-medium tracking-tight text-foreground">
           What should we build
         </Text>
-        <View className="max-w-full flex-row items-center justify-center">
-          <Text className="text-2xl font-supacode-medium tracking-tight text-foreground">in </Text>
-          <Pressable
-            accessibilityHint="Opens the project picker"
-            accessibilityLabel={selectedProjectLabel ?? selectedProject.title}
-            accessibilityRole="button"
-            disabled={isComposerInteractionLocked}
-            onPress={chooseProject}
-            className="min-w-0 max-w-[250px] border-b border-foreground-muted active:opacity-65"
-          >
-            <Text
-              className="text-2xl font-supacode-medium tracking-tight text-foreground"
-              numberOfLines={1}
-            >
+        <Pressable
+          accessibilityHint="Opens the project picker"
+          accessibilityLabel={selectedProjectLabel ?? selectedProject.title}
+          accessibilityRole="button"
+          disabled={isComposerInteractionLocked}
+          onPress={chooseProject}
+          className="max-w-full active:opacity-65"
+        >
+          <Text className="text-center text-2xl font-supacode-medium tracking-tight text-foreground">
+            in{" "}
+            <Text className="font-supacode-medium underline">
               {selectedProjectLabel ?? selectedProject.title}
             </Text>
-          </Pressable>
-          <Text className="text-2xl font-supacode-medium tracking-tight text-foreground">?</Text>
-        </View>
+            ?
+          </Text>
+        </Pressable>
       </View>
 
       {environmentControl}

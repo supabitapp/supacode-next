@@ -70,6 +70,8 @@ export function hasDismissedResumeCompaction(
     turn would re-read all of it uncached. */
 export function shouldOfferResumeCompaction(input: {
   readonly provider: string | null | undefined;
+  readonly selectedInstanceId: ProviderInstanceId | null;
+  readonly sessionInstanceId: ProviderInstanceId | null | undefined;
   readonly usedTokens: number | null | undefined;
   readonly updatedAt: string | null | undefined;
   readonly promptCacheTtlMs?: number | undefined;
@@ -77,6 +79,8 @@ export function shouldOfferResumeCompaction(input: {
 }): boolean {
   if (
     input.provider !== "claudeAgent" ||
+    input.sessionInstanceId == null ||
+    input.sessionInstanceId !== input.selectedInstanceId ||
     (input.usedTokens ?? 0) < CLAUDE_RESUME_COMPACTION_TOKENS
   ) {
     return false;
