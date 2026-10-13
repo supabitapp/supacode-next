@@ -35,6 +35,7 @@ export function WorkspaceDock(props: WorkspaceDockProps) {
     if (active) setDockHeight(height);
   }, [active, height, setDockHeight]);
   const { themeAppearance } = useAppearancePreferences();
+  if (!active) return null;
   return (
     <WorkspaceDockFrame floating={props.floating}>
       <NativeDock
