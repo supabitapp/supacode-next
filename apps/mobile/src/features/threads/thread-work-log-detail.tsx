@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import type { EnvironmentId } from "@supacode/contracts";
 import { withOccurrenceKeys } from "@supacode/shared/occurrenceKeys";
+import { isJavaScriptReplTool } from "@supacode/shared/toolActivity";
 import {
   toolCallLines,
   turnItemOutputImages,
@@ -18,8 +19,40 @@ import type { MarkdownImageRenderer } from "../../native/SelectableMarkdownText"
 import { cn } from "../../lib/cn";
 import { formatItemFullDetail, type ThreadFeedActivity } from "../../lib/threadActivity";
 import { useTurnItemDetail } from "../../state/queries";
+import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
 import { QuestionAnswerHistory } from "./QuestionAnswerHistory";
 import { ThreadMarkdownImage } from "./ThreadMarkdownImage";
+
+function ReplCodeText(props: { readonly code: string; readonly theme: "light" | "dark" }) {
+  const lines = useMarkdownCodeHighlight({
+    code: props.code,
+    language: "typescript",
+    theme: props.theme,
+    enabled: true,
+  });
+  let offset = 0;
+  const highlighted = lines?.flatMap((line, lineIndex) => {
+    const separator = lineIndex > 0 ? "\n" : "";
+    offset += separator.length;
+    return [
+      separator,
+      ...line.map((token) => {
+        const start = offset;
+        offset += token.content.length;
+        return (
+          <Text key={start} style={token.color ? { color: token.color } : undefined}>
+            {token.content}
+          </Text>
+        );
+      }),
+    ];
+  });
+  return (
+    <Text selectable className="font-mono text-2xs leading-normal text-foreground">
+      {highlighted ?? props.code}
+    </Text>
+  );
+}
 
 /** Mounted by MotionPresence, so fetched output survives a closing or reversed fade. */
 export function ThreadWorkLogDetail(props: {
@@ -28,6 +61,7 @@ export function ThreadWorkLogDetail(props: {
   readonly renderImage: MarkdownImageRenderer;
   readonly renderReasoning: (text: string) => ReactNode;
   readonly onPressPreview: (source: FilePreviewSource) => void;
+  readonly themeAppearance: "light" | "dark";
 }) {
   const { row } = props;
   const fetchedDetail = useTurnItemDetail(
@@ -110,19 +144,34 @@ export function ThreadWorkLogDetail(props: {
           withOccurrenceKeys(
             [
               call.command,
-              ...(call.args ?? []).map(([key, value]) => `${key} ${value}`),
+              ...(call.args ?? []).map(([key, value]) =>
+                key === "code" &&
+                shownItem.type === "dynamic_tool" &&
+                isJavaScriptReplTool(shownItem.toolName)
+                  ? { label: key, code: value }
+                  : `${key} ${value}`,
+              ),
               call.argsText,
             ].flatMap((line) => (line ? [line] : [])),
-            (line) => line,
-          ).map(({ item: line, key }) => (
-            <Text
-              key={key}
-              selectable
-              className="font-mono text-2xs leading-normal text-foreground"
-            >
-              {line}
-            </Text>
-          ))
+            (line) => (typeof line === "string" ? line : `${line.label} ${line.code}`),
+          ).map(({ item: line, key }) =>
+            typeof line === "string" ? (
+              <Text
+                key={key}
+                selectable
+                className="font-mono text-2xs leading-normal text-foreground"
+              >
+                {line}
+              </Text>
+            ) : (
+              <View key={key}>
+                <Text className="font-mono text-2xs leading-normal text-foreground-muted">
+                  {line.label}
+                </Text>
+                <ReplCodeText code={line.code} theme={props.themeAppearance} />
+              </View>
+            ),
+          )
         ) : fullDetail ? (
           <Text selectable className="font-mono text-2xs leading-normal text-foreground-muted">
             {fullDetail}

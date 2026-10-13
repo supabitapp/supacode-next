@@ -55,6 +55,7 @@ import { toolActivityFaviconUrl } from "@supacode/shared/favicon";
 
 import { AppText as Text } from "../../components/AppText";
 import { SupacodeMark } from "../../components/SupacodeMark";
+import { BrowserAppIcon } from "../../components/BrowserAppIcon";
 import { cn } from "../../lib/cn";
 import { THREAD_WORK_ROW_MIN_HEIGHT, type deriveThreadWorkLogSizing } from "../../lib/layout";
 import {
@@ -92,7 +93,13 @@ const SHIMMER_WIDTH = 72;
 const SHIMMER_SWEEP_MS = 1_350;
 const SHIMMER_PAUSE_MS = 1_450;
 const SHIMMER_ICON_AND_GAP_WIDTH = 30;
-type WorkContentIcon = AppSymbolName | "browser" | "device" | "supacode" | "pull-request";
+type WorkContentIcon =
+  | AppSymbolName
+  | "browser"
+  | "computer"
+  | "device"
+  | "supacode"
+  | "pull-request";
 
 function WorkLogIcon(props: {
   readonly icon: WorkContentIcon;
@@ -105,6 +112,14 @@ function WorkLogIcon(props: {
     return (
       <SupacodeMark
         height={10}
+        {...(colorClassName ? { colorClassName } : { color: props.color })}
+      />
+    );
+  }
+  if (props.icon === "computer") {
+    return (
+      <BrowserAppIcon
+        size={14}
         {...(colorClassName ? { colorClassName } : { color: props.color })}
       />
     );
@@ -311,7 +326,7 @@ export function ShimmeringWorkContent(props: {
   );
 }
 
-function workRowSymbolName(icon: ThreadFeedActivity["icon"]): AppSymbolName {
+function workRowSymbolName(icon: ThreadFeedActivity["icon"]): WorkContentIcon {
   switch (icon) {
     case "agent":
       return { ios: "sparkles", android: "auto_awesome" };
@@ -324,7 +339,9 @@ function workRowSymbolName(icon: ThreadFeedActivity["icon"]): AppSymbolName {
     case "command":
       return { ios: "terminal", android: "terminal" };
     case "computer":
-      return { ios: "desktopcomputer", android: "desktop_windows" };
+      return "computer";
+    case "code":
+      return "chevron.left.forwardslash.chevron.right";
     case "edit":
       return { ios: "square.and.pencil", android: "edit" };
     case "eye":
@@ -1025,6 +1042,7 @@ const ThreadWorkLogRow = memo(function ThreadWorkLogRow(
             renderImage={props.renderImage}
             renderReasoning={props.renderReasoning}
             onPressPreview={props.onPressPreview}
+            themeAppearance={props.themeAppearance}
           />
         )}
       </MotionPresence>

@@ -35,7 +35,11 @@ import {
 import { SKILL_MENTION_PATTERN } from "@supacode/shared/composerInlineTokens";
 import { AgentScope } from "@supacode/shared/AgentScope";
 import * as HostProcess from "@supacode/shared/HostProcess";
-import { dynamicToolTitle } from "@supacode/shared/toolActivity";
+import {
+  COMPUTER_USE_TOOL_SOURCE,
+  dynamicToolSurface,
+  dynamicToolTitle,
+} from "@supacode/shared/toolActivity";
 import { toolOutputImages } from "@supacode/shared/toolOutput";
 import { getModelSelectionStringOptionValue, modelSelectionsEqual } from "@supacode/shared/model";
 import { resolveSpawnCommand } from "@supacode/shared/shell";
@@ -495,9 +499,17 @@ export const projectCodexDynamicToolItem = Effect.fn("CodexAdapterV2.projectDyna
         : [trimText(item.namespace), item.tool].filter(Boolean).join(".");
     const presentation: McpToolPresentation =
       item.type === "mcpToolCall" ? yield* mcpToolPresentation(item) : {};
-    const title = dynamicToolTitle(toolName, item.arguments) ?? presentation.title;
+    const title =
+      dynamicToolTitle(toolName, item.arguments, presentation.title) ?? presentation.title;
+    const toolSurface = presentation.toolSurface ?? dynamicToolSurface(toolName, item.arguments);
+    const toolSource =
+      toolSurface === "computer" && presentation.toolSource?.kind !== "computer"
+        ? COMPUTER_USE_TOOL_SOURCE
+        : presentation.toolSource;
     const projection: CodexDynamicToolProjection = {
       ...presentation,
+      ...(toolSurface ? { toolSurface } : {}),
+      ...(toolSource ? { toolSource } : {}),
       toolName,
       ...(title ? { title } : {}),
       input: item.arguments,
