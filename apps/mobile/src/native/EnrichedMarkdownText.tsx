@@ -68,7 +68,7 @@ function enrichedStyle(
     h5: heading(5),
     h6: heading(6),
     strong: { color: style.strongColor, fontFamily: style.boldFontFamily, fontWeight: "normal" },
-    link: { color: style.linkColor, underline: false },
+    link: { color: style.linkColor, underline: true },
     code: {
       fontFamily: monospace,
       color: style.inlineCodeColor,
