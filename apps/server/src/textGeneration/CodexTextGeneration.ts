@@ -291,6 +291,9 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
             ),
           )
         : undefined;
+      const untrustedCheckoutArgs = untrustedCheckoutKey
+        ? ["--config", `projects={${untrustedCheckoutKey}={trust_level="untrusted"}}`]
+        : [];
       const binary = effectiveConfig.binaryPath || "codex";
       const env = {
         ...effectiveEnvironment,
@@ -309,7 +312,10 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
         cwd,
         env,
         // `codex mcp` rejects --strict-config; the overrides still apply.
-        launchArgs: execLaunchArgs.filter((arg) => arg !== "--strict-config"),
+        launchArgs: [
+          ...execLaunchArgs.filter((arg) => arg !== "--strict-config"),
+          ...untrustedCheckoutArgs,
+        ],
       }).pipe(Effect.map(codexMcpServersOff));
       const spawnCommand = yield* resolveSpawnCommand(
         binary,
@@ -330,9 +336,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           "--config",
           `model_reasoning_effort="${reasoningEffort}"`,
           ...(serviceTier ? ["--config", `service_tier="${serviceTier}"`] : []),
-          ...(untrustedCheckoutKey
-            ? ["--config", `projects={${untrustedCheckoutKey}={trust_level="untrusted"}}`]
-            : []),
+          ...untrustedCheckoutArgs,
           "--output-schema",
           schemaPath,
           "--output-last-message",

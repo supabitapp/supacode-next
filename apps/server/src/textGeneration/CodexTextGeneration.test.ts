@@ -42,6 +42,8 @@ interface FakeCodexInput {
   stdinMustNotContain?: string;
   /** What `codex mcp list --json` answers; a number exits with that code instead. */
   mcpServers?: ReadonlyArray<{ name: string; enabled: boolean }> | number;
+  /** `codex mcp list` exits 7 without this argument. */
+  mcpListRequireArg?: string;
 }
 
 // The stub walks argv the way the shell script it replaced did: `--image`,
@@ -59,6 +61,7 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexInput) {
     stdinMustContain: input.stdinMustContain ?? null,
     stdinMustNotContain: input.stdinMustNotContain ?? null,
     mcpServers: input.mcpServers ?? [],
+    mcpListRequireArg: input.mcpListRequireArg ?? null,
     stderr: input.stderr ?? null,
     output: input.output,
     exitCode: input.exitCode ?? 0,
@@ -73,6 +76,12 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexInput) {
         `const check = ${check};`,
         "const args = process.argv.slice(2);",
         'if (args.includes("mcp") && args.includes("list")) {',
+        "  if (",
+        "    check.mcpListRequireArg !== null &&",
+        '    !` ${args.join(" ")} `.includes(` ${check.mcpListRequireArg} `)',
+        "  ) {",
+        "    process.exit(7);",
+        "  }",
         '  if (typeof check.mcpServers === "number") process.exit(check.mcpServers);',
         "  process.stdout.write(JSON.stringify(check.mcpServers));",
         "  process.exit(0);",
@@ -283,6 +292,36 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
         {
           output: JSON.stringify({ stops: [] }),
           requireArg: `--config projects={${JSON.stringify(canonicalCheckout)}={trust_level="untrusted"}}`,
+        },
+        (textGeneration) =>
+          Effect.gen(function* () {
+            const generated = yield* textGeneration.generateReviewGuide({
+              cwd: checkout,
+              number: 7,
+              title: "Add a project setting",
+              description: "",
+              baseBranch: "main",
+              baseCommit: "0000000000000000000000000000000000000000",
+              settledReview: "",
+              modelSelection: DEFAULT_TEST_MODEL_SELECTION,
+            });
+            expect(generated.stops).toEqual([]);
+          }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("lists an investigation's MCP servers with its checkout untrusted", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const checkout = yield* fs.makeTempDirectoryScoped({ prefix: "supacode-codex-checkout-" });
+      const canonicalCheckout = yield* fs.realPath(checkout);
+      return yield* withFakeCodexEnv(
+        {
+          output: JSON.stringify({ stops: [] }),
+          mcpServers: [{ name: "user-server", enabled: true }],
+          mcpListRequireArg: `--config projects={${JSON.stringify(canonicalCheckout)}={trust_level="untrusted"}}`,
+          requireArg: '--config mcp_servers={"user-server"={enabled=false}}',
         },
         (textGeneration) =>
           Effect.gen(function* () {
