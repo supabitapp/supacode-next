@@ -1815,6 +1815,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // hide the tasks row for it, only when the sync lasts. Logic that depends on
   // the real phase keeps reading `props.threadSyncPhase`.
   const shownSyncPhase = useDelayedStatus(composerDraftTargetKey, props.threadSyncPhase);
+  const showSyncStatus = shownSyncPhase === "syncing";
   const activeTasksProgress = shownSyncPhase === null ? props.activeTasksProgress : null;
   const activeTaskSteps = shownSyncPhase === null ? props.activeTaskSteps : null;
   const isEditingQueuedMessage = editingQueuedAttachments !== null;
@@ -5657,8 +5658,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     activeTaskSteps !== null &&
     activeTasksProgress.totalSteps > 0;
   const activityStackContent = hasBannerItems ? (
-    shownSyncPhase ? (
-      <ComposerActivityRow phase={shownSyncPhase} />
+    showSyncStatus ? (
+      <ComposerActivityRow />
     ) : canShowTasks ? (
       <ComposerTasksContent
         expanded={isTasksDrawerOpen}
@@ -6781,10 +6782,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             className="relative z-0"
             items={bannerStackItems}
           />
-          {!activityStackItem && (shownSyncPhase || inlineTasksBadge) ? (
+          {!activityStackItem && (showSyncStatus || inlineTasksBadge) ? (
             <ComposerBanner.Attachment>
               <ComposerBanner.Root data-chat-composer-activity-strip="true">
-                {shownSyncPhase ? <ComposerActivityRow phase={shownSyncPhase} /> : inlineTasksBadge}
+                {showSyncStatus ? <ComposerActivityRow /> : inlineTasksBadge}
               </ComposerBanner.Root>
             </ComposerBanner.Attachment>
           ) : null}
