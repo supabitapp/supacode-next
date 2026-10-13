@@ -83,6 +83,8 @@ export function ThreadWorkLogDetail(props: {
           : shownItem.type === "web_search"
             ? toolCallLines({ args: { query: shownItem.patterns?.join(", ") } })
             : null;
+  const highlightsCode =
+    shownItem.type === "dynamic_tool" && isJavaScriptReplTool(shownItem.toolName);
   const failedExitCode =
     call && shownItem.type === "command_execution" && shownItem.exitCode
       ? shownItem.exitCode
@@ -145,15 +147,11 @@ export function ThreadWorkLogDetail(props: {
             [
               call.command,
               ...(call.args ?? []).map(([key, value]) =>
-                key === "code" &&
-                shownItem.type === "dynamic_tool" &&
-                isJavaScriptReplTool(shownItem.toolName)
-                  ? { label: key, code: value }
-                  : `${key} ${value}`,
+                key === "code" && highlightsCode ? { code: value } : `${key} ${value}`,
               ),
               call.argsText,
             ].flatMap((line) => (line ? [line] : [])),
-            (line) => (typeof line === "string" ? line : `${line.label} ${line.code}`),
+            (line) => (typeof line === "string" ? line : `code ${line.code}`),
           ).map(({ item: line, key }) =>
             typeof line === "string" ? (
               <Text
@@ -166,7 +164,7 @@ export function ThreadWorkLogDetail(props: {
             ) : (
               <View key={key}>
                 <Text className="font-mono text-2xs leading-normal text-foreground-muted">
-                  {line.label}
+                  code
                 </Text>
                 <ReplCodeText code={line.code} theme={props.themeAppearance} />
               </View>
