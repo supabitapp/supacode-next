@@ -11840,22 +11840,13 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         while (!member.subagent.nativeTaskRef?.nativeId?.endsWith(":agent:2")) {
           member = yield* Queue.take(harness.subagentReceipts);
         }
-        const stopTask = (input: {
-          providerThread: OrchestrationV2ProviderThread;
-          taskId: string;
-        }) =>
-          harness.runtime.stopSubagent!({
-            providerThread: input.providerThread,
-            nativeTaskId: input.taskId,
-          });
-        assert.isTrue(
-          Exit.isFailure(
-            yield* stopTask({
-              providerThread: harness.providerThread,
-              taskId: "missing-task",
-            }).pipe(Effect.exit),
-          ),
-        );
+        const stopTask = harness.runtime.stopTask!;
+        for (const taskId of ["missing-task", `${WORKFLOW_TASK_ID}:agent:1`]) {
+          const exit = yield* stopTask({ providerThread: harness.providerThread, taskId }).pipe(
+            Effect.exit,
+          );
+          assert.isTrue(Exit.isFailure(exit));
+        }
         const wrongThread = {
           ...harness.providerThread,
           nativeThreadRef: {
@@ -11898,7 +11889,14 @@ describe("ClaudeAdapterV2 background wake turns", () => {
             "cancelled",
           );
         }
-        yield* stopTask({ providerThread: harness.providerThread, taskId: WORKFLOW_TASK_ID });
+        assert.isTrue(
+          Exit.isFailure(
+            yield* stopTask({
+              providerThread: harness.providerThread,
+              taskId: WORKFLOW_TASK_ID,
+            }).pipe(Effect.exit),
+          ),
+        );
         assert.deepEqual(stoppedTasks, [WORKFLOW_TASK_ID]);
       }).pipe(
         Effect.provide(
@@ -13190,9 +13188,16 @@ describe("ClaudeAdapterV2 background wake turns", () => {
             pendingStop ? [WORKFLOW_TASK_ID, WORKFLOW_TASK_ID] : [WORKFLOW_TASK_ID],
           );
           if (stopping !== undefined) {
-            // A workflow Stop returns once Claude accepts it, without awaiting an outcome.
-            const stopped = yield* Fiber.join(stopping);
-            assert.isTrue(Exit.isSuccess(stopped) && stopped.value === undefined);
+            // Parent failure assigns a local outcome without a task_notification.
+            yield* TestClock.adjust("2 seconds");
+            assert.isTrue(Exit.isFailure(yield* Fiber.join(stopping)));
+            // Local parent cleanup still cannot provide a confirmed outcome on retry.
+            const retry = yield* harness.runtime.stopSubagent!({
+              providerThread: harness.providerThread,
+              nativeTaskId: WORKFLOW_TASK_ID,
+            }).pipe(Effect.exit, Effect.forkScoped);
+            yield* TestClock.adjust("2 seconds");
+            assert.isTrue(Exit.isFailure(yield* Fiber.join(retry)));
           }
           assert.isFalse(yield* harness.hasPendingBackgroundWork);
           assert.equal(workflowCoordinatorEvents(harness.events).at(-1)?.subagent.status, settled);

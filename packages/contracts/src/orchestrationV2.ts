@@ -3022,7 +3022,6 @@ export const OrchestrationV2Command = Schema.Union([
     threadId: ThreadId,
     runId: RunId,
     subagentId: NodeId,
-    workflowOnly: Schema.optional(Schema.Boolean),
   }),
   Schema.Struct({
     type: Schema.Literal("run.interrupt"),

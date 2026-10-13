@@ -8997,6 +8997,36 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               message: { ...turnInput.message, text: "/compact" },
             }),
           steerTurn,
+          stopTask: ({ providerThread, taskId }) =>
+            Effect.gen(function* () {
+              const liveQuery = yield* Ref.get(queryContext);
+              const task = (yield* Ref.get(sessionSubagentsByTaskId)).get(taskId);
+              if (
+                liveQuery === null ||
+                liveQuery.stopping ||
+                liveQuery.nativeThreadId !== providerThread.nativeThreadRef?.nativeId ||
+                task === undefined ||
+                task.task.threadId !== providerThread.appThreadId ||
+                task.task.workflow === undefined ||
+                task.task.status !== "running" ||
+                liveQuery.subagentsFromEarlierProcesses.has(task)
+              ) {
+                return yield* new ProviderAdapter.ProviderAdapterProtocolError({
+                  driver: CLAUDE_PROVIDER,
+                  detail: "No running workflow task belongs to this provider thread",
+                });
+              }
+              yield* liveQuery.query.stopTask(taskId).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new ProviderAdapter.ProviderAdapterProtocolError({
+                      driver: CLAUDE_PROVIDER,
+                      detail: "Workflow stop request failed",
+                      cause,
+                    }),
+                ),
+              );
+            }),
           interruptTurn,
           stopSubagent: Effect.fn("ClaudeAdapterV2.stopSubagent")(function* (input) {
             const existing = yield* Ref.get(queryContext);
@@ -9027,20 +9057,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 driver: CLAUDE_PROVIDER,
                 detail: "Claude subagent has no live owning query with task stopping support.",
               });
-            }
-            // Workflow Stop stays fire-and-forget; its outcome settles through the transcript.
-            if (subagent.task.workflow !== undefined) {
-              if (subagent.task.status !== "running") return;
-              return yield* existing.query.stopTask(input.nativeTaskId).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new ProviderAdapter.ProviderAdapterProtocolError({
-                      driver: CLAUDE_PROVIDER,
-                      detail: "Claude native workflow stop failed.",
-                      cause,
-                    }),
-                ),
-              );
             }
             const outcome =
               subagentStopOutcomes.get(input.nativeTaskId) ??

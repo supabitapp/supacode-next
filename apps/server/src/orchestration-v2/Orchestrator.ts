@@ -9051,16 +9051,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           cause: "The requested native subagent cannot be stopped on this run.",
         });
       }
-      if (
-        command.workflowOnly === true &&
-        (subagent.workflow === undefined || subagent.status !== "running")
-      ) {
-        return yield* new OrchestratorDispatchError({
-          commandId: command.commandId,
-          commandType: command.type,
-          cause: "The requested workflow is no longer running.",
-        });
-      }
       if (!["pending", "running", "waiting"].includes(subagent.status)) return;
       const providerThread = projection.providerThreads.find(
         (candidate) => candidate.id === run?.providerThreadId,

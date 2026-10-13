@@ -595,16 +595,9 @@ it.effect("thread.stop marks a turn it cannot interrupt so a late agent watch is
   }).pipe(Effect.provide(layerTest)),
 );
 
-it.effect.each(
-  [false, true].flatMap((workflowOnly) =>
-    (["missing session", "completed", "failed", "cancelled"] as const).map((providerState) => ({
-      workflowOnly,
-      providerState,
-    })),
-  ),
-)(
-  "a native child Stop with workflowOnly=$workflowOnly only settles a confirmed $providerState outcome and preserves its owner and sibling",
-  ({ workflowOnly, providerState }) =>
+it.effect.each(["missing session", "completed", "failed", "cancelled"] as const)(
+  "a native child Stop only settles a confirmed %s outcome and preserves its owner and sibling",
+  (providerState) =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const projections = yield* ProjectionStore.ProjectionStoreV2;
@@ -628,8 +621,6 @@ it.effect.each(
         },
         status: "running" as const,
         startedAt: now,
-        updatedAt: now,
-        ...(workflowOnly ? { workflow: { phases: [], agents: [] } } : {}),
       };
       yield* projections.apply({
         id: EventId.make("event:native-child-stop:agent"),
@@ -737,34 +728,14 @@ it.effect.each(
         confirmedStatus === null
           ? undefined
           : { status: confirmedStatus, completedAt: now, result: "Actual provider outcome" };
-      const commandId = CommandId.make(
-        workflowOnly
-          ? `server:workflow-stop:${subagent.id}:${DateTime.formatIso(now)}`
-          : "stop-native-child",
-      );
-      if (workflowOnly) {
-        const threads = yield* ThreadManagementService.ThreadManagementService;
-        yield* threads.stopWorkflow({ threadId, subagentId: subagent.id });
-      } else {
-        const refused = yield* Effect.exit(
-          orchestrator.dispatch({
-            type: "subagent.stop",
-            commandId: CommandId.make("stop-nonworkflow"),
-            threadId,
-            runId: run.id,
-            subagentId: subagent.id,
-            workflowOnly: true,
-          }),
-        );
-        assert.isTrue(Exit.isFailure(refused));
-        yield* orchestrator.dispatch({
-          type: "subagent.stop",
-          commandId,
-          threadId,
-          runId: run.id,
-          subagentId: subagent.id,
-        });
-      }
+      const commandId = CommandId.make("stop-native-child");
+      yield* orchestrator.dispatch({
+        type: "subagent.stop",
+        commandId,
+        threadId,
+        runId: run.id,
+        subagentId: subagent.id,
+      });
       assert.deepEqual(yield* threadState(threadId), stateBefore);
       const effects = yield* sql<{ payload_json: string }>`
       SELECT payload_json FROM orchestration_v2_effect_outbox WHERE command_id = ${commandId}
