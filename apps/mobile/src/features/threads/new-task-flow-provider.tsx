@@ -395,18 +395,18 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
     isScratchProject(selectedProject, selectedEnvironmentServerConfig?.scratchWorkspaceRoot);
   const serverConfigs = useServerConfigs();
   const { connectedEnvironments } = useRemoteConnectionStatus();
-  // A thread without a project can move to any connected machine that offers
-  // one; its Scratch project there is created on the switch if it is missing.
   const scratchEnvironments = useMemo(
     () =>
       connectedEnvironments.filter(
         (environment) =>
-          availableScratchWorkspaceRoot(
-            environment.connectionState,
-            serverConfigs.get(environment.environmentId),
-          ) !== null,
+          availableScratchWorkspaceRoot({
+            environmentId: environment.environmentId,
+            connectionPhase: environment.connectionState,
+            serverConfig: serverConfigs.get(environment.environmentId),
+            projects,
+          }) !== null,
       ),
-    [connectedEnvironments, serverConfigs],
+    [connectedEnvironments, serverConfigs, projects],
   );
 
   // Only offer machines that actually host the currently selected repository, so

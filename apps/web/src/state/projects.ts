@@ -15,6 +15,8 @@ export const environmentProjects = createEnvironmentProjectAtoms({
 });
 export const projectEnvironment = createProjectEnvironmentAtoms(connectionAtomRuntime, {
   projectAtom: environmentProjects.projectAtom,
+  projectsAtom: environmentProjects.projectsAtom,
+  serverConfigValueAtom: serverEnvironment.configValueAtom,
 });
 /**
  * Web-only: project content search backs the ⇧⌘F dialog, which has no mobile

@@ -21,7 +21,7 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { Alert } from "react-native";
 
 import { scopedThreadKey } from "../../lib/scopedEntities";
-import { useServerConfigs, useThreadShells } from "../../state/entities";
+import { useProjects, useServerConfigs, useThreadShells } from "../../state/entities";
 import { projectEnvironment } from "../../state/projects";
 import { composerPullRequests } from "../../state/pull-requests";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -63,6 +63,7 @@ export function usePromptLinkResolver(params: Readonly<Record<string, unknown>> 
   const flow = useNewTaskFlow();
   const { state: catalogState } = useWorkspaceState();
   const threads = useThreadShells();
+  const projects = useProjects();
   const serverConfigs = useServerConfigs();
   const { connectedEnvironments } = useRemoteConnectionStatus();
   const openScratch = useAtomCommand(projectEnvironment.openScratch, { reportFailure: false });
@@ -166,17 +167,19 @@ export function usePromptLinkResolver(params: Readonly<Record<string, unknown>> 
       connectedEnvironments
         .filter(
           (environment) =>
-            availableScratchWorkspaceRoot(
-              environment.connectionState,
-              serverConfigs.get(environment.environmentId),
-            ) !== null,
+            availableScratchWorkspaceRoot({
+              environmentId: environment.environmentId,
+              connectionPhase: environment.connectionState,
+              serverConfig: serverConfigs.get(environment.environmentId),
+              projects,
+            }) !== null,
         )
         .map((environment) => environment.environmentId),
     );
     if (environmentId === null) {
       Alert.alert(
         "Could not start without a project",
-        "No connected environment offers threads without a project.",
+        "Connect to an environment to start without a project.",
       );
       return;
     }

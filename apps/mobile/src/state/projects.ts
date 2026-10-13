@@ -13,4 +13,6 @@ export const environmentProjects = createEnvironmentProjectAtoms({
 });
 export const projectEnvironment = createProjectEnvironmentAtoms(connectionAtomRuntime, {
   projectAtom: environmentProjects.projectAtom,
+  projectsAtom: environmentProjects.projectsAtom,
+  serverConfigValueAtom: serverEnvironment.configValueAtom,
 });

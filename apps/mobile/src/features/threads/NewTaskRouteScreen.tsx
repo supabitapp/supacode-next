@@ -187,15 +187,14 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
   const openScratch = useAtomCommand(projectEnvironment.openScratch, {
     reportFailure: false,
   });
-  // Threads without a project need a connected environment that offers them.
-  // The row starts on the selected environment when it has one, otherwise the
-  // first that does; the draft page's machine picker moves it from there.
   const scratchEnvironments = connectedEnvironments.filter(
     (environment) =>
-      availableScratchWorkspaceRoot(
-        environment.connectionState,
-        serverConfigs.get(environment.environmentId),
-      ) !== null,
+      availableScratchWorkspaceRoot({
+        environmentId: environment.environmentId,
+        connectionPhase: environment.connectionState,
+        serverConfig: serverConfigs.get(environment.environmentId),
+        projects,
+      }) !== null,
   );
   const scratchEnvironment =
     scratchEnvironments.find(
