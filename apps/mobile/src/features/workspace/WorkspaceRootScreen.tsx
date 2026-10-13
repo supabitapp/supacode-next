@@ -27,7 +27,6 @@ import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { workspaceToolbarHeight } from "./workspace-tabs-state";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useSidebarWorkspaceTabs } from "./useSidebarWorkspaceTabs";
-import { useSystemWorkspaceTabBar } from "./useSystemWorkspaceTabBar";
 
 const TAB_TITLES = {
   threads: "Threads",
@@ -60,7 +59,6 @@ function WorkspaceRootContent() {
   const primaryColumn = use(NativePrimaryColumnContext);
   const columnMetrics = useNativeColumnLayoutMetrics();
   const nativeMetrics = useNativeLayoutMetrics();
-  const systemTabBar = useSystemWorkspaceTabBar();
   const sidebarTabs = useSidebarWorkspaceTabs();
   const sidebarNavigation =
     primaryColumn !== null &&
@@ -90,10 +88,7 @@ function WorkspaceRootContent() {
   const tab = state.tabs[state.selectedTab];
   const bottomClearance =
     Platform.OS === "ios"
-      ? Math.max(insets.bottom, keyboardHeight) +
-        (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
-          ? 16
-          : workspace.dockHeight + 16)
+      ? Math.max(insets.bottom, keyboardHeight) + 16
       : keyboardHeight > 0 && tab.searchMode !== "resting"
         ? keyboardHeight + 64
         : Math.max(insets.bottom, 12) + workspaceToolbarHeight(tab.searchMode) + 16;
