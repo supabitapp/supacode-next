@@ -153,9 +153,9 @@ settle every thread in that section between it and the one you release on.
 The **Un-settle** and **Wake** buttons work the same way in their sections.
 Press `Escape` while dragging to cancel.
 
-By default, environments settle inactive threads after three days and settle
-threads whose pull request merged. A closed pull request can also settle an idle
-thread. Pins, work in progress, pending questions or approvals, and live background work
+By default, environments settle inactive threads after three days. Merged pull requests
+settle their linked threads when **Auto-settle merged threads** is enabled. A closed pull request
+can also settle an idle thread. Pins, work in progress, pending questions or approvals, and live background work
 prevent automatic settlement. An open pull request does not prevent inactivity
 settlement, but an old closed or merged pull request does not settle work you
 resumed after it closed. Only your own messages count as resuming. A turn that

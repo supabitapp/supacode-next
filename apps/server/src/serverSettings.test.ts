@@ -714,7 +714,7 @@ it.layer(NodeServices.layer)("server settings", (it) => {
     ).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect("persists and broadcasts thread settlement settings", () =>
+  it.effect("broadcasts thread settlement settings and persists non-default values", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const serverConfig = yield* ServerConfig.ServerConfig;
@@ -736,7 +736,13 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         assert.strictEqual(change?.sidebarAutoSettleAfterDays, null);
         assert.isFalse(change?.sidebarAutoSettleOnMerge);
         assert.strictEqual(persisted.sidebarAutoSettleAfterDays, null);
-        assert.isFalse(persisted.sidebarAutoSettleOnMerge);
+        assert.isUndefined(persisted.sidebarAutoSettleOnMerge);
+
+        yield* serverSettings.updateSettings({ sidebarAutoSettleOnMerge: true });
+        const enabledPersisted = JSON.parse(
+          yield* fileSystem.readFileString(serverConfig.settingsPath),
+        ) as Record<string, unknown>;
+        assert.isTrue(enabledPersisted.sidebarAutoSettleOnMerge);
       }),
     ).pipe(Effect.provide(layerServerSettings())),
   );
