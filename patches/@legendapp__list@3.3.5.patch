@@ -317,7 +317,7 @@ index ce1fe00001c9e5aee6c6ea8bb2d4757d4586d002..72dafa0845c75f0cc66bea4daa4656a2
      data: readonly any[];
      elementAtIndex: (index: number) => any;
 diff --git a/react-native.js b/react-native.js
-index b3c5a306b293f797a8b338adfca3060c0f6db22b..9be9614bc8ced72e857d2c22a3be6acd750d3e77 100644
+index b3c5a306b293f797a8b338adfca3060c0f6db22b..c278004b2561a68d4a4a3ab16ecdc666d0cc4168 100644
 --- a/react-native.js
 +++ b/react-native.js
 @@ -717,6 +717,15 @@ function hasActiveInitialScroll(state) {
@@ -659,6 +659,15 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..9be9614bc8ced72e857d2c22a3be6acd
      if (!shouldKeepEndTargetAlive) {
        if (shouldPreserveInitialScrollForFooterLayout(initialScroll)) {
          clearPendingInitialScrollFooterLayout(ctx, {
+@@ -4313,7 +4486,7 @@ function calculateItemsInView(ctx, params = {}) {
+     const optimizeForVisibleWindow = !forceFullItemPositions && !dataChanged && numColumns > 1 && minIndexSizeChanged !== void 0;
+     updateItemPositions(ctx, dataChanged, {
+       doMVCP,
+-      forceFullUpdate: !!forceFullItemPositions,
++      forceFullUpdate: !!forceFullItemPositions || minIndexSizeChanged !== void 0,
+       optimizeForVisibleWindow,
+       scrollBottomBuffered,
+       scrollVelocity: speed,
 @@ -4672,7 +4845,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        contentBelowAnchor = Math.max(0, contentBelowAnchor - ctx.scrollAxisGap);
        contentBelowAnchor += (ctx.values.get("footerSize") || 0) + getStylePaddingEnd(state.props);
@@ -893,7 +902,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..9be9614bc8ced72e857d2c22a3be6acd
        recycleItems,
        refreshControl: refreshControlElement ? stylePaddingTopState > 0 ? React2__namespace.cloneElement(refreshControlElement, {
 diff --git a/react-native.mjs b/react-native.mjs
-index 40e87cda8c9bc79a889e5542f29af429a24b24d4..6d4f04aef5c3bb7ed3d59bb627d7d041885069bc 100644
+index 40e87cda8c9bc79a889e5542f29af429a24b24d4..9987af7158da1107647c2890f7b7958d6bdfd0be 100644
 --- a/react-native.mjs
 +++ b/react-native.mjs
 @@ -696,6 +696,15 @@ function hasActiveInitialScroll(state) {
@@ -1235,6 +1244,15 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..6d4f04aef5c3bb7ed3d59bb627d7d041
      if (!shouldKeepEndTargetAlive) {
        if (shouldPreserveInitialScrollForFooterLayout(initialScroll)) {
          clearPendingInitialScrollFooterLayout(ctx, {
+@@ -4292,7 +4465,7 @@ function calculateItemsInView(ctx, params = {}) {
+     const optimizeForVisibleWindow = !forceFullItemPositions && !dataChanged && numColumns > 1 && minIndexSizeChanged !== void 0;
+     updateItemPositions(ctx, dataChanged, {
+       doMVCP,
+-      forceFullUpdate: !!forceFullItemPositions,
++      forceFullUpdate: !!forceFullItemPositions || minIndexSizeChanged !== void 0,
+       optimizeForVisibleWindow,
+       scrollBottomBuffered,
+       scrollVelocity: speed,
 @@ -4651,7 +4824,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        contentBelowAnchor = Math.max(0, contentBelowAnchor - ctx.scrollAxisGap);
        contentBelowAnchor += (ctx.values.get("footerSize") || 0) + getStylePaddingEnd(state.props);

@@ -1,9 +1,9 @@
-// @effect-diagnostics nodeBuiltinImport:off - reads the installed web JS bundles for synchronous VM tests.
+// @effect-diagnostics nodeBuiltinImport:off - reads the installed JS bundles for synchronous VM tests.
 import * as NodeFS from "node:fs";
 import * as NodeVM from "node:vm";
 import { describe, expect, it } from "vite-plus/test";
 
-function createList(bundle: string, firstHeight = 32) {
+function createList(bundle: string, firstHeight = 32, platform = "web") {
   const source = NodeFS.readFileSync(
     new URL(`../apps/web/node_modules/@legendapp/list/${bundle}`, import.meta.url),
     "utf8",
@@ -54,6 +54,7 @@ function createList(bundle: string, firstHeight = 32) {
     `${positions}\n${calculation}\n  });\n}\ncalculateItemsInView`,
     {
       IS_DEV: false,
+      Platform: { OS: platform },
       batchedUpdates: (run: () => void) => run(),
       peek$: (_ctx: unknown, key: string) => values.get(key),
       getContentSize: totalSize,
@@ -180,30 +181,41 @@ function createMeasurements(bundle: string, initialHeight: number) {
   };
 }
 
+describe.each([
+  ["react.js", "web"],
+  ["react.mjs", "web"],
+  ["react-native.web.js", "web"],
+  ["react-native.web.mjs", "web"],
+  ["react-native.js", "ios"],
+  ["react-native.mjs", "ios"],
+  ["react-native.js", "android"],
+  ["react-native.mjs", "android"],
+])("measured row positions (%s, %s)", (bundle, platform) => {
+  it("keeps later rows below a reply that grows while scrolling", () => {
+    const list = createList(bundle, 32, platform);
+    list.resize(0, 5000);
+    expect(list.positions[13]).toBe(5384);
+    expect(list.positions[79]).toBe(7496);
+  });
+
+  it("closes the space after a reply shrinks while scrolling", () => {
+    const list = createList(bundle, 5000, platform);
+    list.resize(0, 32);
+    expect(list.positions[79]).toBe(2528);
+  });
+
+  it("reconciles the suffix without moving the unaffected prefix", () => {
+    const list = createList(bundle, 32, platform);
+    const prefix = list.positions.slice(0, 20);
+    list.resize(20, 5000);
+    expect(list.positions.slice(0, 20)).toEqual(prefix);
+    expect(list.positions[79]).toBe(7496);
+  });
+});
+
 describe.each(["react.js", "react.mjs", "react-native.web.js", "react-native.web.mjs"])(
-  "measured row layout (%s)",
+  "observed row measurement (%s)",
   (bundle) => {
-    it("keeps later rows below a reply that grows while scrolling", () => {
-      const list = createList(bundle);
-      list.resize(0, 5000);
-      expect(list.positions[13]).toBe(5384);
-      expect(list.positions[79]).toBe(7496);
-    });
-
-    it("closes the space after a reply shrinks while scrolling", () => {
-      const list = createList(bundle, 5000);
-      list.resize(0, 32);
-      expect(list.positions[79]).toBe(2528);
-    });
-
-    it("reconciles the suffix without moving the unaffected prefix", () => {
-      const list = createList(bundle);
-      const prefix = list.positions.slice(0, 20);
-      list.resize(20, 5000);
-      expect(list.positions.slice(0, 20)).toEqual(prefix);
-      expect(list.positions[79]).toBe(7496);
-    });
-
     it.each([
       [300, 100],
       [100, 300],
