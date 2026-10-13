@@ -175,6 +175,19 @@ export function BranchToolbarBranchSelector({
       draftThreadEnvMode: draftThread?.envMode,
     });
 
+  const isDraftOnCurrentProject = useCallback(() => {
+    const store = useComposerDraftStore.getState();
+    const currentDraft = draftId
+      ? store.getDraftSession(draftId)
+      : store.getDraftThreadByRef(threadRef);
+    return Boolean(
+      currentDraft &&
+      !currentDraft.promotedTo &&
+      currentDraft.environmentId === environmentId &&
+      currentDraft.projectId === activeProject?.id,
+    );
+  }, [activeProject?.id, draftId, environmentId, threadRef]);
+
   // ---------------------------------------------------------------------------
   // Thread branch mutation (colocated — only this component calls it)
   // ---------------------------------------------------------------------------
@@ -206,6 +219,7 @@ export function BranchToolbarBranchSelector({
         onActiveThreadBranchOverrideChange?.(branch);
         return;
       }
+      if (!isDraftOnCurrentProject()) return;
       const nextDraftEnvMode = resolveDraftEnvModeAfterBranchChange({
         nextWorktreePath: worktreePath,
         currentWorktreePath: activeWorktreePath,
@@ -216,7 +230,6 @@ export function BranchToolbarBranchSelector({
         worktreePath,
         envMode: nextDraftEnvMode,
         environmentSelection: "manual",
-        projectRef: scopeProjectRef(environmentId, activeProject.id),
       });
     },
     [
@@ -225,6 +238,7 @@ export function BranchToolbarBranchSelector({
       serverSession,
       activeWorktreePath,
       hasServerThread,
+      isDraftOnCurrentProject,
       onActiveThreadBranchOverrideChange,
       setDraftThreadContext,
       draftId,
@@ -426,6 +440,10 @@ export function BranchToolbarBranchSelector({
         }),
       );
       return;
+    }
+    if (!hasServerThread) {
+      if (!isDraftOnCurrentProject()) return;
+      setDraftThreadContext(draftId ?? threadRef, { environmentSelection: "manual" });
     }
     startBranchActionTransition(async () => {
       await action();

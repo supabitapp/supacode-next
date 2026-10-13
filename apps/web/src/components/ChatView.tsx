@@ -4497,6 +4497,7 @@ export default function ChatView(props: ChatViewProps) {
   const refreshLoadBalancing = loadBalancing.refresh;
   useEffect(() => {
     if (!needsLoadBalancing || loadBalancing.pending || !draftId || isSendInFlight()) return;
+    if (!draftThread || draftThread.promotedTo || getDraftSession(draftId) !== draftThread) return;
     const target = logicalProjectEnvironments.find(
       (environment) => environment.environmentId === loadBalancing.environmentId,
     );
@@ -4511,6 +4512,8 @@ export default function ChatView(props: ChatViewProps) {
     loadBalancing.pending,
     loadBalancing.environmentId,
     draftId,
+    draftThread,
+    getDraftSession,
     logicalProjectEnvironments,
     setDraftThreadContext,
   ]);
