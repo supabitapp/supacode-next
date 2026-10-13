@@ -273,20 +273,26 @@ const makeRunEnds = () => {
       return span;
     },
   });
-  /** Fails with the run's reason once a run for this head ends as failed; otherwise never. */
+  /** The run's failure detail once a run for this head ends as failed; otherwise never. */
+  const failureDetail = (
+    service: PullRequestReviewGuideService.PullRequestReviewGuideService["Service"],
+    headSha: string,
+    input: PullRequestRef = reference,
+  ) =>
+    Deferred.await(ended(headSha)).pipe(
+      Effect.andThen(service.get(input)),
+      Effect.flatMap((result) =>
+        result.run?._tag === "Failed" ? Effect.succeed(result.run.detail) : Effect.never,
+      ),
+    );
   const failure = (
     service: PullRequestReviewGuideService.PullRequestReviewGuideService["Service"],
     headSha: string,
   ) =>
-    Deferred.await(ended(headSha)).pipe(
-      Effect.andThen(service.get(reference)),
-      Effect.flatMap((result) =>
-        result.run?._tag === "Failed"
-          ? Effect.die(`run failed: ${result.run.detail}`)
-          : Effect.never,
-      ),
+    failureDetail(service, headSha).pipe(
+      Effect.flatMap((detail) => Effect.die(`run failed: ${detail}`)),
     );
-  return { tracer, ended, failure };
+  return { tracer, ended, failure, failureDetail };
 };
 
 const layerBase = Layer.mergeAll(
@@ -403,13 +409,7 @@ const startSingleBranchRun = (input: {
       service,
       reference: guideReference,
       stored,
-      /** The run's failure detail once it ends as failed; otherwise never. */
-      failure: Deferred.await(runs.ended(reportedHead)).pipe(
-        Effect.andThen(service.get(guideReference)),
-        Effect.flatMap((result) =>
-          result.run?._tag === "Failed" ? Effect.succeed(result.run.detail) : Effect.never,
-        ),
-      ),
+      failure: runs.failureDetail(service, reportedHead, guideReference),
       fetchedRefs,
       observed,
     };

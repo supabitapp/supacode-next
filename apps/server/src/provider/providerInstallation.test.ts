@@ -245,7 +245,9 @@ describe("provider installation routing", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-provider-install-route-" });
+      const directory = yield* fs.makeTempDirectoryScoped({
+        prefix: "supacode-provider-install-route-",
+      });
       const binaryPath = path.join(directory, "missing");
       const harness = yield* makeHarness({
         settings: {

@@ -23,13 +23,14 @@ import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
 import { QuestionAnswerHistory } from "./QuestionAnswerHistory";
 import { ThreadMarkdownImage } from "./ThreadMarkdownImage";
 
-function ReplCodeText(props: { readonly code: string; readonly theme: "light" | "dark" }) {
-  const lines = useMarkdownCodeHighlight({
-    code: props.code,
-    language: "typescript",
-    theme: props.theme,
-    enabled: true,
-  });
+function ReplCodeText({
+  code,
+  theme,
+}: {
+  readonly code: string;
+  readonly theme: "light" | "dark";
+}) {
+  const lines = useMarkdownCodeHighlight({ code, language: "typescript", theme, enabled: true });
   let offset = 0;
   const highlighted = lines?.flatMap((line, lineIndex) => {
     const separator = lineIndex > 0 ? "\n" : "";
@@ -49,7 +50,7 @@ function ReplCodeText(props: { readonly code: string; readonly theme: "light" | 
   });
   return (
     <Text selectable className="font-mono text-2xs leading-normal text-foreground">
-      {highlighted ?? props.code}
+      {highlighted ?? code}
     </Text>
   );
 }

@@ -362,7 +362,7 @@ effectIt.layer(NodeServices.layer)("isCommandAvailable", (it) => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "t3-command-trace-" });
+        const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "supacode-command-trace-" });
         const env = { PATH: cwd, PATHEXT: ".CMD" };
         const checks = [
           isCommandAvailable("missing", { env }),
@@ -393,7 +393,7 @@ effectIt.layer(NodeServices.layer)("isCommandAvailable", (it) => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "t3-command-trace-" });
+        const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "supacode-command-trace-" });
         const executable = path.join(cwd, platform === "win32" ? "available.cmd" : "available");
         yield* fs.writeFileString(executable, "");
         yield* fs.chmod(executable, 0o700);
