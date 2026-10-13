@@ -770,6 +770,20 @@ export function resolveSendEnvMode(input: {
   return input.isGitRepo ? input.requestedEnvMode : "local";
 }
 
+export function shouldRequireWorktreeBaseBranch(input: {
+  shouldCreateWorktree: boolean;
+  activeThreadBranch: string | null;
+  refsSettled: boolean;
+  environmentUnavailable: boolean;
+}): boolean {
+  return (
+    input.shouldCreateWorktree &&
+    !input.activeThreadBranch &&
+    input.refsSettled &&
+    !input.environmentUnavailable
+  );
+}
+
 export function resolveBackgroundDraftWorkspaceOptions(input: {
   envMode: DraftThreadEnvMode;
   branch: string | null;

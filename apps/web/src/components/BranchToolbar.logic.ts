@@ -242,7 +242,7 @@ export function resolveBranchTriggerLabel(input: {
     startFromOrigin,
   } = input;
   if (!resolvedActiveBranch) {
-    return "Select ref";
+    return effectiveEnvMode === "worktree" && !activeWorktreePath ? "Default branch" : "Select ref";
   }
   if (effectiveEnvMode === "worktree" && !activeWorktreePath) {
     const baseRef =

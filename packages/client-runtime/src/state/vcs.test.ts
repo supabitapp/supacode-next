@@ -342,8 +342,69 @@ describe("cached VCS refs", () => {
         );
 
         expect(AsyncResult.isSuccess(refreshResult)).toBe(true);
-        expect(yield* Ref.get(clears)).toBe(2);
+        expect(yield* Ref.get(clears)).toBe(1);
         expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(2);
+      }),
+    ),
+  );
+
+  it.effect("keeps persisted refs when a status refresh settles", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const client = {
+          [WS_METHODS.vcsRefreshStatus]: () => Effect.void,
+        } as unknown as WsRpcProtocolClient;
+        const supervisor = EnvironmentSupervisor.EnvironmentSupervisor.of({
+          target: TARGET,
+          state: yield* SubscriptionRef.make(CONNECTED_CONNECTION_STATE),
+          session: yield* SubscriptionRef.make(Option.some(session(client))),
+          prepared: yield* SubscriptionRef.make(Option.none<PreparedConnection>()),
+          connect: Effect.void,
+          disconnect: Effect.void,
+          retryNow: Effect.void,
+        } satisfies EnvironmentSupervisor.EnvironmentSupervisor["Service"]);
+        const run: EnvironmentRegistry.EnvironmentRegistry["Service"]["run"] = (
+          _environmentId,
+          effect,
+        ) => Effect.provideService(effect, EnvironmentSupervisor.EnvironmentSupervisor, supervisor);
+        const environmentRegistry = EnvironmentRegistry.EnvironmentRegistry.of({
+          run,
+        } as unknown as EnvironmentRegistry.EnvironmentRegistry["Service"]);
+        const persisted = yield* Ref.make<Option.Option<VcsListRefsResult>>(
+          Option.some(CACHED_REFS),
+        );
+        const clears = yield* Ref.make(0);
+        const runtime = Atom.runtime(
+          Layer.merge(
+            Layer.succeed(EnvironmentRegistry.EnvironmentRegistry, environmentRegistry),
+            Layer.succeed(
+              Persistence.EnvironmentCacheStore,
+              cacheWithRefs(Option.none(), {
+                loadVcsRefs: () => Ref.get(persisted),
+                clearVcsRefs: () =>
+                  Ref.update(clears, (count) => count + 1).pipe(
+                    Effect.andThen(Ref.set(persisted, Option.none())),
+                  ),
+              }),
+            ),
+          ),
+        );
+        const atoms = createVcsEnvironmentAtoms(runtime);
+        const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), (registry) =>
+          Effect.sync(() => registry.dispose()),
+        );
+
+        const result = yield* Effect.promise(() =>
+          atoms.refreshStatus.run(registry, {
+            environmentId: TARGET.environmentId,
+            input: { cwd: "/repo" },
+          }),
+        );
+
+        expect(AsyncResult.isSuccess(result)).toBe(true);
+        expect(yield* Ref.get(clears)).toBe(0);
+        expect(yield* Ref.get(persisted)).toEqual(Option.some(CACHED_REFS));
+        expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(1);
       }),
     ),
   );

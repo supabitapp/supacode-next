@@ -543,6 +543,7 @@ import {
   resolveProactiveTurnDiffAction,
   resolveThreadMetadataUpdateForNextTurn,
   resolveSendEnvMode,
+  shouldRequireWorktreeBaseBranch,
   revokeBlobPreviewUrl,
   revokeUserMessagePreviewUrls,
   startNewThreadForProject,
@@ -7106,6 +7107,7 @@ export default function ChatView(props: ChatViewProps) {
         currentGitBranch: gitStatusQuery.data?.refName ?? null,
       })
     : selectedThreadBranch;
+  const worktreeBaseRefsSettled = worktreeBaseRefs.data !== null;
   const localCheckoutBranchMismatch = useMemo(
     () =>
       isServerThread
@@ -8995,7 +8997,12 @@ export default function ChatView(props: ChatViewProps) {
       multipleModelSelections !== null &&
       (!isLocalDraftThread ||
         !isGitRepo ||
-        (!activeThreadBranch && !activeEnvironmentUnavailable) ||
+        shouldRequireWorktreeBaseBranch({
+          shouldCreateWorktree: true,
+          activeThreadBranch,
+          refsSettled: worktreeBaseRefsSettled,
+          environmentUnavailable: activeEnvironmentUnavailable,
+        }) ||
         multipleModelSelections.length === 0)
     ) {
       toastManager.add(
@@ -9292,7 +9299,14 @@ export default function ChatView(props: ChatViewProps) {
 
     const shouldCreateWorktree =
       isFirstMessage && sendEnvMode === "worktree" && !activeThread.worktreePath;
-    if (shouldCreateWorktree && !activeThreadBranch && !activeEnvironmentUnavailable) {
+    if (
+      shouldRequireWorktreeBaseBranch({
+        shouldCreateWorktree,
+        activeThreadBranch,
+        refsSettled: worktreeBaseRefsSettled,
+        environmentUnavailable: activeEnvironmentUnavailable,
+      })
+    ) {
       setThreadError(threadIdForSend, "Select a base branch before sending in New worktree mode.");
       return;
     }

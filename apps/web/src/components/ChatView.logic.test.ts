@@ -74,6 +74,7 @@ import {
   resolveDraftPromotionNavigationTarget,
   resolveThreadMetadataUpdateForNextTurn,
   resolveSendEnvMode,
+  shouldRequireWorktreeBaseBranch,
   startNewThreadForProject,
   shouldShowBranchMismatchBanner,
   shouldWriteThreadErrorToCurrentServerThread,
@@ -413,6 +414,28 @@ describe("resolveSendEnvMode", () => {
   it("keeps worktree mode only for git repositories", () => {
     expect(resolveSendEnvMode({ requestedEnvMode: "worktree", isGitRepo: true })).toBe("worktree");
     expect(resolveSendEnvMode({ requestedEnvMode: "worktree", isGitRepo: false })).toBe("local");
+  });
+});
+
+describe("shouldRequireWorktreeBaseBranch", () => {
+  const base = {
+    shouldCreateWorktree: true,
+    activeThreadBranch: null,
+    refsSettled: true,
+    environmentUnavailable: false,
+  };
+
+  it("lets the outbox resolve a base while refs are still loading", () => {
+    expect(shouldRequireWorktreeBaseBranch({ ...base, refsSettled: false })).toBe(false);
+  });
+
+  it("blocks a connected send after refs settle without a usable base", () => {
+    expect(shouldRequireWorktreeBaseBranch(base)).toBe(true);
+  });
+
+  it("does not block an explicit branch or an unavailable environment", () => {
+    expect(shouldRequireWorktreeBaseBranch({ ...base, activeThreadBranch: "main" })).toBe(false);
+    expect(shouldRequireWorktreeBaseBranch({ ...base, environmentUnavailable: true })).toBe(false);
   });
 });
 

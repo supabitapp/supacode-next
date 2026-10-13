@@ -302,7 +302,7 @@ describe("resolveBranchTriggerLabel", () => {
     ).toBe("From upstream/feature/demo");
   });
 
-  it("keeps current-checkout labels and empty state unchanged", () => {
+  it("labels an unresolved worktree base as the default branch", () => {
     expect(
       resolveBranchTriggerLabel({
         activeWorktreePath: null,
@@ -316,6 +316,15 @@ describe("resolveBranchTriggerLabel", () => {
       resolveBranchTriggerLabel({
         activeWorktreePath: null,
         effectiveEnvMode: "worktree",
+        resolvedActiveBranch: null,
+        resolvedActiveBranchIsRemote: null,
+        startFromOrigin: true,
+      }),
+    ).toBe("Default branch");
+    expect(
+      resolveBranchTriggerLabel({
+        activeWorktreePath: null,
+        effectiveEnvMode: "local",
         resolvedActiveBranch: null,
         resolvedActiveBranchIsRemote: null,
         startFromOrigin: true,
