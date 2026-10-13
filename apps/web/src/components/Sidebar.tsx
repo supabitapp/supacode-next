@@ -1373,7 +1373,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             ? {
                 label: "Waiting",
                 icon: null,
-                className: "text-info",
+                className: "text-muted-foreground",
               }
             : topStatusKind === "approval"
               ? {
@@ -1670,7 +1670,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     // Background work fades as a whole row, status label included, so it
     // takes less attention than rows that need a human (input, approval).
     shouldRecede &&
-      status === "working" &&
+      (status === "working" || status === "waiting") &&
       "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none",
     isFileDragOver && "ring-1 ring-inset ring-primary/70",
     isFileDragOver && !props.isActive && !isSelected && "bg-sidebar-row-hover",
