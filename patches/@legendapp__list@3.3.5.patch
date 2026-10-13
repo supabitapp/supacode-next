@@ -1490,10 +1490,19 @@ index b6c7481603f4119495551b3e4c1c071984c144af..be92e2304029ded902944b3a442ad385
      data: readonly any[];
      elementAtIndex: (index: number) => any;
 diff --git a/react-native.web.js b/react-native.web.js
-index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e03d601a6a 100644
+index 914d2dafaafa001c9ab6791a0a0581659295e333..0fd7e4c6e7ff105adc21450dbaf59102bd46d3cd 100644
 --- a/react-native.web.js
 +++ b/react-native.web.js
-@@ -5348,7 +5348,7 @@
+@@ -4343,7 +4343,7 @@ function calculateItemsInView(ctx, params = {}) {
+     const optimizeForVisibleWindow = !forceFullItemPositions && !dataChanged && numColumns > 1 && minIndexSizeChanged !== void 0;
+     updateItemPositions(ctx, dataChanged, {
+       doMVCP,
+-      forceFullUpdate: !!forceFullItemPositions,
++      forceFullUpdate: !!forceFullItemPositions || minIndexSizeChanged !== void 0,
+       optimizeForVisibleWindow,
+       scrollBottomBuffered,
+       scrollVelocity: speed,
+@@ -5348,7 +5348,7 @@ function useOnLayoutSync({
          top: entry.contentRect.top,
          width: borderBoxSize.inlineSize
        } : (_a4 = target == null ? void 0 : target.getBoundingClientRect()) != null ? _a4 : entry.contentRect;
@@ -1502,7 +1511,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e0
        const didSizeChange = previousRect === void 0 || rectObserved.width !== previousRect.width || rectObserved.height !== previousRect.height;
        prevRect = rectObserved;
        const shouldResyncLayout = !!(webLayoutResync == null ? void 0 : webLayoutResync());
-@@ -5415,11 +5415,6 @@
+@@ -5415,11 +5415,6 @@ function processContainerLayout({ containerId, ctx, rectangle, ref, state }) {
      scheduleWebShrinkMeasurement(state, () => {
        var _a4;
        if (state.itemKey === currentItemKey) {
@@ -1514,7 +1523,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e0
          applyLayout();
        }
      });
-@@ -5474,7 +5469,7 @@
+@@ -5474,7 +5469,7 @@ function useContainerMeasurement({
    });
    const { onLayout } = useOnLayoutSync(
      {
@@ -1523,7 +1532,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e0
        onLayoutChange,
        ref,
        webLayoutResync: () => isInMVCPActiveMode(ctx.state)
-@@ -5651,6 +5681,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
+@@ -5651,6 +5646,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
  // src/utils/reordering.ts
@@ -1542,7 +1551,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e0
  function sortDOMElements(container, indexByElement) {
    const elements = Array.from(container.children);
    if (elements.length <= 1) return elements;
-@@ -5690,9 +5702,9 @@ function sortDOMElements(container, indexByElement) {
+@@ -5690,9 +5697,9 @@ function sortDOMElements(container, indexByElement) {
          }
        }
        if (nextStableElement) {
@@ -1554,7 +1563,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e0
        }
      }
    }
-@@ -7385,6 +7397,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
+@@ -7385,6 +7392,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
      getScrollResponder: () => refScroller.current.getScrollResponder(),
      getState: () => ({
        activeStickyIndex: peek$(ctx, "activeStickyIndex"),
@@ -1563,9 +1572,18 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..1d0779d66a81c2181506745ce6c6c7e0
        data: state.props.data,
        elementAtIndex: (index) => {
 diff --git a/react-native.web.mjs b/react-native.web.mjs
-index 95465f2ab89ce41a10553f58af83618f7310e83c..f6427f90761de3349ab2c3796668fb99defe49c3 100644
+index 95465f2ab89ce41a10553f58af83618f7310e83c..aa2802fd08f817d830d84bb94550e11525240161 100644
 --- a/react-native.web.mjs
 +++ b/react-native.web.mjs
+@@ -4322,7 +4322,7 @@ function calculateItemsInView(ctx, params = {}) {
+     const optimizeForVisibleWindow = !forceFullItemPositions && !dataChanged && numColumns > 1 && minIndexSizeChanged !== void 0;
+     updateItemPositions(ctx, dataChanged, {
+       doMVCP,
+-      forceFullUpdate: !!forceFullItemPositions,
++      forceFullUpdate: !!forceFullItemPositions || minIndexSizeChanged !== void 0,
+       optimizeForVisibleWindow,
+       scrollBottomBuffered,
+       scrollVelocity: speed,
 @@ -5630,6 +5630,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
@@ -1627,9 +1645,18 @@ index b6c7481603f4119495551b3e4c1c071984c144af..be92e2304029ded902944b3a442ad385
      data: readonly any[];
      elementAtIndex: (index: number) => any;
 diff --git a/react.js b/react.js
-index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d0549f423 100644
+index 914d2dafaafa001c9ab6791a0a0581659295e333..348bd7df77be0c2ef95faff46e256069cfc1a56a 100644
 --- a/react.js
 +++ b/react.js
+@@ -4343,7 +4343,7 @@ function calculateItemsInView(ctx, params = {}) {
+     const optimizeForVisibleWindow = !forceFullItemPositions && !dataChanged && numColumns > 1 && minIndexSizeChanged !== void 0;
+     updateItemPositions(ctx, dataChanged, {
+       doMVCP,
+-      forceFullUpdate: !!forceFullItemPositions,
++      forceFullUpdate: !!forceFullItemPositions || minIndexSizeChanged !== void 0,
+       optimizeForVisibleWindow,
+       scrollBottomBuffered,
+       scrollVelocity: speed,
 @@ -4702,7 +4702,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        contentBelowAnchor = Math.max(0, contentBelowAnchor - ctx.scrollAxisGap);
        contentBelowAnchor += (ctx.values.get("footerSize") || 0) + getStylePaddingEnd(state.props);
@@ -1653,7 +1680,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
    }
    return nextSize;
  }
-@@ -5348,7 +5348,7 @@
+@@ -5348,7 +5355,7 @@ function useOnLayoutSync({
          top: entry.contentRect.top,
          width: borderBoxSize.inlineSize
        } : (_a4 = target == null ? void 0 : target.getBoundingClientRect()) != null ? _a4 : entry.contentRect;
@@ -1662,7 +1689,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
        const didSizeChange = previousRect === void 0 || rectObserved.width !== previousRect.width || rectObserved.height !== previousRect.height;
        prevRect = rectObserved;
        const shouldResyncLayout = !!(webLayoutResync == null ? void 0 : webLayoutResync());
-@@ -5415,11 +5415,6 @@
+@@ -5415,11 +5422,6 @@ function processContainerLayout({ containerId, ctx, rectangle, ref, state }) {
      scheduleWebShrinkMeasurement(state, () => {
        var _a4;
        if (state.itemKey === currentItemKey) {
@@ -1674,7 +1701,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
          applyLayout();
        }
      });
-@@ -5474,7 +5476,7 @@
+@@ -5474,7 +5476,7 @@ function useContainerMeasurement({
    });
    const { onLayout } = useOnLayoutSync(
      {
@@ -1683,7 +1710,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
        onLayoutChange,
        ref,
        webLayoutResync: () => isInMVCPActiveMode(ctx.state)
-@@ -5651,6 +5660,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
+@@ -5651,6 +5653,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
  // src/utils/reordering.ts
@@ -1702,7 +1729,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
  function sortDOMElements(container, indexByElement) {
    const elements = Array.from(container.children);
    if (elements.length <= 1) return elements;
-@@ -5690,9 +5709,9 @@ function sortDOMElements(container, indexByElement) {
+@@ -5690,9 +5704,9 @@ function sortDOMElements(container, indexByElement) {
          }
        }
        if (nextStableElement) {
@@ -1714,7 +1741,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
        }
      }
    }
-@@ -6446,8 +6465,8 @@ function ScrollAdjust() {
+@@ -6446,8 +6460,8 @@ function ScrollAdjust() {
                window.getComputedStyle(contentNode)[axis.paddingEndProp]
              );
              const temporaryPaddingEnd = `${(currentPaddingEnd || 0) + pad}px`;
@@ -1724,7 +1751,7 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
              void contentNode.offsetHeight;
              scrollBy();
              if (resetPaddingRafRef.current !== void 0) {
-@@ -7385,6 +7404,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
+@@ -7385,6 +7399,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
      getScrollResponder: () => refScroller.current.getScrollResponder(),
      getState: () => ({
        activeStickyIndex: peek$(ctx, "activeStickyIndex"),
@@ -1733,9 +1760,18 @@ index 914d2dafaafa001c9ab6791a0a0581659295e333..087a57b6ae6a1248928fe634721e5e3d
        data: state.props.data,
        elementAtIndex: (index) => {
 diff --git a/react.mjs b/react.mjs
-index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d813aac44c3 100644
+index 95465f2ab89ce41a10553f58af83618f7310e83c..a295f902c1bd811c780d6cd6e225ec59952c5958 100644
 --- a/react.mjs
 +++ b/react.mjs
+@@ -4322,7 +4322,7 @@ function calculateItemsInView(ctx, params = {}) {
+     const optimizeForVisibleWindow = !forceFullItemPositions && !dataChanged && numColumns > 1 && minIndexSizeChanged !== void 0;
+     updateItemPositions(ctx, dataChanged, {
+       doMVCP,
+-      forceFullUpdate: !!forceFullItemPositions,
++      forceFullUpdate: !!forceFullItemPositions || minIndexSizeChanged !== void 0,
+       optimizeForVisibleWindow,
+       scrollBottomBuffered,
+       scrollVelocity: speed,
 @@ -4681,7 +4681,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        contentBelowAnchor = Math.max(0, contentBelowAnchor - ctx.scrollAxisGap);
        contentBelowAnchor += (ctx.values.get("footerSize") || 0) + getStylePaddingEnd(state.props);
@@ -1759,7 +1795,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
    }
    return nextSize;
  }
-@@ -5327,7 +5327,7 @@
+@@ -5327,7 +5334,7 @@ function useOnLayoutSync({
          top: entry.contentRect.top,
          width: borderBoxSize.inlineSize
        } : (_a4 = target == null ? void 0 : target.getBoundingClientRect()) != null ? _a4 : entry.contentRect;
@@ -1768,7 +1804,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
        const didSizeChange = previousRect === void 0 || rectObserved.width !== previousRect.width || rectObserved.height !== previousRect.height;
        prevRect = rectObserved;
        const shouldResyncLayout = !!(webLayoutResync == null ? void 0 : webLayoutResync());
-@@ -5394,11 +5394,6 @@
+@@ -5394,11 +5401,6 @@ function processContainerLayout({ containerId, ctx, rectangle, ref, state }) {
      scheduleWebShrinkMeasurement(state, () => {
        var _a4;
        if (state.itemKey === currentItemKey) {
@@ -1780,7 +1816,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
          applyLayout();
        }
      });
-@@ -5453,7 +5455,7 @@
+@@ -5453,7 +5455,7 @@ function useContainerMeasurement({
    });
    const { onLayout } = useOnLayoutSync(
      {
@@ -1789,7 +1825,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
        onLayoutChange,
        ref,
        webLayoutResync: () => isInMVCPActiveMode(ctx.state)
-@@ -5630,6 +5639,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
+@@ -5630,6 +5632,18 @@ var ContainerSlot = typedMemo(function ContainerSlot2(props) {
  });
  
  // src/utils/reordering.ts
@@ -1808,7 +1844,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
  function sortDOMElements(container, indexByElement) {
    const elements = Array.from(container.children);
    if (elements.length <= 1) return elements;
-@@ -5669,9 +5688,9 @@ function sortDOMElements(container, indexByElement) {
+@@ -5669,9 +5683,9 @@ function sortDOMElements(container, indexByElement) {
          }
        }
        if (nextStableElement) {
@@ -1820,7 +1856,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
        }
      }
    }
-@@ -6425,8 +6444,8 @@ function ScrollAdjust() {
+@@ -6425,8 +6439,8 @@ function ScrollAdjust() {
                window.getComputedStyle(contentNode)[axis.paddingEndProp]
              );
              const temporaryPaddingEnd = `${(currentPaddingEnd || 0) + pad}px`;
@@ -1830,7 +1866,7 @@ index 95465f2ab89ce41a10553f58af83618f7310e83c..39c0cabf627fbac76839ebcee5ad8d81
              void contentNode.offsetHeight;
              scrollBy();
              if (resetPaddingRafRef.current !== void 0) {
-@@ -7364,6 +7383,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
+@@ -7364,6 +7378,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
      getScrollResponder: () => refScroller.current.getScrollResponder(),
      getState: () => ({
        activeStickyIndex: peek$(ctx, "activeStickyIndex"),
