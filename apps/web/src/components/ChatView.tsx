@@ -7870,6 +7870,8 @@ export default function ChatView(props: ChatViewProps) {
     multipleModelSelections === null &&
     shouldOfferResumeCompaction({
       provider: selectedProvider,
+      selectedInstanceId: activeProviderInstanceId,
+      sessionInstanceId: activeRuntime?.providerInstanceId,
       usedTokens: activeContextWindow.usedTokens,
       updatedAt: activeContextWindow.updatedAt,
       // Only the live report carries a TTL, and only when it is the window's source.
