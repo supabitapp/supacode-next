@@ -2,7 +2,7 @@ import type { RepositoryIdentity, SourceControlProviderError } from "@supacode/c
 import {
   detectSourceControlProviderFromGitRemoteUrl,
   normalizeGitRemoteUrl,
-  parseGitRemoteVerboseOutput,
+  parseGitRemoteFetchUrls,
 } from "@supacode/shared/git";
 import * as Cache from "effect/Cache";
 import * as Context from "effect/Context";
@@ -139,11 +139,7 @@ const resolveRepositoryIdentityFromCacheKey = Effect.fn(
     return null;
   }
 
-  const remotes = new Map(
-    parseGitRemoteVerboseOutput(remoteResult.value.stdout)
-      .filter((remote) => remote.direction === "fetch")
-      .map((remote) => [remote.name, remote.url]),
-  );
+  const remotes = parseGitRemoteFetchUrls(remoteResult.value.stdout);
   const remote = pickPrimaryRemote(remotes);
   return remote
     ? buildRepositoryIdentity({ ...remote, originUrl: remotes.get("origin"), rootPath: cacheKey })

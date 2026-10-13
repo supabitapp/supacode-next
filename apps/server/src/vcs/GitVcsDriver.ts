@@ -37,7 +37,7 @@ import {
   PATCH_RENDER_PREFIX_ARGS,
   splitNullSeparatedGitStdoutPaths,
 } from "./GitVcsDriverCore.ts";
-import { parseGitRemoteVerboseOutput } from "@supacode/shared/git";
+import { parseGitRemoteVerboseUrls } from "@supacode/shared/git";
 import * as VcsDriver from "./VcsDriver.ts";
 import * as VcsProcess from "./VcsProcess.ts";
 
@@ -643,29 +643,21 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
         });
       }
 
-      const parsed = new Map<string, { url?: string; pushUrl?: string }>();
-      for (const remote of parseGitRemoteVerboseOutput(result.stdout)) {
-        const current = parsed.get(remote.name) ?? {};
-        if (remote.direction === "fetch") {
-          current.url = remote.url;
-        } else {
-          current.pushUrl = remote.url;
-        }
-        parsed.set(remote.name, current);
-      }
-      const remotes = Array.from(parsed.entries()).flatMap(([name, remote]) => {
-        if (!remote.url) {
-          return [];
-        }
-        return [
-          {
-            name,
-            url: remote.url,
-            pushUrl: remote.pushUrl ? Option.some(remote.pushUrl) : Option.none(),
-            isPrimary: name === "origin",
-          },
-        ];
-      });
+      const remotes = Array.from(parseGitRemoteVerboseUrls(result.stdout)).flatMap(
+        ([name, remote]) => {
+          if (!remote.fetchUrl) {
+            return [];
+          }
+          return [
+            {
+              name,
+              url: remote.fetchUrl,
+              pushUrl: remote.pushUrl ? Option.some(remote.pushUrl) : Option.none(),
+              isPrimary: name === "origin",
+            },
+          ];
+        },
+      );
 
       return {
         remotes,

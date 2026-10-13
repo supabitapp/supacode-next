@@ -32,7 +32,7 @@ import {
 import {
   dedupeRemoteBranchesWithLocalMatches,
   normalizeGitRemoteUrl,
-  parseGitRemoteVerboseOutput,
+  parseGitRemoteFetchUrls,
   resolveAvailableGitBranchName,
 } from "@supacode/shared/git";
 import * as HostProcess from "@supacode/shared/HostProcess";
@@ -1627,16 +1627,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
       "GitVcsDriver.ensureRemote.listRemoteUrls",
       input.cwd,
       ["remote", "-v"],
-    ).pipe(
-      Effect.map(
-        (stdout) =>
-          new Map(
-            parseGitRemoteVerboseOutput(stdout)
-              .filter((remote) => remote.direction === "fetch")
-              .map((remote) => [remote.name, remote.url]),
-          ),
-      ),
-    );
+    ).pipe(Effect.map(parseGitRemoteFetchUrls));
 
     for (const [remoteName, remoteUrl] of remoteFetchUrls.entries()) {
       if (normalizeGitRemoteUrl(remoteUrl) === normalizedTargetUrl) {

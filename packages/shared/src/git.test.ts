@@ -9,7 +9,9 @@ import {
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
+  parseGitRemoteFetchUrls,
   parseGitRemoteVerboseOutput,
+  parseGitRemoteVerboseUrls,
   repositoryBranchPrefix,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
   parseOriginUrlFromGitConfig,
@@ -184,6 +186,30 @@ describe("parseGitRemoteVerboseOutput", () => {
         direction: "fetch",
       },
     ]);
+
+    expect(
+      parseGitRemoteVerboseUrls(
+        [
+          "origin\thttps://github.com/acme/repo.git (fetch) [blob:none]",
+          "origin\thttps://github.com/acme/repo.git (push)",
+          "upstream\tgit@github.com:acme/repo.git (fetch)",
+        ].join("\n"),
+      ),
+    ).toEqual(
+      new Map([
+        [
+          "origin",
+          {
+            fetchUrl: "https://github.com/acme/repo.git",
+            pushUrl: "https://github.com/acme/repo.git",
+          },
+        ],
+        ["upstream", { fetchUrl: "git@github.com:acme/repo.git" }],
+      ]),
+    );
+    expect(
+      parseGitRemoteFetchUrls("origin\thttps://github.com/acme/repo.git (fetch) [blob:none]"),
+    ).toEqual(new Map([["origin", "https://github.com/acme/repo.git"]]));
   });
 });
 

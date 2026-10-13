@@ -1,4 +1,4 @@
-import { normalizeGitRemoteUrl, parseGitRemoteVerboseOutput } from "@supacode/shared/git";
+import { normalizeGitRemoteUrl, parseGitRemoteFetchUrls } from "@supacode/shared/git";
 import {
   detectSourceControlProviderFromRemoteUrl,
   isSshRemoteUrl,
@@ -13,9 +13,7 @@ export interface GitHubRepositoryLocator {
 export function parseFetchRemotes(
   remotes: string,
 ): ReadonlyArray<{ readonly name: string; readonly url: string }> {
-  return parseGitRemoteVerboseOutput(remotes)
-    .filter((remote) => remote.direction === "fetch")
-    .map(({ name, url }) => ({ name, url }));
+  return [...parseGitRemoteFetchUrls(remotes)].map(([name, url]) => ({ name, url }));
 }
 
 export function selectGitHubBaseRepository(input: {

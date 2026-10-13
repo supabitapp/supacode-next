@@ -3905,6 +3905,8 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           "origin",
           "https://github.com/supabitapp/supacode-next.git",
         ]);
+        yield* git(cwd, ["config", "remote.origin.promisor", "true"]);
+        yield* git(cwd, ["config", "remote.origin.partialclonefilter", "blob:none"]);
 
         const reusedForSsh = yield* driver.ensureRemote({
           cwd,
