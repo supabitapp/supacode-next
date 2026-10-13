@@ -4617,6 +4617,51 @@ it.layer(layerSharedApplicationDataPlaneTest)("snooze projection", (it) => {
       assert.isNull(awakened.thread.snoozedAt);
     }),
   );
+
+  it.effect("clears snooze state when settling a snoozed thread", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const threadId = ThreadId.make("runtime-layer-settle-snoozed-thread");
+      const snoozedUntil = "2099-07-25T09:00:00.000Z";
+
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("runtime-layer-settle-snoozed-thread-create"),
+        threadId,
+        projectId: ProjectId.make("runtime-layer-settle-snoozed-project"),
+        title: "Settled snoozed thread",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.snooze",
+        commandId: CommandId.make("runtime-layer-settle-snoozed-thread-snooze"),
+        threadId,
+        snoozedUntil,
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.settle",
+        commandId: CommandId.make("runtime-layer-settle-snoozed-thread-settle"),
+        threadId,
+      });
+
+      const projection = yield* orchestrator.getThreadProjection(threadId);
+      assert.equal(projection.thread.settledOverride, "settled");
+      assert.isNull(projection.thread.snoozedUntil);
+      assert.isNull(projection.thread.snoozedAt);
+
+      const shell = yield* orchestrator.getShellSnapshot();
+      const settled = shell.threads.find((thread) => thread.id === threadId);
+      assert.isDefined(settled);
+      assert.isNull(settled.snoozedUntil);
+      assert.isNull(settled.snoozedAt);
+    }),
+  );
 });
 
 it.layer(layerSharedApplicationDataPlaneTest)("visited projection", (it) => {
