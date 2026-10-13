@@ -1080,6 +1080,7 @@ describe("MessagesTimeline", () => {
         {...buildProps()}
         timelineEntries={[buildUserTimelineEntry("Recent activity")]}
         historyControls={{
+          historyCursor: "cursor",
           hasMoreHistory: true,
           loading: false,
           error: "Earlier activity could not be loaded.",
@@ -1088,10 +1089,12 @@ describe("MessagesTimeline", () => {
       />,
     );
 
-    expect(markup).toContain('aria-label="Load earlier turns"');
-    expect(markup).toContain("Load earlier turns");
+    expect(markup).toContain('aria-label="Retry loading earlier activity"');
+    expect(markup).toContain("Retry loading earlier activity");
     expect(markup).toContain("Earlier activity could not be loaded.");
-    expect(markup.indexOf("Load earlier turns")).toBeLessThan(markup.indexOf("Recent activity"));
+    expect(markup.indexOf("Retry loading earlier activity")).toBeLessThan(
+      markup.indexOf("Recent activity"),
+    );
   });
 
   it("keeps an empty bounded timeline actionable while earlier history loads", () => {
@@ -1100,6 +1103,7 @@ describe("MessagesTimeline", () => {
         {...buildProps()}
         timelineEntries={[]}
         historyControls={{
+          historyCursor: "cursor",
           hasMoreHistory: true,
           loading: true,
           error: null,
@@ -1108,9 +1112,48 @@ describe("MessagesTimeline", () => {
       />,
     );
 
-    expect(markup).toContain("Loading earlier turns…");
-    expect(markup).toContain("disabled");
+    expect(markup).toContain("Loading earlier activity…");
+    expect(markup).not.toContain("Retry loading earlier activity");
     expect(markup).not.toContain("Send a message to start the conversation.");
+  });
+
+  it("automatically fills empty history windows without waiting for list onLoad", async () => {
+    const timeline = stubFollowTimeline("environment-local:empty-history-prefetch");
+    timeline.scrollTop = 0;
+    const onLoadEarlier = vi.fn();
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const renderPage = (historyCursor: string, loading: boolean) =>
+      act(() =>
+        root.render(
+          <MessagesTimeline
+            {...timeline.props}
+            timelineEntries={[]}
+            historyControls={{
+              historyCursor,
+              hasMoreHistory: true,
+              loading,
+              error: null,
+              onLoadEarlier,
+            }}
+          />,
+        ),
+      );
+    try {
+      await renderPage("first", false);
+      await timeline.flushFrame();
+      await timeline.flushFrame();
+      expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+      await renderPage("first", true);
+      await timeline.flushFrame();
+      expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+      await renderPage("second", false);
+      await timeline.flushFrame();
+      expect(onLoadEarlier).toHaveBeenCalledTimes(2);
+    } finally {
+      await act(() => root.unmount());
+      vi.unstubAllGlobals();
+    }
   });
 
   it("uses the larger leading inset only when the top fade is enabled", () => {

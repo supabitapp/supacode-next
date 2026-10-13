@@ -326,6 +326,7 @@ function ThreadRouteContent(
       return undefined;
     }
     return {
+      historyCursor: history.historyCursor,
       hasMoreHistory: history.hasMoreHistory,
       loading: history.loading,
       error: history.error,

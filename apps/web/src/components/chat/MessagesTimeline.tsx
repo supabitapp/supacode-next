@@ -1,4 +1,9 @@
 import { ThreadFindTimelineContext } from "./ThreadFindProvider";
+import {
+  createThreadHistoryPrefetcher,
+  THREAD_HISTORY_PREFETCH_VIEWPORTS,
+  type ThreadHistoryControls,
+} from "@supacode/client-runtime/thread-history-prefetch";
 import { shouldPreserveAssistantLineBreaks } from "@supacode/shared/markdownPipeline";
 import { MarkdownFindContext, useFindRevealRef } from "./markdownFindContext";
 import { ComputerUseAppIcon } from "~/components/Icons";
@@ -443,12 +448,7 @@ const TIMELINE_MAINTAIN_SCROLL_AT_END_SMOOTH = {
 // Props (public API)
 // ---------------------------------------------------------------------------
 
-export interface MessagesTimelineHistoryControls {
-  readonly hasMoreHistory: boolean;
-  readonly loading: boolean;
-  readonly error: string | null;
-  readonly onLoadEarlier: (throughEntryId?: string) => void;
-}
+export type MessagesTimelineHistoryControls = ThreadHistoryControls;
 
 interface MessagesTimelineProps {
   citationRequest?: AssistantCitationRequest | null;
@@ -1080,6 +1080,34 @@ const ConversationTimeline = memo(function ConversationTimeline({
     onManualNavigation,
   });
   const [findListReady, setFindListReady] = useState(false);
+  const [prefetchHistory] = useState(createThreadHistoryPrefetcher);
+  const handleHistoryPrefetch = useCallback(() => {
+    const state = listRef.current?.getState();
+    if (
+      paintOnly ||
+      (rows.length > 0 && (!findListReady || restoringThreadPosition)) ||
+      findActive ||
+      citationPositioning ||
+      state?.data !== rows
+    )
+      return;
+    prefetchHistory(listIdentityKey, historyControls, state);
+  }, [
+    listRef,
+    paintOnly,
+    findListReady,
+    restoringThreadPosition,
+    findActive,
+    citationPositioning,
+    rows,
+    prefetchHistory,
+    listIdentityKey,
+    historyControls,
+  ]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(handleHistoryPrefetch);
+    return () => cancelAnimationFrame(frame);
+  }, [handleHistoryPrefetch]);
   const handleListLoad = useCallback(() => {
     onCitationListLoad();
     setFindListReady(true);
@@ -1187,6 +1215,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   }, [cancelContentOverflowFrame, measureContentOverflow, onContentOverflowChange, rows.length]);
 
   const handleScroll = useCallback(() => {
+    handleHistoryPrefetch();
     const state = listRef.current?.getState?.();
     if (restoringThreadPosition || state?.data !== rows) return;
     const isAtEnd = resolveTimelineIsAtEnd(state);
@@ -1257,6 +1286,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
       current === nextCurrentIndex ? current : nextCurrentIndex,
     );
   }, [
+    handleHistoryPrefetch,
     citationPositioning,
     paintedExpandedRunIds,
     paintedExpandedWorkGroupIds,
@@ -1657,6 +1687,8 @@ const ConversationTimeline = memo(function ConversationTimeline({
                 }
                 maintainScrollAtEndThreshold={1}
                 onScroll={handleScroll}
+                onStartReached={handleHistoryPrefetch}
+                onStartReachedThreshold={THREAD_HISTORY_PREFETCH_VIEWPORTS}
                 onItemSizeChanged={reportContentOverflow}
                 className={cn(
                   "messages-timeline-scroll scrollbar-gutter-both h-full min-h-0 overflow-x-hidden overscroll-y-contain [overflow-anchor:none]",
@@ -1690,21 +1722,25 @@ const ConversationTimeline = memo(function ConversationTimeline({
 });
 
 function TimelineHistoryControl(props: MessagesTimelineHistoryControls) {
-  if (!props.hasMoreHistory && props.error === null) {
+  if (!props.loading && props.error === null) {
     return null;
   }
   return (
     <div className="messages-timeline-row-frame">
       <div className="chat-content-lane flex flex-col gap-1.5 pb-2">
-        {props.hasMoreHistory ? (
+        {props.loading ? (
+          <p role="status" className="py-1.5 text-center text-xs text-muted-foreground/60">
+            Loading earlier activity…
+          </p>
+        ) : null}
+        {!props.loading && props.hasMoreHistory ? (
           <button
             type="button"
-            disabled={props.loading}
-            aria-label="Load earlier turns"
+            aria-label="Retry loading earlier activity"
             onClick={() => props.onLoadEarlier()}
-            className="w-full py-1.5 text-xs text-muted-foreground/60 hover:text-foreground disabled:cursor-default"
+            className="w-full py-1.5 text-xs text-muted-foreground/60 hover:text-foreground"
           >
-            {props.loading ? "Loading earlier turns…" : "Load earlier turns"}
+            Retry loading earlier activity
           </button>
         ) : null}
         {props.error !== null ? (

@@ -1810,6 +1810,7 @@ export default function ChatView(props: ChatViewProps) {
       return undefined;
     }
     return {
+      historyCursor: serverThreadHistory.historyCursor,
       hasMoreHistory: serverThreadHistory.hasMoreHistory,
       loading: serverThreadHistory.loading,
       error: serverThreadHistory.error,

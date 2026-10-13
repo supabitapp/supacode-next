@@ -1,4 +1,9 @@
 import type { DraftComposerAttachment } from "../../lib/composerImages";
+import {
+  createThreadHistoryPrefetcher,
+  THREAD_HISTORY_PREFETCH_VIEWPORTS,
+  type ThreadHistoryControls,
+} from "@supacode/client-runtime/thread-history-prefetch";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
 import { ThreadMarkdownVideo, ThreadMediaVisibleContext } from "./ThreadMarkdownVideo";
 import { useMarkdownImageSource } from "../../native/useMarkdownImageSource";
@@ -269,12 +274,7 @@ function isFreshTimestamp(input: string): boolean {
   return Number.isFinite(timestamp) && Date.now() - timestamp < FRESH_ENTRY_WINDOW_MS;
 }
 
-export interface ThreadFeedHistoryControls {
-  readonly hasMoreHistory: boolean;
-  readonly loading: boolean;
-  readonly error: string | null;
-  readonly onLoadEarlier: () => void;
-}
+export type ThreadFeedHistoryControls = ThreadHistoryControls;
 
 export interface ThreadFeedProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
@@ -2102,30 +2102,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     },
     [onHeaderMaterialVisibilityChange],
   );
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      // anchorTopInset, not topContentInset: under automatic insets the list
-      // rests at contentOffset.y = -headerHeight (the inset lives only in
-      // UIKit's adjustedContentInset, so topContentInset is 0 here). Add the
-      // header height back or the material toggles a full header too late.
-      reportHeaderMaterialVisibility(event.nativeEvent.contentOffset.y + anchorTopInset > 6);
-      // LegendList recomputes its inset-aware end distance before invoking
-      // this handler, so getState() is current. Only the actual end re-arms
-      // follow: its broader maintain-scroll threshold is large enough for a
-      // streaming chunk to pull a user back before their upward drag escapes.
-      // A live user-scroll session still wins even if the first scroll event
-      // remains inside LegendList's at-end tolerance.
-      const listState = listRef.current?.getState();
-      if (listState) {
-        transitionEndFollow({
-          type: "scroll",
-          isAtEnd: listState.isAtEnd,
-          userScrollSessionActive: userScrollSessionRef.current,
-        });
-      }
-    },
-    [reportHeaderMaterialVisibility, anchorTopInset, listRef, transitionEndFollow],
-  );
   const clearUserScrollSettle = useCallback(() => {
     if (userScrollSettleTimerRef.current !== null) {
       clearTimeout(userScrollSettleTimerRef.current);
@@ -2273,6 +2249,55 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     hasQueuedMessages: props.queuedMessages.length > 0,
   });
   const feedOpacity = useSharedValue(feedLoading ? 0 : 1);
+  const [prefetchHistory] = useState(createThreadHistoryPrefetcher);
+  const handleHistoryPrefetch = useCallback(() => {
+    const state = listRef.current?.getState();
+    if (props.freeze || feedLoading || state?.data !== presentedFeed) return;
+    prefetchHistory(feedThreadKey, props.historyControls, state);
+  }, [
+    listRef,
+    props.freeze,
+    feedLoading,
+    presentedFeed,
+    prefetchHistory,
+    feedThreadKey,
+    props.historyControls,
+  ]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(handleHistoryPrefetch);
+    return () => cancelAnimationFrame(frame);
+  }, [handleHistoryPrefetch]);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      handleHistoryPrefetch();
+      // anchorTopInset, not topContentInset: under automatic insets the list
+      // rests at contentOffset.y = -headerHeight (the inset lives only in
+      // UIKit's adjustedContentInset, so topContentInset is 0 here). Add the
+      // header height back or the material toggles a full header too late.
+      reportHeaderMaterialVisibility(event.nativeEvent.contentOffset.y + anchorTopInset > 6);
+      // LegendList recomputes its inset-aware end distance before invoking
+      // this handler, so getState() is current. Only the actual end re-arms
+      // follow: its broader maintain-scroll threshold is large enough for a
+      // streaming chunk to pull a user back before their upward drag escapes.
+      // A live user-scroll session still wins even if the first scroll event
+      // remains inside LegendList's at-end tolerance.
+      const listState = listRef.current?.getState();
+      if (listState) {
+        transitionEndFollow({
+          type: "scroll",
+          isAtEnd: listState.isAtEnd,
+          userScrollSessionActive: userScrollSessionRef.current,
+        });
+      }
+    },
+    [
+      handleHistoryPrefetch,
+      reportHeaderMaterialVisibility,
+      anchorTopInset,
+      listRef,
+      transitionEndFollow,
+    ],
+  );
   const reduceMotion = useReducedMotionPreference();
   useLayoutEffect(() => {
     const opacity = feedLoading ? 0 : 1;
@@ -2838,6 +2863,8 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             alignItemsAtEnd
             initialScrollAtEnd
             onScroll={handleScroll}
+            onStartReached={handleHistoryPrefetch}
+            onStartReachedThreshold={THREAD_HISTORY_PREFETCH_VIEWPORTS}
             onScrollBeginDrag={handleScrollBeginDrag}
             onScrollEndDrag={handleScrollEndDrag}
             onMomentumScrollBegin={handleMomentumScrollBegin}
@@ -2909,26 +2936,26 @@ function ThreadFeedLoadEarlierControl(props: ThreadFeedHistoryControls) {
   const theme = useUniwindTheme();
   const mutedColor = theme["--color-icon-subtle"];
   const accentColor = theme["--color-primary"];
-  if (!props.hasMoreHistory && props.error === null) {
+  if (!props.loading && props.error === null) {
     return null;
   }
   return (
     <View className="mb-3 items-center gap-1.5 px-2">
-      {props.hasMoreHistory ? (
+      {props.loading ? (
+        <Text accessibilityRole="progressbar" className="py-2 text-sm text-foreground-secondary">
+          Loading earlier activity…
+        </Text>
+      ) : null}
+      {!props.loading && props.hasMoreHistory ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Load earlier activity"
-          disabled={props.loading}
-          onPress={props.onLoadEarlier}
-          className="min-h-9 flex-row items-center justify-center gap-2 rounded-full border border-border/60 bg-card/80 px-4 py-2 disabled:opacity-50"
+          accessibilityLabel="Retry loading earlier activity"
+          onPress={() => props.onLoadEarlier()}
+          className="min-h-9 flex-row items-center justify-center gap-2 rounded-full border border-border/60 bg-card/80 px-4 py-2"
         >
-          {props.loading ? (
-            <AppActivityIndicator size="small" color={accentColor} />
-          ) : (
-            <SymbolView name="chevron.up" size={12} tintColor={accentColor} type="monochrome" />
-          )}
+          <SymbolView name="arrow.clockwise" size={12} tintColor={accentColor} type="monochrome" />
           <Text className="text-sm font-medium text-foreground">
-            {props.loading ? "Loading earlier activity…" : "Load earlier activity"}
+            Retry loading earlier activity
           </Text>
         </Pressable>
       ) : null}

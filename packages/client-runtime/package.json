@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./thread-history-prefetch": {
+      "types": "./src/threadHistoryPrefetch.ts",
+      "default": "./src/threadHistoryPrefetch.ts"
+    },
     "./user-input-auto-dismiss-pause": {
       "types": "./src/userInputAutoDismissPause.ts",
       "default": "./src/userInputAutoDismissPause.ts"
