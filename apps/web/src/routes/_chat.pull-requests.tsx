@@ -120,6 +120,11 @@ import {
 import { PullRequestsUnavailableState } from "../components/pullRequest/PullRequestsUnavailableState";
 import { RightPanelTabs, type PullRequestTabStatusSeed } from "../components/RightPanelTabs";
 import {
+  PreviewPanelGroup,
+  PreviewPanelInline,
+  PreviewPanelSibling,
+} from "../components/preview/PreviewPanelLayout";
+import {
   WorkspaceBreadcrumb,
   WorkspaceBreadcrumbItem,
   WorkspaceBreadcrumbSeparator,
@@ -1841,11 +1846,16 @@ function PullRequestsRouteView() {
           },
     );
 
+  const closeRightPanel = () => {
+    if (rightPanelRef === null) return;
+    useRightPanelStore.getState().close(rightPanelRef);
+    updateSearch(clearedSelection);
+  };
+
   const toggleRightPanel = () => {
     if (rightPanelRef === null) return;
     if (rightPanelState.isOpen) {
-      useRightPanelStore.getState().close(rightPanelRef);
-      updateSearch(clearedSelection);
+      closeRightPanel();
       return;
     }
     if (selectedPullRequestSurface === null) return;
@@ -2197,7 +2207,6 @@ function PullRequestsRouteView() {
         )
       ) : null,
     rightPanelOpen: rightPanelState.isOpen,
-    maximizedAway: rightPanelMaximized,
     listBody,
     scrollRef,
   };
@@ -2295,139 +2304,148 @@ function PullRequestsRouteView() {
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       <div className="relative flex min-h-0 flex-1">
         {pullRequestsSupported && rightPanelPresent ? openPanelControls : null}
-        <PullRequestsColumn {...columnProps} />
+        <PreviewPanelGroup className="min-h-0 flex-1" maximized={rightPanelMaximized}>
+          <PreviewPanelSibling>
+            <PullRequestsColumn {...columnProps} />
+          </PreviewPanelSibling>
 
-        {rightPanelPresent && renderedPullRequestSurface && panelEnvironmentId !== null ? (
-          <RightPanelTabs
-            mode="inline"
-            open={rightPanelState.isOpen}
-            maximized={rightPanelMaximized}
-            keybindings={keybindings}
-            getShortcutContext={getShortcutContext}
-            widthStorageKey="supacode:pull-request-panel-width"
-            // Default to roughly half the viewport: the PR list needs more
-            // room than a chat, so the 540px chat-preview default squashes
-            // it. SSR has no window, so fall back to a reasonable width.
-            defaultWidth={typeof window === "undefined" ? 640 : Math.floor(window.innerWidth / 2)}
-            surfaces={renderedRightPanelSurfaces}
-            environmentId={panelEnvironmentId}
-            activeSurfaceId={renderedPullRequestSurface.id}
-            pendingSurfaceIds={EMPTY_PENDING_SURFACES}
-            previewSessions={EMPTY_PREVIEW_SESSIONS}
-            desktopByTabId={EMPTY_PREVIEW_DESKTOP_STATE}
-            terminalLabelsById={EMPTY_TERMINAL_LABELS}
-            onActivate={(surface) => {
-              if (surface.kind === "pull-request") activateSurface(surface);
-            }}
-            onCloseSurface={(surface) => {
-              if (surface.kind === "pull-request") closeSurface(surface);
-            }}
-            onCloseOtherSurfaces={(surface) => {
-              if (surface.kind === "pull-request") closeOtherSurfaces(surface);
-            }}
-            onCloseSurfacesToRight={(surface) => {
-              if (surface.kind === "pull-request") closeSurfacesToRight(surface);
-            }}
-            onCloseAllSurfaces={closeAllSurfaces}
-            onMoveSurface={(surfaceId, toIndex) => {
-              if (rightPanelRef !== null)
-                useRightPanelStore.getState().moveSurface(rightPanelRef, surfaceId, toIndex);
-            }}
-            onCopyFilePath={() => undefined}
-            onAddBrowser={() => undefined}
-            onAddBrowserInProfile={() => undefined}
-            onAddTerminal={() => undefined}
-            onAddDiff={() => undefined}
-            onAddFiles={() => undefined}
-            onAddPullRequest={() => undefined}
-            onAddPullRequests={() => undefined}
-            onAddDevice={() => undefined}
-            browserAvailable={false}
-            terminalAvailable={false}
-            diffAvailable={false}
-            filesAvailable={false}
-            pullRequestAvailable={false}
-            pullRequestsAvailable={false}
-            deviceAvailable={false}
-            pullRequestStatusSeeds={listedPullRequestTabStatuses}
-          >
-            <PullRequestDetailPanel
-              getShortcutContext={getShortcutContext}
-              shortcutsEnabled={activePullRequestSurface?.id === renderedPullRequestSurface.id}
-              key={renderedPullRequestSurface.id}
-              environmentId={panelEnvironmentId}
-              onGuideShown={onGuideShown}
-              onSelectPullRequest={(reference) => {
-                if (rightPanelRef === null) return;
-                useRightPanelStore.getState().openPullRequest(rightPanelRef, {
-                  projectId: reference.projectId,
-                  repository: reference.repository,
-                  number: reference.number,
-                  ...(reference.host ? { host: reference.host } : {}),
-                  environmentId: panelEnvironmentId,
-                });
-                updateSearch({
-                  repository: reference.repository,
-                  number: reference.number,
-                  selectedHost: reference.host,
-                  selectedProjectId: reference.projectId,
-                  selectedEnvironmentId: panelEnvironmentId,
-                });
-              }}
-              reference={{
-                projectId: renderedPullRequestSurface.projectId as ProjectId,
-                repository: renderedPullRequestSurface.repository,
-                number: renderedPullRequestSurface.number,
-                ...(renderedPullRequestSurface.host
-                  ? { host: renderedPullRequestSurface.host }
-                  : {}),
-              }}
-              listEntry={
-                listedPullRequestsBySurface.get(
-                  pullRequestListEntryId(renderedPullRequestSurface),
-                ) ?? null
-              }
-              refreshToken={detailRefreshToken}
-              // Host actions can change both readiness and diff size, so refresh the counts
-              // alongside the list. The panel already refreshes itself after each action.
-              onActed={(action, phase = "done") => {
-                // An action that only moves a row's state is written onto the row as it is
-                // sent, and taken back if the host refuses; the host invalidates its caches,
-                // so the next scheduled read confirms it. The rest change what the counts and
-                // checks say, and those need the reads once they are done.
-                // From every row held, not the ones on screen: a pull request closed from an
-                // open list has left the screen, and reopening it has to find it anyway.
-                const acted = heldPullRequestsBySurface.get(
-                  pullRequestListEntryId(renderedPullRequestSurface),
-                );
-                const stateOnly =
-                  action !== undefined &&
-                  acted !== undefined &&
-                  pullRequestOverrideAfterAction(acted, action, new Date(), 0) !== null;
-                if (stateOnly) {
-                  const key = pullRequestEntryKey(acted);
-                  // A merge is written on once the host has done it, since a host that only
-                  // queues one leaves the pull request open; the rest go on as they are sent.
-                  if (phase === "sent" && action !== "merge") {
-                    detailOverrideTokens.current.set(key, overrideEntry(acted, action));
+          {rightPanelPresent && renderedPullRequestSurface && panelEnvironmentId !== null ? (
+            <PreviewPanelInline
+              open={rightPanelState.isOpen}
+              widthStorageKey="supacode:pull-request-panel-width"
+              onCollapse={closeRightPanel}
+              // Default to roughly half the viewport: the PR list needs more
+              // room than a chat, so the 540px chat-preview default squashes
+              // it. SSR has no window, so fall back to a reasonable width.
+              defaultWidth={typeof window === "undefined" ? 640 : Math.floor(window.innerWidth / 2)}
+            >
+              <RightPanelTabs
+                mode="inline"
+                open={rightPanelState.isOpen}
+                maximized={rightPanelMaximized}
+                keybindings={keybindings}
+                getShortcutContext={getShortcutContext}
+                surfaces={renderedRightPanelSurfaces}
+                environmentId={panelEnvironmentId}
+                activeSurfaceId={renderedPullRequestSurface.id}
+                pendingSurfaceIds={EMPTY_PENDING_SURFACES}
+                previewSessions={EMPTY_PREVIEW_SESSIONS}
+                desktopByTabId={EMPTY_PREVIEW_DESKTOP_STATE}
+                terminalLabelsById={EMPTY_TERMINAL_LABELS}
+                onActivate={(surface) => {
+                  if (surface.kind === "pull-request") activateSurface(surface);
+                }}
+                onCloseSurface={(surface) => {
+                  if (surface.kind === "pull-request") closeSurface(surface);
+                }}
+                onCloseOtherSurfaces={(surface) => {
+                  if (surface.kind === "pull-request") closeOtherSurfaces(surface);
+                }}
+                onCloseSurfacesToRight={(surface) => {
+                  if (surface.kind === "pull-request") closeSurfacesToRight(surface);
+                }}
+                onCloseAllSurfaces={closeAllSurfaces}
+                onMoveSurface={(surfaceId, toIndex) => {
+                  if (rightPanelRef !== null)
+                    useRightPanelStore.getState().moveSurface(rightPanelRef, surfaceId, toIndex);
+                }}
+                onCopyFilePath={() => undefined}
+                onAddBrowser={() => undefined}
+                onAddBrowserInProfile={() => undefined}
+                onAddTerminal={() => undefined}
+                onAddDiff={() => undefined}
+                onAddFiles={() => undefined}
+                onAddPullRequest={() => undefined}
+                onAddPullRequests={() => undefined}
+                onAddDevice={() => undefined}
+                browserAvailable={false}
+                terminalAvailable={false}
+                diffAvailable={false}
+                filesAvailable={false}
+                pullRequestAvailable={false}
+                pullRequestsAvailable={false}
+                deviceAvailable={false}
+                pullRequestStatusSeeds={listedPullRequestTabStatuses}
+              >
+                <PullRequestDetailPanel
+                  getShortcutContext={getShortcutContext}
+                  shortcutsEnabled={activePullRequestSurface?.id === renderedPullRequestSurface.id}
+                  key={renderedPullRequestSurface.id}
+                  environmentId={panelEnvironmentId}
+                  onGuideShown={onGuideShown}
+                  onSelectPullRequest={(reference) => {
+                    if (rightPanelRef === null) return;
+                    useRightPanelStore.getState().openPullRequest(rightPanelRef, {
+                      projectId: reference.projectId,
+                      repository: reference.repository,
+                      number: reference.number,
+                      ...(reference.host ? { host: reference.host } : {}),
+                      environmentId: panelEnvironmentId,
+                    });
+                    updateSearch({
+                      repository: reference.repository,
+                      number: reference.number,
+                      selectedHost: reference.host,
+                      selectedProjectId: reference.projectId,
+                      selectedEnvironmentId: panelEnvironmentId,
+                    });
+                  }}
+                  reference={{
+                    projectId: renderedPullRequestSurface.projectId as ProjectId,
+                    repository: renderedPullRequestSurface.repository,
+                    number: renderedPullRequestSurface.number,
+                    ...(renderedPullRequestSurface.host
+                      ? { host: renderedPullRequestSurface.host }
+                      : {}),
+                  }}
+                  listEntry={
+                    listedPullRequestsBySurface.get(
+                      pullRequestListEntryId(renderedPullRequestSurface),
+                    ) ?? null
                   }
-                  // A merge wrote nothing on the way out, so its failure has nothing to take
-                  // back; an earlier action's note on the same row is left standing.
-                  if (phase === "failed" && action !== "merge") {
-                    revertOverride(key, detailOverrideTokens.current.get(key) ?? null);
-                  }
-                  if (phase !== "sent") detailOverrideTokens.current.delete(key);
-                  if (phase === "done" && action === "merge") {
-                    overrideEntry(acted, action);
-                    refreshListAndStats(undefined, panelEnvironmentId);
-                  }
-                  return;
-                }
-                if (phase === "done") refreshListAndStats(undefined, panelEnvironmentId);
-              }}
-            />
-          </RightPanelTabs>
-        ) : null}
+                  refreshToken={detailRefreshToken}
+                  // Host actions can change both readiness and diff size, so refresh the counts
+                  // alongside the list. The panel already refreshes itself after each action.
+                  onActed={(action, phase = "done") => {
+                    // An action that only moves a row's state is written onto the row as it is
+                    // sent, and taken back if the host refuses; the host invalidates its caches,
+                    // so the next scheduled read confirms it. The rest change what the counts and
+                    // checks say, and those need the reads once they are done.
+                    // From every row held, not the ones on screen: a pull request closed from an
+                    // open list has left the screen, and reopening it has to find it anyway.
+                    const acted = heldPullRequestsBySurface.get(
+                      pullRequestListEntryId(renderedPullRequestSurface),
+                    );
+                    const stateOnly =
+                      action !== undefined &&
+                      acted !== undefined &&
+                      pullRequestOverrideAfterAction(acted, action, new Date(), 0) !== null;
+                    if (stateOnly) {
+                      const key = pullRequestEntryKey(acted);
+                      // A merge is written on once the host has done it, since a host that only
+                      // queues one leaves the pull request open; the rest go on as they are sent.
+                      if (phase === "sent" && action !== "merge") {
+                        detailOverrideTokens.current.set(key, overrideEntry(acted, action));
+                      }
+                      // A merge wrote nothing on the way out, so its failure has nothing to take
+                      // back; an earlier action's note on the same row is left standing.
+                      if (phase === "failed" && action !== "merge") {
+                        revertOverride(key, detailOverrideTokens.current.get(key) ?? null);
+                      }
+                      if (phase !== "sent") detailOverrideTokens.current.delete(key);
+                      if (phase === "done" && action === "merge") {
+                        overrideEntry(acted, action);
+                        refreshListAndStats(undefined, panelEnvironmentId);
+                      }
+                      return;
+                    }
+                    if (phase === "done") refreshListAndStats(undefined, panelEnvironmentId);
+                  }}
+                />
+              </RightPanelTabs>
+            </PreviewPanelInline>
+          ) : null}
+        </PreviewPanelGroup>
       </div>
     </SidebarInset>
   );
@@ -2607,7 +2625,6 @@ function PullRequestsColumn({
   rightPanelControl,
   titlebarControls,
   rightPanelOpen,
-  maximizedAway,
   listBody,
   scrollRef,
 }: {
@@ -2627,8 +2644,6 @@ function PullRequestsColumn({
   rightPanelControl: ReactNode;
   titlebarControls: ReactNode;
   rightPanelOpen: boolean;
-  /** The panel beside the list is maximized, so the list gives up its width. */
-  maximizedAway: boolean;
   listBody: ReactNode;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -2690,12 +2705,7 @@ function PullRequestsColumn({
   return (
     // Painted flat like the chat column: the inset underneath carries the chrome grain, and a
     // content surface that lets it show reads as a different background than every thread.
-    <div
-      className={cn(
-        "@container/pr-list flex min-h-0 min-w-0 flex-col overflow-x-hidden bg-background",
-        maximizedAway ? "w-0 flex-none" : "flex-1",
-      )}
-    >
+    <div className="@container/pr-list flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden bg-background">
       {/* A closed right panel leaves this column full-width, so the shared header
           reserves native window controls and hosts the controls strip itself: on
           desktop the header is a drag-region, and only a no-drag descendant wins
