@@ -772,7 +772,7 @@ describe("archive runner script", () => {
         const fs = yield* FileSystem.FileSystem;
         const root = yield* fs.makeTempDirectoryScoped({ prefix: "supaterm-archive-runner-" });
         const releaseBaseUrl = yield* makeMirror(root);
-        const runner = `${root}/run-supaterm.com`;
+        const runner = `${root}/run-supaterm.sh`;
         yield* fs.writeFileString(
           runner,
           SshTunnel.buildRemoteSupatermRunnerScript({ archiveVersion, releaseBaseUrl }),

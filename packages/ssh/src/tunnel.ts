@@ -550,7 +550,7 @@ PORT_FILE="$STATE_DIR/port"
 PID_FILE="$STATE_DIR/pid"
 MANAGED_FILE="$STATE_DIR/managed"
 LOG_FILE="$STATE_DIR/server.log"
-RUNNER_FILE="$STATE_DIR/run-supaterm.com"
+RUNNER_FILE="$STATE_DIR/run-supaterm.sh"
 RUNNER_NEXT="$STATE_DIR/run-supaterm.next.$$"
 mkdir -p "$STATE_DIR"
 cleanup_runner_next() {
@@ -724,7 +724,7 @@ printf '{"remotePort":%s,"serverKind":"%s"}\\n' "$REMOTE_PORT" "\${REMOTE_MANAGE
 const REMOTE_PAIRING_SCRIPT = `set -eu
 STATE_DIR="$HOME/.supaterm/ssh-launch/@@SUPATERM_STATE_KEY@@"
 DEFAULT_SERVER_HOME="$HOME/.supaterm"
-RUNNER_FILE="$STATE_DIR/run-supaterm.com"
+RUNNER_FILE="$STATE_DIR/run-supaterm.sh"
 mkdir -p "$STATE_DIR"
 cat >"$RUNNER_FILE" <<'SH'
 @@SUPATERM_RUNNER_SCRIPT@@

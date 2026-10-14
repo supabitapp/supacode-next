@@ -149,7 +149,7 @@ const shellWord = (value: string) =>
 
 const resolveInstallCommand = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const shim = (yield* HostProcess.Environment).SUPATERM_CLI_PATH?.trim();
+  const shim = (yield* HostProcess.Environment).SUPATERM_CLI_SHIM_PATH?.trim();
   if (shim && (yield* fs.exists(shim).pipe(Effect.orElseSucceed(() => false)))) {
     return Option.some(shellWord(shim));
   }

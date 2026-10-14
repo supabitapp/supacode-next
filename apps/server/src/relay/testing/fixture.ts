@@ -11,7 +11,7 @@ import { isRelayPath } from "../RelayIngress.ts";
 
 async function startRelay(port = 0) {
   const binary = process.env.RELAY_TEST_BINARY;
-  if (!binary) throw new Error("Set RELAY_TEST_BINARY to a compiled supaterm-relay binary.");
+  if (!binary) throw new Error("Set RELAY_TEST_BINARY to a compiled supacode-relay binary.");
   const child = NodeChildProcess.spawn(binary, [], {
     env: {
       ...process.env,

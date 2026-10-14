@@ -63,6 +63,7 @@ export default defineConfig({
   test: {
     environment: "node",
     exclude: [
+      "**/.supacode/**",
       "**/.supaterm/**",
       "**/node_modules/**",
       "**/dist/**",

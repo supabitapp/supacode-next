@@ -177,7 +177,7 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
       const desktop = {
         node: "/tmp/.mount_Supatermabc/supaterm",
         entry: "/tmp/.mount_Supatermabc/resources/app.asar/apps/server/dist/bin.mjs",
-        env: { SUPATERM_CLI_PATH: shim },
+        env: { SUPATERM_CLI_SHIM_PATH: shim },
       };
 
       expect(yield* rootCommand(desktop)).toBe(`sudo '${shim}' browser setup`);
@@ -195,7 +195,10 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
       ).toBe("sudo /opt/supaterm/supaterm browser setup");
 
       expect(
-        yield* rootCommand({ ...desktop, env: { SUPATERM_CLI_PATH: path.join(home, "gone") } }),
+        yield* rootCommand({
+          ...desktop,
+          env: { SUPATERM_CLI_SHIM_PATH: path.join(home, "gone") },
+        }),
       ).toBe('sudo env "PATH=$PATH" supaterm browser setup');
     }).pipe(Effect.scoped),
   );

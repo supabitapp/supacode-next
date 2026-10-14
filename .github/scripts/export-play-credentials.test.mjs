@@ -9,7 +9,7 @@ const key = JSON.stringify({
 });
 const input = {
   token: "expo-token-fixture",
-  projectFullName: "@supabitapp/supaterm",
+  projectFullName: "@supabitapp/supacode",
   applicationIdentifier: "com.supaterm.mobile",
 };
 const credentials = (

@@ -39,7 +39,7 @@ const run = (shim: string, args: ReadonlyArray<string>, env: NodeJS.ProcessEnv =
   });
 
 const REPORTER =
-  '#!/bin/sh\necho "node=$ELECTRON_RUN_AS_NODE cli=$SUPATERM_CLI_PATH home=$SUPATERM_HOME"\nprintf "%s\\n" "$@"\nexit 3\n';
+  '#!/bin/sh\necho "node=$ELECTRON_RUN_AS_NODE cli=$SUPATERM_CLI_SHIM_PATH home=$SUPATERM_HOME"\nprintf "%s\\n" "$@"\nexit 3\n';
 
 const fakeAppImage = (canMount = true) => {
   const root = tempRoot();
@@ -161,7 +161,7 @@ describe("renderCliShim", () => {
     );
     expect(bare).toEqual([]);
     expect(lines).toContain(
-      'set "SUPATERM_CLI_PATH=C:\\Users\\José\\.supaterm\\bin\\supaterm.cmd"',
+      'set "SUPATERM_CLI_SHIM_PATH=C:\\Users\\José\\.supaterm\\bin\\supaterm.cmd"',
     );
   });
 

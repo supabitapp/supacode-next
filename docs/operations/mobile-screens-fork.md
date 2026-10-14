@@ -6,7 +6,7 @@ declarations and native sources come from
 [source commit 176ff648](https://github.com/juliusmarminge/react-native-screens/commit/176ff64880ddd0a6122a1f18eda826479c8e73c7),
 based on `72f38a66c188bdebee7a7798c9b72a121b7a8451`. Supaterm changes the package
 version and archive metadata; it preserves the runtime and native source.
-`supaterm-fork.json` inside the archive records that provenance.
+`supacode-fork.json` inside the archive records that provenance.
 
 Compiled JavaScript, declarations and native source must come from the same
 revision. Replacing only one part can leave the navigation API out of step with

@@ -17,7 +17,7 @@ public final class SupatermRelayTunnelModule: Module {
   private var backgroundTask = UIBackgroundTaskIdentifier.invalid
   private var suspendWork: DispatchWorkItem?
   private var graceGeneration: UInt64 = 0
-  private let logger = Logger(subsystem: "sh.supaterm.mobile", category: "relay-tunnel")
+  private let logger = Logger(subsystem: "com.supaterm.mobile", category: "relay-tunnel")
 
   public func definition() -> ModuleDefinition {
     Name("SupatermRelayTunnel")

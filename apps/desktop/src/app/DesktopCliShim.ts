@@ -47,7 +47,7 @@ export const renderCliShim = (input: {
             "chcp 65001 >nul",
           ]
         : []),
-      `set "SUPATERM_CLI_PATH=${cmdText(input.shimPath)}"`,
+      `set "SUPATERM_CLI_SHIM_PATH=${cmdText(input.shimPath)}"`,
       `if not defined SUPATERM_HOME set "SUPATERM_HOME=${cmdText(input.supatermHome)}"`,
       'set "ELECTRON_RUN_AS_NODE=1"',
 
@@ -66,7 +66,7 @@ export const renderCliShim = (input: {
   const header = [
     "#!/bin/sh",
     `# ${MARKER}`,
-    `export SUPATERM_CLI_PATH=${shellWord(input.shimPath)}`,
+    `export SUPATERM_CLI_SHIM_PATH=${shellWord(input.shimPath)}`,
     `home=${shellWord(input.supatermHome)}`,
     'export SUPATERM_HOME="${SUPATERM_HOME:-$home}"',
     "export ELECTRON_RUN_AS_NODE=1",

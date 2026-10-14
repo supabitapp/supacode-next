@@ -1,6 +1,6 @@
 # Supaterm
 
-The next version of supaterm, a command center for ur coding agents
+A command center for ur coding agents
 
 ## Desktop app
 

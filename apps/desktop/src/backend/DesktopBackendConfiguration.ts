@@ -602,7 +602,7 @@ const resolvePrimaryStartConfig = Effect.fn("desktop.backendConfiguration.resolv
         ...backendChildEnvPatch(),
         ELECTRON_RUN_AS_NODE: "1",
 
-        SUPATERM_CLI_PATH: Option.getOrUndefined(input.cliPath),
+        SUPATERM_CLI_SHIM_PATH: Option.getOrUndefined(input.cliPath),
       },
       // Primary wants process.env (PATH, dev-runner's SUPATERM_HOME, etc.).
       extendEnv: true,

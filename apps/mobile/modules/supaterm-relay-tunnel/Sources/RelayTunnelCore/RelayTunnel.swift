@@ -31,7 +31,7 @@ public final class RelayTunnel: @unchecked Sendable {
   private let probeTimeout: TimeInterval
   private let handshakeTimeout: TimeInterval
   private let failureCooldown: TimeInterval
-  let queue = DispatchQueue(label: "sh.supaterm.relay-tunnel", qos: .userInitiated)
+  let queue = DispatchQueue(label: "com.supaterm.relay-tunnel", qos: .userInitiated)
   private let onStatus: (RelayTunnelStatus) -> Void
   private(set) var listener: NWListener?
   private var startingListener: NWListener?
