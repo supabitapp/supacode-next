@@ -9,7 +9,7 @@ const initialInput: Input = {
   listMountKey: "environment:thread:empty",
   contentKind: "loading",
   hasContent: false,
-  hasQueuedMessages: false,
+  hasPendingMessages: false,
 };
 
 let renderer: ReactTestRenderer | undefined;
@@ -54,8 +54,28 @@ describe("thread feed loading handoff", () => {
     expect(result.loading).toBe(false);
   });
 
-  it("shows cached conversations immediately", async () => {
-    await render({ ...initialInput, contentKind: "ready", hasContent: true });
+  it("holds a cached conversation until its list lands", async () => {
+    const cached = {
+      ...initialInput,
+      contentKind: "ready",
+      hasContent: true,
+      listMountKey: "environment:thread:filled",
+    } as const;
+    await render(cached);
+    expect(result.loading).toBe(true);
+    await act(async () => result.onListLoaded());
+    expect(result.loading).toBe(false);
+  });
+
+  it("does not hold the first message of a conversation opened empty", async () => {
+    await render({ ...initialInput, contentKind: "ready" });
+    expect(result.loading).toBe(false);
+    await render({
+      ...initialInput,
+      contentKind: "ready",
+      hasContent: true,
+      listMountKey: "environment:thread:filled",
+    });
     expect(result.loading).toBe(false);
   });
 
@@ -88,8 +108,15 @@ describe("thread feed loading handoff", () => {
     expect(result.loading).toBe(false);
   });
 
-  it("keeps queued messages visible while history loads", async () => {
-    await render({ ...initialInput, hasQueuedMessages: true });
+  it("keeps pending messages visible without waiting for the list", async () => {
+    await render({ ...initialInput, hasPendingMessages: true });
+    expect(result.loading).toBe(false);
+    await render({
+      ...initialInput,
+      contentKind: "ready",
+      hasContent: true,
+      hasPendingMessages: true,
+    });
     expect(result.loading).toBe(false);
   });
 

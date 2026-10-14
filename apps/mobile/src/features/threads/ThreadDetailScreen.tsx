@@ -1250,6 +1250,9 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
               worktreeSetup={props.worktreeSetup}
               setupWorkingStartedAt={props.setupWorkingStartedAt}
               queuedMessages={props.queuedMessages}
+              pendingCreation={
+                props.creationState?.kind === "preparing" && !props.creationState.serverOwned
+              }
               dispatchingMessageId={props.dispatchingMessageId}
               // A native subagent has no composer to edit a pending message in;
               // Cancel on the edit banner would discard it.

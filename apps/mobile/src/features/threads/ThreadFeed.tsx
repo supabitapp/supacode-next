@@ -283,6 +283,8 @@ export interface ThreadFeedProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
+  /** The feed's first message is a prompt this client is still creating the thread with. */
+  readonly pendingCreation: boolean;
   readonly dispatchingMessageId: MessageId | null;
   /** Null where a pending message cannot be edited (no composer to edit it in). */
   readonly onEditPendingMessage: ((message: QueuedThreadMessage) => void) | null;
@@ -2251,7 +2253,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     listMountKey,
     contentKind: props.contentPresentation.kind,
     hasContent: presentedFeed.length > 0,
-    hasQueuedMessages: props.queuedMessages.length > 0,
+    hasPendingMessages: props.pendingCreation || props.queuedMessages.length > 0,
   });
   const feedOpacity = useSharedValue(feedLoading ? 0 : 1);
   const [prefetchHistory] = useState(createThreadHistoryPrefetcher);
