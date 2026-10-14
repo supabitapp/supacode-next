@@ -5,12 +5,17 @@ import { useThreadFeedLoading } from "./use-thread-feed-loading";
 
 type Input = Parameters<typeof useThreadFeedLoading>[0];
 const initialInput: Input = {
-  threadKey: "environment:thread",
   listMountKey: "environment:thread:empty",
   contentKind: "loading",
   hasContent: false,
-  hasPendingMessages: false,
+  hasLocalMessages: false,
 };
+const filledInput = {
+  ...initialInput,
+  contentKind: "ready",
+  hasContent: true,
+  listMountKey: "environment:thread:filled",
+} as const;
 
 let renderer: ReactTestRenderer | undefined;
 let result: ReturnType<typeof useThreadFeedLoading>;
@@ -40,56 +45,26 @@ describe("thread feed loading handoff", () => {
     await render(initialInput);
     await act(async () => result.onListLoaded());
     expect(result.loading).toBe(true);
-    const filled = {
-      ...initialInput,
-      contentKind: "ready",
-      hasContent: true,
-      listMountKey: "environment:thread:filled",
-    } as const;
-    await render(filled);
+    await render(filledInput);
     expect(result.loading).toBe(true);
     await act(async () => result.onListLoaded());
     expect(result.loading).toBe(false);
-    await render({ ...filled, listMountKey: "another-list-mount" });
+    await render({ ...filledInput, listMountKey: "another-list-mount" });
     expect(result.loading).toBe(false);
   });
 
   it("holds a cached conversation until its list lands", async () => {
-    const cached = {
-      ...initialInput,
-      contentKind: "ready",
-      hasContent: true,
-      listMountKey: "environment:thread:filled",
-    } as const;
-    await render(cached);
+    await render(filledInput);
     expect(result.loading).toBe(true);
     await act(async () => result.onListLoaded());
     expect(result.loading).toBe(false);
   });
 
-  it("does not hold the first message of a conversation opened empty", async () => {
-    await render({ ...initialInput, contentKind: "ready" });
-    expect(result.loading).toBe(false);
-    await render({
-      ...initialInput,
-      contentKind: "ready",
-      hasContent: true,
-      listMountKey: "environment:thread:filled",
-    });
-    expect(result.loading).toBe(false);
-  });
-
   it("waits for a new list when the same thread loads again", async () => {
-    const filled = {
-      ...initialInput,
-      contentKind: "ready",
-      hasContent: true,
-      listMountKey: "environment:thread:filled",
-    } as const;
-    await render(filled);
+    await render(filledInput);
     await act(async () => result.onListLoaded());
     await render(initialInput);
-    await render(filled);
+    await render(filledInput);
     expect(result.loading).toBe(true);
     await act(async () => result.onListLoaded());
     expect(result.loading).toBe(false);
@@ -99,24 +74,17 @@ describe("thread feed loading handoff", () => {
     await render(initialInput);
     await render({ ...initialInput, contentKind: "ready" });
     expect(result.loading).toBe(false);
-    await render({
-      ...initialInput,
-      contentKind: "ready",
-      hasContent: true,
-      listMountKey: "filled",
-    });
+    await render(filledInput);
     expect(result.loading).toBe(false);
   });
 
-  it("keeps pending messages visible without waiting for the list", async () => {
-    await render({ ...initialInput, hasPendingMessages: true });
+  it("shows a conversation opened with the user's own messages at once", async () => {
+    await render({ ...filledInput, hasLocalMessages: true });
     expect(result.loading).toBe(false);
-    await render({
-      ...initialInput,
-      contentKind: "ready",
-      hasContent: true,
-      hasPendingMessages: true,
-    });
+  });
+
+  it("keeps queued messages visible while history loads", async () => {
+    await render({ ...initialInput, hasLocalMessages: true });
     expect(result.loading).toBe(false);
   });
 
@@ -126,18 +94,11 @@ describe("thread feed loading handoff", () => {
     expect(result.loading).toBe(false);
   });
 
-  it("ignores a previous thread's late list callback", async () => {
+  it("ignores a replaced list's late load callback", async () => {
     await render(initialInput);
-    const previousOnLoad = result.onListLoaded;
-    const next = {
-      ...initialInput,
-      threadKey: "other:thread",
-      listMountKey: "other:thread:filled",
-      hasContent: true,
-    };
-    await render(next);
-    await render({ ...next, contentKind: "ready" });
-    await act(async () => previousOnLoad());
+    const replacedOnLoad = result.onListLoaded;
+    await render(filledInput);
+    await act(async () => replacedOnLoad());
     expect(result.loading).toBe(true);
     await act(async () => result.onListLoaded());
     expect(result.loading).toBe(false);

@@ -284,7 +284,7 @@ export interface ThreadFeedProps {
   readonly setupWorkingStartedAt?: string | null;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
   /** The feed's first message is a prompt this client is still creating the thread with. */
-  readonly pendingCreation: boolean;
+  readonly creatingThread: boolean;
   readonly dispatchingMessageId: MessageId | null;
   /** Null where a pending message cannot be edited (no composer to edit it in). */
   readonly onEditPendingMessage: ((message: QueuedThreadMessage) => void) | null;
@@ -2249,11 +2249,10 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   // arrive.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
   const { loading: feedLoading, onListLoaded } = useThreadFeedLoading({
-    threadKey: feedThreadKey,
     listMountKey,
     contentKind: props.contentPresentation.kind,
     hasContent: presentedFeed.length > 0,
-    hasPendingMessages: props.pendingCreation || props.queuedMessages.length > 0,
+    hasLocalMessages: props.creatingThread || props.queuedMessages.length > 0,
   });
   const feedOpacity = useSharedValue(feedLoading ? 0 : 1);
   const [prefetchHistory] = useState(createThreadHistoryPrefetcher);
