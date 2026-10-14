@@ -73,7 +73,7 @@ class ProtocolTest {
         parseRelayIdentity(v.getString("address") + "pair#token=unused"),
       )
       val transcript =
-        "supacode-tunnel-v2\n".toByteArray() +
+        "supaterm-tunnel-v2\n".toByteArray() +
           unhex(v.getString("identity")) +
           unb64(JSONObject(handshake.hello).getString("key")) +
           unb64(JSONObject(v.getString("welcome")).getString("key"))

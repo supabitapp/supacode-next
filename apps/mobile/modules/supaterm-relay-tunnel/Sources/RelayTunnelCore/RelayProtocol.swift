@@ -42,7 +42,7 @@ struct RelayHandshake {
     "{\"type\":\"hello\",\"version\":2,\"key\":\"\(ephemeral.publicKey.rawRepresentation.base64URL)\"}"
   }
   func transcript(host: Data) -> Data {
-    Data("supacode-tunnel-v2\n".utf8) + identity.key + ephemeral.publicKey.rawRepresentation + host
+    Data("supaterm-tunnel-v2\n".utf8) + identity.key + ephemeral.publicKey.rawRepresentation + host
   }
   func finish(_ text: String) throws -> RelayCipher {
     struct Welcome: Decodable { let type: String; let version: Int; let key: String; let signature: String }
@@ -63,7 +63,7 @@ struct RelayHandshake {
     let shared = try ephemeral.sharedSecretFromKeyAgreement(
       with: Curve25519.KeyAgreement.PublicKey(rawRepresentation: host))
     let keys = shared.hkdfDerivedSymmetricKey(using: SHA256.self,
-      salt: Data(SHA256.hash(data: context)), sharedInfo: Data("supacode-tunnel-traffic-v1".utf8),
+      salt: Data(SHA256.hash(data: context)), sharedInfo: Data("supaterm-tunnel-traffic-v1".utf8),
       outputByteCount: 64).withUnsafeBytes { Data($0) }
     return RelayCipher(sendKey: SymmetricKey(data: keys.prefix(32)),
                        receiveKey: SymmetricKey(data: keys.suffix(32)))

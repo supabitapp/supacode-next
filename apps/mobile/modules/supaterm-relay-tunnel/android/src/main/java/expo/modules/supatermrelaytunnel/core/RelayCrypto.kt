@@ -123,7 +123,7 @@ internal class ClientHandshake(
       }
       val host = unb64(welcome.getString("key"))
       require(host.size == 32)
-      val transcript = "supacode-tunnel-v2\n".toByteArray() + identity + publicKey + host
+      val transcript = "supaterm-tunnel-v2\n".toByteArray() + identity + publicKey + host
       curves.verify(identity, transcript, unb64(welcome.getString("signature")))
       val shared = curves.shared(secret, host)
       return try {
@@ -231,7 +231,7 @@ internal class RelayCipher(
           doFinal(bytes)
         }
       val prk = hmac(sha256(transcript), shared)
-      val info = "supacode-tunnel-traffic-v1".toByteArray()
+      val info = "supaterm-tunnel-traffic-v1".toByteArray()
       val first = hmac(prk, info + byteArrayOf(1))
       val second = hmac(prk, first + info + byteArrayOf(2))
       prk.fill(0)

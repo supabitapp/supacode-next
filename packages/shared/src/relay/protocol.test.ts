@@ -9,7 +9,7 @@ describe("signRelayChallenge", () => {
     const publicKey = relayPublicKey(secret);
     const nonce = "nonce-123";
     const message = new TextEncoder().encode(
-      `supacode-relay-v1\n${relayEndpointId(publicKey)}\n${nonce}`,
+      `supaterm-relay-v1\n${relayEndpointId(publicKey)}\n${nonce}`,
     );
     const signature = decodeBase64(signRelayChallenge(secret, nonce));
     expect(ed25519.verify(signature, message, publicKey)).toBe(true);

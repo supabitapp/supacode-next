@@ -27,7 +27,7 @@ NodeFS.writeFileSync(
       address: relayHttpBaseUrl(identity),
       transcript: hex(
         Buffer.concat([
-          Buffer.from("supacode-tunnel-v2\n"),
+          Buffer.from("supaterm-tunnel-v2\n"),
           identity,
           Buffer.from(JSON.parse(client.hello).key, "base64url"),
           Buffer.from(JSON.parse(host.welcome).key, "base64url"),

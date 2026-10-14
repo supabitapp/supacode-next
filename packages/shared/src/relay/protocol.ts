@@ -60,7 +60,7 @@ export const canonicalRelayAddress = (input: string): string | null => {
 export const signRelayChallenge = (secret: Uint8Array, nonce: string) =>
   encodeBase64(
     ed25519.sign(
-      encoder.encode(`supacode-relay-v1\n${relayEndpointId(relayPublicKey(secret))}\n${nonce}`),
+      encoder.encode(`supaterm-relay-v1\n${relayEndpointId(relayPublicKey(secret))}\n${nonce}`),
       secret,
     ),
   );
@@ -85,14 +85,14 @@ const keyBytes = (value: string) => {
   return key;
 };
 const transcript = (identity: Uint8Array, client: Uint8Array, host: Uint8Array, version: 2) =>
-  concatBytes(encoder.encode(`supacode-tunnel-v${version}\n`), identity, client, host);
+  concatBytes(encoder.encode(`supaterm-tunnel-v${version}\n`), identity, client, host);
 
 function createRelayCipher(shared: Uint8Array, context: Uint8Array, host: boolean) {
   const keys = hkdf(
     sha256,
     shared,
     sha256(context),
-    encoder.encode("supacode-tunnel-traffic-v1"),
+    encoder.encode("supaterm-tunnel-traffic-v1"),
     64,
   );
   shared.fill(0);

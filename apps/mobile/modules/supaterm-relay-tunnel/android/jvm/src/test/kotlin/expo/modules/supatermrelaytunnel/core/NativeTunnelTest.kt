@@ -50,9 +50,9 @@ class NativeTunnelTest {
     override fun onMessage(webSocket: WebSocket, text: String) {
       val client = unb64(JSONObject(text).getString("key"))
       val key = X25519.publicFromPrivate(secret)
-      val transcript = "supacode-tunnel-v2\n".toByteArray() + identity + client + key
+      val transcript = "supaterm-tunnel-v2\n".toByteArray() + identity + client + key
       val prk = hmac(sha256(transcript), X25519.computeSharedSecret(secret, client))
-      val info = "supacode-tunnel-traffic-v1".toByteArray()
+      val info = "supaterm-tunnel-traffic-v1".toByteArray()
       val clientKey = hmac(prk, info + byteArrayOf(1))
       cipher = RelayCipher(hmac(prk, clientKey + info + byteArrayOf(2)), clientKey)
       val signature = Ed25519Sign(ByteArray(32) { it.toByte() }).sign(transcript)

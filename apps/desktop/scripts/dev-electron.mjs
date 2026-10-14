@@ -104,9 +104,10 @@ function startApp() {
     return;
   }
 
-  const electronArgs = remoteDebuggingPort
-    ? [`--remote-debugging-port=${remoteDebuggingPort}`]
-    : [];
+  const electronArgs = [
+    "--use-mock-keychain",
+    ...(remoteDebuggingPort ? [`--remote-debugging-port=${remoteDebuggingPort}`] : []),
+  ];
   const launchArgs = devProtocolClient
     ? electronArgs
     : [...electronArgs, `--supaterm-dev-root=${desktopDir}`, "dist-electron/main.cjs"];
