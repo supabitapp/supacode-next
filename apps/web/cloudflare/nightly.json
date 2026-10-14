@@ -11,7 +11,7 @@
   },
   "routes": [
     {
-      "pattern": "nightly.app.next.supacode.sh",
+      "pattern": "nightly.app.supaterm.com",
       "custom_domain": true
     }
   ]

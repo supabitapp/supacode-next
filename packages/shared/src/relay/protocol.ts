@@ -5,9 +5,9 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes, concatBytes } from "@noble/hashes/utils.js";
 import * as Schema from "effect/Schema";
 
-export const RELAY_COMPANION_META_NAME = "supacode-relay-companion";
+export const RELAY_COMPANION_META_NAME = "supaterm-relay-companion";
 export const RELAY_COMPANION_REQUEST_LIMIT = 64;
-export const RELAY_ERROR_HEADER = "x-supacode-relay-error";
+export const RELAY_ERROR_HEADER = "x-supaterm-relay-error";
 export const RelayTunnelFailure = Schema.Literals([
   "host-offline",
   "relay-busy",
@@ -15,7 +15,7 @@ export const RelayTunnelFailure = Schema.Literals([
   "relay-unreachable",
 ]);
 export type RelayTunnelFailure = typeof RelayTunnelFailure.Type;
-const suffix = ".relay.supacode.invalid";
+const suffix = ".relay.supaterm.invalid";
 const encoder = new TextEncoder();
 export const encodeBase64 = (data: Uint8Array): string => {
   let value = "";

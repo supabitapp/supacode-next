@@ -8,7 +8,7 @@
   "main": "router.ts",
   "routes": [
     {
-      "pattern": "app.next.supacode.sh",
+      "pattern": "app.supaterm.com",
       "custom_domain": true
     }
   ]

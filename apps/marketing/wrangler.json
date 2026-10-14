@@ -10,7 +10,7 @@
   },
   "routes": [
     {
-      "pattern": "next.supacode.sh",
+      "pattern": "supaterm.com",
       "custom_domain": true
     }
   ]
