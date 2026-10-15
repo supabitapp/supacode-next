@@ -18,7 +18,7 @@ import type {
 } from "./model.ts";
 import { ConnectionTransientError } from "./model.ts";
 import * as ConnectionResolver from "./resolver.ts";
-import { connectionRouteKind, connectionRoutes, routeEntry, routeHttpBaseUrl } from "./routes.ts";
+import { connectionRoutes, routeEntry, routeHttpBaseUrl } from "./routes.ts";
 import * as RpcSession from "../rpc/session.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
 import { leaseRelayOrigin } from "../relay/gateway.ts";
@@ -45,8 +45,7 @@ export interface PreparedRoute {
 
 /**
  * The result of an unauthenticated reachability check. SSH routes have no
- * cheap check, and a relay is not always probed; both are "unchecked" and
- * tried in order.
+ * cheap check, so they are "unchecked".
  */
 export type RouteCheck = "answered" | "silent" | "unchecked";
 
@@ -54,10 +53,7 @@ export type RouteCheck = "answered" | "silent" | "unchecked";
 export const ROUTE_CHECK_TIMEOUT_MS = 2_500;
 /** How long a connection attempt keeps listening for a route that missed the first check. */
 export const LATE_ROUTE_CHECK_TIMEOUT_MS = 15_000;
-/** How long the routes ranked above a relay have to answer before the relay is probed too. */
-export const RELAY_CHECK_DELAY_MS = 500;
-/** How long a better-ranked route still has to answer once another route has. */
-export const ROUTE_PREFERENCE_WAIT_MS = 250;
+const ROUTE_PREFERENCE_WAIT_MS = 250;
 const PREFLIGHT_VALIDITY_NANOS = 10_000_000_000n;
 
 export class ConnectionDriver extends Context.Service<
@@ -85,60 +81,13 @@ export class ConnectionDriver extends Context.Service<
   }
 >()("@supaterm/client-runtime/connection/driver/ConnectionDriver") {}
 
+const unanswered = (error: ConnectionTransientError) =>
+  error.reason === "network" || error.reason === "timeout";
+
 type CheckRoute = (route: ConnectionRoute) => Effect.Effect<RouteCheck, never, Scope.Scope>;
 type ConnectRoute<R> = (
   route: ConnectionRoute,
 ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, R | Scope.Scope>;
-
-/**
- * How a relay is checked alongside the routes ranked above it:
- * - "attempt": none of them can connect, so the relay is tried unchecked when reached.
- * - "probe": none answered within {@link RELAY_CHECK_DELAY_MS}, so the relay is checked
- *   now and waits for its own answer, keeping its rank over the routes below it.
- * - "defer": one answered or has no check, so the relay opens no tunnel and
- *   waits for them to settle.
- */
-type RelayPlan = "attempt" | "probe" | "defer";
-
-const firstWhere = <A>(fibers: ReadonlyArray<Fiber.Fiber<A>>, predicate: (value: A) => boolean) =>
-  Effect.raceAll(
-    fibers.map((fiber) =>
-      Fiber.join(fiber).pipe(Effect.filterOrElse(predicate, () => Effect.never)),
-    ),
-  );
-
-const mayConnect = (result: Option.Option<RouteCheck>) =>
-  Option.isSome(result) && result.value !== "silent";
-
-const planRelay = (ahead: ReadonlyArray<Fiber.Fiber<Option.Option<RouteCheck>>>) =>
-  ahead.length === 0
-    ? Effect.succeed<RelayPlan>("attempt")
-    : Effect.raceAll([
-        Effect.forEach(ahead, Fiber.join, { concurrency: "unbounded" }).pipe(
-          Effect.map((results): RelayPlan => (results.some(mayConnect) ? "defer" : "attempt")),
-        ),
-        firstWhere(ahead, mayConnect).pipe(Effect.as<RelayPlan>("defer")),
-        Effect.sleep(RELAY_CHECK_DELAY_MS).pipe(Effect.as<RelayPlan>("probe")),
-      ]);
-
-const checkRelay = (
-  plan: Fiber.Fiber<RelayPlan>,
-  ahead: ReadonlyArray<Fiber.Fiber<Option.Option<RouteCheck>>>,
-  check: Effect.Effect<RouteCheck>,
-) =>
-  Fiber.join(plan).pipe(
-    Effect.flatMap((value): Effect.Effect<RouteCheck> => {
-      switch (value) {
-        case "attempt":
-          return Effect.succeed("unchecked");
-        case "probe":
-          // A silent relay is still tried in order: its attempt reports why, such as an offline host.
-          return check.pipe(Effect.map((result) => (result === "silent" ? "unchecked" : result)));
-        case "defer":
-          return Effect.forEach(ahead, Fiber.join, { discard: true }).pipe(Effect.as("unchecked"));
-      }
-    }),
-  );
 
 export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")(function* <R>(
   entry: ConnectionCatalogEntry,
@@ -161,17 +110,12 @@ const selectRoute = Effect.fnUntraced(function* <R>(
   const routes = connectionRoutes(entry);
   const checks: Array<Fiber.Fiber<RouteCheck>> = [];
   const firstChecks: Array<Fiber.Fiber<Option.Option<RouteCheck>>> = [];
-  const relayPlans = new Map<number, Fiber.Fiber<RelayPlan>>();
   if (routes.length > 1) {
-    for (const [index, route] of routes.entries()) {
-      let check = checkRoute(route).pipe(Scope.provide(checkScope));
-      if (connectionRouteKind(route) === "relay") {
-        const ahead = [...firstChecks];
-        const plan = yield* Effect.forkIn(planRelay(ahead), checkScope);
-        relayPlans.set(index, plan);
-        check = checkRelay(plan, ahead, check);
-      }
-      const fiber = yield* Effect.forkIn(check, checkScope);
+    for (const route of routes) {
+      const fiber = yield* Effect.forkIn(
+        checkRoute(route).pipe(Scope.provide(checkScope)),
+        checkScope,
+      );
       checks.push(fiber);
       firstChecks.push(
         yield* Effect.forkIn(
@@ -184,25 +128,21 @@ const selectRoute = Effect.fnUntraced(function* <R>(
   const preferenceWindow = yield* Effect.forkIn(
     (checks.length === 0
       ? Effect.never
-      : firstWhere(checks, (result) => result === "answered")
+      : Effect.raceAll(
+          checks.map((check) =>
+            Fiber.join(check).pipe(
+              Effect.flatMap((result) => (result === "answered" ? Effect.void : Effect.never)),
+            ),
+          ),
+        )
     ).pipe(
       Effect.andThen(Effect.sleep(ROUTE_PREFERENCE_WAIT_MS)),
       Effect.as(Option.none<RouteCheck>()),
     ),
     checkScope,
   );
-  const waitForRoute = (index: number) => {
-    const plan = relayPlans.get(index);
-    return plan === undefined
-      ? Fiber.join(preferenceWindow)
-      : Fiber.join(plan).pipe(
-          Effect.flatMap((value) =>
-            value === "probe" ? Effect.never : Fiber.join(preferenceWindow),
-          ),
-        );
-  };
   const attemptScope = yield* Scope.Scope;
-  let transient: ConnectionAttemptError | undefined;
+  let transient: ConnectionTransientError | undefined;
   let blocked: ConnectionAttemptError | undefined;
   // Each route gets its own scope so a half-open session closes before the next try.
   const attempt = Effect.fnUntraced(function* (route: ConnectionRoute) {
@@ -225,8 +165,11 @@ const selectRoute = Effect.fnUntraced(function* <R>(
     if (result._tag === "Success") return Option.some(result.success);
     // An incompatible server is the same server on every route.
     if (result.failure.reason === "unsupported") return yield* result.failure;
-    if (result.failure._tag === "ConnectionTransientError") transient ??= result.failure;
-    else blocked ??= result.failure;
+    // A route that reached something, such as the relay of an offline host,
+    // explains a failure better than one that never answered.
+    if (result.failure._tag === "ConnectionBlockedError") blocked ??= result.failure;
+    else if (transient === undefined || (unanswered(transient) && !unanswered(result.failure)))
+      transient = result.failure;
     return Option.none();
   });
   const slow: Array<number> = [];
@@ -235,7 +178,7 @@ const selectRoute = Effect.fnUntraced(function* <R>(
     const check =
       firstChecks.length === 0
         ? Option.some<RouteCheck>("unchecked")
-        : yield* Effect.raceFirst(Fiber.join(firstChecks[index]!), waitForRoute(index));
+        : yield* Effect.raceFirst(Fiber.join(firstChecks[index]!), Fiber.join(preferenceWindow));
     if (Option.isNone(check)) {
       slow.push(index);
       continue;
