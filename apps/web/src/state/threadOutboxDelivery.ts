@@ -230,6 +230,7 @@ export function createBrowserThreadOutbox<Payload>(options: {
     retarget: (payload: Payload) => Payload,
   ) {
     await load();
+    await reload();
     const head = getEntries().find((entry) => entry.id === id);
     if (!head) return false;
     if (queuedBehind(head).length === 0) return edit(id, payload, scope);
