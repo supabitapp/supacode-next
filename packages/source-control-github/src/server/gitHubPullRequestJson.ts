@@ -449,6 +449,18 @@ const RawWorkflowRunsSchema = Schema.Struct({
   ),
 });
 
+/** `GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`, one page of it. */
+const RawWorkflowRunJobsSchema = Schema.Struct({
+  jobs: Schema.Array(
+    Schema.Struct({
+      name: Schema.optional(Schema.NullOr(Schema.String)),
+      status: Schema.optional(Schema.NullOr(Schema.String)),
+      conclusion: Schema.optional(Schema.NullOr(Schema.String)),
+      html_url: Schema.optional(Schema.NullOr(Schema.String)),
+    }),
+  ),
+});
+
 const RawPullRequestHeadsSchema = Schema.Struct({
   data: Schema.Struct({
     repository: Schema.NullOr(
@@ -1784,6 +1796,7 @@ const decodeSearchItem = Schema.decodeUnknownExit(RawSearchItemSchema);
 const decodeStats = decodeJsonResult(RawStatsSchema);
 const decodeDetail = decodeJsonResult(RawDetailSchema);
 const decodeWorkflowRuns = decodeJsonResult(RawWorkflowRunsSchema);
+const decodeWorkflowRunJobs = decodeJsonResult(RawWorkflowRunJobsSchema);
 const decodePullRequestHeads = decodeJsonResult(RawPullRequestHeadsSchema);
 const decodeActivity = decodeJsonResult(RawActivitySchema);
 const decodeRepositoryPullRequests = decodeJsonResult(RawRepositoryPullRequestsSchema);
@@ -2359,6 +2372,29 @@ export function decodeWorkflowRunsJson(
       url: trimmed(run.html_url),
     })),
     rawCount: decoded.success.workflow_runs.length,
+  });
+}
+
+export interface GitHubWorkflowRunJobsPage {
+  readonly checks: ReadonlyArray<PullRequestCheck>;
+  /** Jobs on the page, counted before decoding, which is what decides whether to page on. */
+  readonly rawCount: number;
+}
+
+/** One page of a run's jobs, each read the way the rollup reads a check run. */
+export function decodeWorkflowRunJobsJson(
+  raw: string,
+): Result.Result<GitHubWorkflowRunJobsPage, DecodeFailure> {
+  const decoded = decodeWorkflowRunJobs(raw);
+  if (!Result.isSuccess(decoded)) return Result.fail(decoded.failure);
+  return Result.succeed({
+    checks: decoded.success.jobs.flatMap((job) => {
+      const name = trimmed(job.name);
+      return name === null
+        ? []
+        : [{ name, status: toCheckStatus(job), description: null, url: trimmed(job.html_url) }];
+    }),
+    rawCount: decoded.success.jobs.length,
   });
 }
 

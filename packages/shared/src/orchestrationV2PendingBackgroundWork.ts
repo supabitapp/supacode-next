@@ -8,6 +8,7 @@ import type {
 } from "@supaterm/contracts";
 import { isOrchestrationV2WorkActive } from "@supaterm/contracts";
 
+import { githubActionsRunFromCommand } from "./githubActionsRun.ts";
 import { threadPullRequestKeyOf } from "./threadPullRequests.ts";
 
 const BACKGROUND_TURN_ITEM_TYPES = new Set<OrchestrationV2TurnItem["type"]>([
@@ -164,8 +165,15 @@ function pendingTaskFromTurnItem(
         kind: "subagent",
         ...(item.childThreadId == null ? {} : { childThreadId: item.childThreadId }),
       };
-    case "command_execution":
-      return { ...named, kind: "command" };
+    case "command_execution": {
+      const githubActionsRun =
+        typeof item.input === "string" ? githubActionsRunFromCommand(item.input) : null;
+      return {
+        ...named,
+        kind: "command",
+        ...(githubActionsRun === null ? {} : { githubActionsRun }),
+      };
+    }
     default:
       return { ...named, kind: "background_task" };
   }

@@ -701,6 +701,18 @@ export const PullRequestRef = Schema.Struct({
 });
 export type PullRequestRef = typeof PullRequestRef.Type;
 
+/**
+ * A GitHub Actions run, read as checks: one per job. Without a `repository`, the run is read
+ * from the repository `gh` picks in the project's checkout. `host` only qualifies a repository.
+ */
+export const PullRequestWorkflowRunRef = Schema.Struct({
+  projectId: ProjectId,
+  host: Schema.optional(TrimmedNonEmptyString),
+  repository: Schema.optional(TrimmedNonEmptyString),
+  runId: PositiveInt,
+});
+export type PullRequestWorkflowRunRef = typeof PullRequestWorkflowRunRef.Type;
+
 /** Account discovery never needs the originating project's private repository metadata. */
 export const PullRequestRoutingIdentityInput = Schema.Struct({
   host: TrimmedNonEmptyString,

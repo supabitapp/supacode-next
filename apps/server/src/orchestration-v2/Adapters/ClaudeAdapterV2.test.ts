@@ -4793,6 +4793,125 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
+  // Frame order follows the claude_background_task_wake recording: the roster
+  // snapshot lands before task_started links the task to its Bash call. A task
+  // started in the foreground reaches the roster only through a later snapshot.
+  it.effect.each([
+    ["started in the background", true],
+    ["moved to the background", false],
+  ] as const)(
+    "names the GitHub Actions run a background command watches when %s",
+    ([, backgrounded]) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const harness = yield* makeWakeHarness;
+          const now = yield* DateTime.now;
+          let frameNumber = 0;
+          const nextUuid = () =>
+            `00000000-0000-4000-8000-${String(++frameNumber).padStart(12, "0")}`;
+          const taskId = "watch-task";
+          const toolUseId = "toolu_watch";
+          const description = "Watch nightly release run to completion";
+          const snapshot = () =>
+            claudeSdkFrame({
+              type: "system",
+              subtype: "background_tasks_changed",
+              tasks: [{ task_id: taskId, task_type: "local_bash", description }],
+              uuid: nextUuid(),
+              session_id: WAKE_NATIVE_SESSION,
+            });
+
+          yield* harness.runtime.startTurn(
+            makeClaudeTestTurnInput({
+              threadId: harness.threadId,
+              providerThread: harness.providerThread,
+              now,
+              attemptId: RunAttemptId.make("attempt-claude-watch-run"),
+              text: "Watch the nightly release.",
+              attachments: [],
+            }),
+          );
+          for (const frame of [
+            claudeSdkFrame({
+              type: "assistant",
+              message: {
+                model: "claude-sonnet-4-6",
+                id: "msg_watch",
+                type: "message",
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolUseId,
+                    name: "Bash",
+                    input: {
+                      command: "gh run watch 38706617767 --interval 60 --exit-status",
+                      description,
+                      run_in_background: true,
+                    },
+                  },
+                ],
+                stop_reason: null,
+                stop_sequence: null,
+                usage: { input_tokens: 1, output_tokens: 1 },
+              },
+              parent_tool_use_id: null,
+              uuid: nextUuid(),
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+            snapshot(),
+            claudeSdkFrame({
+              type: "system",
+              subtype: "task_started",
+              task_id: taskId,
+              tool_use_id: toolUseId,
+              description,
+              is_backgrounded: backgrounded,
+              task_type: "local_bash",
+              uuid: nextUuid(),
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+            claudeSdkFrame({
+              type: "user",
+              message: {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolUseId,
+                    content: `Command running in background with ID: ${taskId}.`,
+                  },
+                ],
+              },
+              parent_tool_use_id: null,
+              uuid: nextUuid(),
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+            snapshot(),
+            makeResultFrame({ uuid: nextUuid(), result: "Watching the release." }),
+          ]) {
+            yield* Queue.offer(harness.sdkMessages, frame);
+          }
+          yield* awaitUntil(() => harness.terminalEvents().length === 1, "turn terminal");
+
+          const roster = providerThreadRosterEvents(harness.events).at(-1)?.providerThread
+            .pendingBackgroundTasks;
+          assert.deepEqual(roster, [
+            {
+              taskId,
+              kind: "command",
+              description,
+              githubActionsRun: { runId: 38706617767 },
+            },
+          ]);
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer),
+          ),
+        ),
+      ),
+  );
+
   it.effect("stops background work after the turn settled", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -2151,6 +2151,52 @@ it.effect("does not fall back to full detail when checks are unsupported", () =>
   }),
 );
 
+it.effect("reads a bare workflow run id from the project's checkout, a named one as named", () =>
+  Effect.gen(function* () {
+    const reads: Array<{ cwd: string; repository?: string; host: string; runId: number }> = [];
+    const job = { name: "Lint", status: "pending" as const, description: null, url: null };
+    const service = yield* makeService({
+      projects: [
+        project({ id: "p1", title: "web", workspaceRoot: "/repo", repository: "acme/web" }),
+        project({ id: "p2", title: "notes", workspaceRoot: "/notes" }),
+        project({
+          id: "p3",
+          title: "lab",
+          workspaceRoot: "/lab",
+          repository: "acme/lab",
+          provider: SourceControlProviderKind.make("gitlab"),
+        }),
+      ],
+      providers: [
+        fakeProvider(SourceControlProviderKind.make("github"), {
+          getWorkflowRunChecks: (input) => {
+            reads.push(input);
+            return Effect.succeed([job]);
+          },
+        }),
+        fakeProvider(SourceControlProviderKind.make("gitlab")),
+      ],
+    });
+
+    assert.deepStrictEqual(
+      yield* service.workflowRunChecks({ projectId: "p1" as ProjectId, runId: 42 }),
+      [job],
+    );
+    yield* service.workflowRunChecks({
+      projectId: "p1" as ProjectId,
+      repository: "acme/api",
+      runId: 43,
+    });
+    assert.deepStrictEqual(reads, [
+      { cwd: "/repo", host: "github.com", runId: 42 },
+      { cwd: "/repo", repository: "acme/api", host: "github.com", runId: 43 },
+    ]);
+    assert.isNull(yield* service.workflowRunChecks({ projectId: "p2" as ProjectId, runId: 42 }));
+    assert.isNull(yield* service.workflowRunChecks({ projectId: "p3" as ProjectId, runId: 42 }));
+    assert.strictEqual(reads.length, 2);
+  }),
+);
+
 it.effect("uses a manual rate limit to pause later reads", () =>
   Effect.gen(function* () {
     let listCalls = 0;

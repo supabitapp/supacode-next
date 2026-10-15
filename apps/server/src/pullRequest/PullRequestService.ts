@@ -34,6 +34,7 @@ import {
   type PullRequestCommentUpdateInput,
   type PullRequestDetail,
   type PullRequestPreview,
+  type PullRequestCheck,
   type PullRequestChecks,
   type PullRequestDiffFileContentsInput,
   type PullRequestDiffFileContentsResult,
@@ -53,6 +54,7 @@ import {
   type PullRequestProviderSummary,
   type PullRequestReactionInput,
   type PullRequestRef,
+  type PullRequestWorkflowRunRef,
   type PullRequestRoutingResult,
   type PullRequestRoutingIdentityInput,
   type PullRequestRoutingIdentityResult,
@@ -265,6 +267,10 @@ export class PullRequestService extends Context.Service<
     readonly checks: (
       input: PullRequestRef,
     ) => Effect.Effect<PullRequestChecks | null, PullRequestError>;
+    /** A CI run's jobs as checks, or null where the project's host has no runs to read. */
+    readonly workflowRunChecks: (
+      input: PullRequestWorkflowRunRef,
+    ) => Effect.Effect<ReadonlyArray<PullRequestCheck> | null, PullRequestError>;
     /**
      * What a pull request watch compares between passes, so it reads detail and activity only
      * when something moved. Null when the host has no fingerprint or gave none for this one.
@@ -637,6 +643,9 @@ function withRateLimitBackoff(
     ...(api.getChangeRequestChecks === undefined
       ? {}
       : { getChangeRequestChecks: wrap("getChangeRequestChecks", api.getChangeRequestChecks) }),
+    ...(api.getWorkflowRunChecks === undefined
+      ? {}
+      : { getWorkflowRunChecks: wrap("getWorkflowRunChecks", api.getWorkflowRunChecks) }),
     ...(api.getChangeRequestSummary === undefined
       ? {}
       : {
@@ -908,7 +917,9 @@ export const make = Effect.gen(function* () {
    * targeting can also use the selected project's directory for supported public hosts.
    * Azure derives its organization from the checkout, so it requires a matching repository.
    */
-  const requireProject = (ref: PullRequestRef): Effect.Effect<SupportedProject, PullRequestError> =>
+  const requireProject = (
+    ref: Pick<PullRequestRef, "projectId" | "host" | "repository">,
+  ): Effect.Effect<SupportedProject, PullRequestError> =>
     listWorkspaceProjects({ projectId: ref.projectId }).pipe(
       Effect.flatMap(({ supported }): Effect.Effect<SupportedProject, PullRequestError> => {
         const own = supported[0];
@@ -3067,6 +3078,45 @@ export const make = Effect.gen(function* () {
     },
   );
 
+  /**
+   * A run named without a repository is read from the project's checkout, which picks the
+   * repository the way `gh` does there rather than by the project's identity: a fork's identity
+   * is its `upstream`, while `gh run watch` follows `gh repo set-default`. One named without a
+   * host is on the project's host.
+   */
+  const workflowRunChecksCache = yield* Cache.makeWith(
+    (key: string) => {
+      const input = JSON.parse(key) as PullRequestWorkflowRunRef;
+      return listWorkspaceProjects({ projectId: input.projectId }).pipe(
+        Effect.flatMap(({ supported: [own] }) => {
+          if (input.repository === undefined) return Effect.succeed(own ?? null);
+          const host = input.host ?? own?.host;
+          return requireProject({
+            projectId: input.projectId,
+            repository: input.repository,
+            ...(host === undefined ? {} : { host }),
+          });
+        }),
+        Effect.flatMap((project) =>
+          project?.api.getWorkflowRunChecks === undefined
+            ? Effect.succeed(null)
+            : project.api
+                .getWorkflowRunChecks({
+                  cwd: project.project.workspaceRoot,
+                  host: project.host,
+                  runId: input.runId,
+                  ...(input.repository === undefined ? {} : { repository: project.repository }),
+                })
+                .pipe(Effect.mapError(toPullRequestError("workflowRunChecks"))),
+        ),
+      );
+    },
+    {
+      capacity: DETAIL_CACHE_CAPACITY,
+      timeToLive: (exit) => (Exit.isSuccess(exit) ? CHECKS_CACHE_TTL : Duration.zero),
+    },
+  );
+
   const watchFingerprintCache = yield* Cache.makeWith(
     (key: string) => {
       const input = refOfCacheKey(key);
@@ -3563,6 +3613,16 @@ export const make = Effect.gen(function* () {
     refreshAfterTurn,
     detail: credentialCached(detail),
     checks: credentialCached((input) => Cache.get(checksCache, refCacheKey(input))),
+    workflowRunChecks: (input) =>
+      Cache.get(
+        workflowRunChecksCache,
+        JSON.stringify({
+          projectId: input.projectId,
+          host: input.host?.toLowerCase(),
+          repository: input.repository?.toLowerCase(),
+          runId: input.runId,
+        }),
+      ),
     watchFingerprint: credentialCached((input) =>
       Cache.get(watchFingerprintCache, refCacheKey(input)),
     ),

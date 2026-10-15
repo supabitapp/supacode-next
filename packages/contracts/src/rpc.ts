@@ -170,6 +170,7 @@ import {
   PullRequestCommentUpdateInput,
   PullRequestDetail,
   PullRequestPreview,
+  PullRequestCheck,
   PullRequestChecks,
   PullRequestDiffFileContentsInput,
   PullRequestDiffFileContentsResult,
@@ -183,6 +184,7 @@ import {
   PullRequestOperationError,
   PullRequestReactionInput,
   PullRequestRef,
+  PullRequestWorkflowRunRef,
   PullRequestRoutingResult,
   PullRequestRoutingIdentityInput,
   PullRequestRoutingIdentityResult,
@@ -522,6 +524,7 @@ export const WS_METHODS = {
   pullRequestsDetail: "pullRequests.detail",
   pullRequestsPreview: "pullRequests.preview",
   pullRequestsChecks: "pullRequests.checks",
+  pullRequestsWorkflowRunChecks: "pullRequests.workflowRunChecks",
   pullRequestsActivity: "pullRequests.activity",
   pullRequestsReviewGuide: "pullRequests.reviewGuide",
   pullRequestsGenerateReviewGuide: "pullRequests.generateReviewGuide",
@@ -1009,6 +1012,13 @@ const WsPullRequestsPreviewRpc = Rpc.make(WS_METHODS.pullRequestsPreview, {
 const WsPullRequestsChecksRpc = Rpc.make(WS_METHODS.pullRequestsChecks, {
   payload: PullRequestRef,
   success: Schema.NullOr(PullRequestChecks),
+  error: PullRequestRpcError,
+});
+
+/** Null where the host has no workflow runs to read. */
+const WsPullRequestsWorkflowRunChecksRpc = Rpc.make(WS_METHODS.pullRequestsWorkflowRunChecks, {
+  payload: PullRequestWorkflowRunRef,
+  success: Schema.NullOr(Schema.Array(PullRequestCheck)),
   error: PullRequestRpcError,
 });
 
@@ -1921,6 +1931,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsPullRequestsDetailRpc,
   WsPullRequestsPreviewRpc,
   WsPullRequestsChecksRpc,
+  WsPullRequestsWorkflowRunChecksRpc,
   WsPullRequestsActivityRpc,
   WsPullRequestsReviewGuideRpc,
   WsPullRequestsGenerateReviewGuideRpc,

@@ -22,6 +22,7 @@ import {
   type PullRequestAction,
   type PullRequestStackHead,
   type PullRequestActor,
+  type PullRequestCheck,
   type PullRequestComment,
   type PullRequestCommit,
   type PullRequestFileViewed,
@@ -44,6 +45,7 @@ import {
 
 import * as GitHubApi from "./GitHubApi.ts";
 import { readGraphQlPages } from "./githubGraphQl.ts";
+import { readCheckoutGitHubRepository } from "./gitHubRepositoryResolution.ts";
 import * as SourceControlHost from "@supaterm/source-control-core/server/SourceControlHost";
 import * as SourceControlRateLimit from "@supaterm/source-control-core/server/SourceControlRateLimit";
 import {
@@ -64,6 +66,7 @@ import {
   PULL_REQUEST_ACTIVITY_GRAPHQL_QUERY,
   PULL_REQUEST_HEADS_GRAPHQL_QUERY,
   decodeWorkflowRunsJson,
+  decodeWorkflowRunJobsJson,
   pullRequestCoreGraphQlQuery,
   type GitHubPullRequestCore,
   type GitHubPullRequestSummary,
@@ -562,6 +565,17 @@ export class GitHubPullRequestApi extends Context.Service<
       readonly headRepositoryOwner: string;
       readonly isCrossRepository: true;
     }) => Effect.Effect<ReadonlyArray<GitHubWorkflowRunApproval>, GitHubPullRequestApiError>;
+
+    /**
+     * A workflow run's jobs on its latest attempt, as checks. Without a `repository`, the run is
+     * read from the repository `gh` would pick in `cwd`.
+     */
+    readonly getWorkflowRunChecks: (input: {
+      readonly cwd: string;
+      readonly repository?: string;
+      readonly host: string;
+      readonly runId: number;
+    }) => Effect.Effect<ReadonlyArray<PullRequestCheck>, GitHubPullRequestApiError>;
 
     /**
      * The host-native stack this pull request is in, or null when it is in none — which is also
@@ -1709,6 +1723,46 @@ export const make = Effect.gen(function* () {
         { concurrency: 2 },
       ).pipe(Effect.map(([, runs]) => runs));
 
+  const checkoutRepository = (cwd: string, host: string) =>
+    readCheckoutGitHubRepository({
+      process: sourceControlHost.process,
+      operation: "getWorkflowRunChecks",
+      cwd,
+      hostHint: host,
+      defaultHost: host,
+    }).pipe(
+      Effect.flatMap(({ locator }) =>
+        locator === null
+          ? Effect.fail(
+              readError(cwd, "getWorkflowRunChecks", `No GitHub repository on ${host} was found.`),
+            )
+          : Effect.succeed(locator),
+      ),
+    );
+
+  // A run past 500 jobs shows its first 500.
+  const workflowRunJobPages = 5;
+  const getWorkflowRunChecks: GitHubPullRequestApi["Service"]["getWorkflowRunChecks"] = (input) =>
+    Effect.gen(function* () {
+      const { owner, name } =
+        input.repository === undefined
+          ? yield* checkoutRepository(input.cwd, input.host)
+          : parseRepositorySelector(input.repository);
+      const checks: PullRequestCheck[] = [];
+      for (let page = 1; page <= workflowRunJobPages; page++) {
+        const read = yield* restRead({
+          cwd: input.cwd,
+          host: input.host,
+          operation: "getWorkflowRunChecks",
+          path: `repos/${owner}/${name}/actions/runs/${input.runId}/jobs?per_page=100&page=${page}`,
+          decode: decodeWorkflowRunJobsJson,
+        });
+        checks.push(...read.checks);
+        if (read.rawCount < 100) break;
+      }
+      return checks;
+    });
+
   /** One pull request's summary, through the same aliased query the batch uses. */
   const viewPullRequestSummary = (input: PullRequestSummaryRead) => {
     const { owner, name } = parseRepositorySelector(input.repository);
@@ -2114,6 +2168,7 @@ export const make = Effect.gen(function* () {
       });
     },
     listWorkflowRunsRequiringApproval,
+    getWorkflowRunChecks,
 
     getPullRequestStack: (input) => {
       const { owner, name } = parseRepositorySelector(input.repository);

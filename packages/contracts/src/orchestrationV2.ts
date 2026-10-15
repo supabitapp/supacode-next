@@ -916,10 +916,22 @@ function kindUnionWithFallback<
   return Schema.Union([...members, unknownKind]);
 }
 
+/**
+ * A GitHub Actions run background work follows, such as `gh run watch`. `repository`, and the
+ * `host` that qualifies it, are present only when the command names them.
+ */
+export const OrchestrationV2GitHubActionsRun = Schema.Struct({
+  runId: PositiveInt,
+  repository: Schema.optional(TrimmedNonEmptyString),
+  host: Schema.optional(TrimmedNonEmptyString),
+});
+export type OrchestrationV2GitHubActionsRun = typeof OrchestrationV2GitHubActionsRun.Type;
+
 const PendingBackgroundTaskFields = {
   taskId: TrimmedNonEmptyString,
   /** The work's name: a subagent's title, a command's description, a monitor's. */
   description: Schema.optional(TrimmedNonEmptyString),
+  githubActionsRun: Schema.optional(OrchestrationV2GitHubActionsRun),
 };
 
 /**
@@ -942,9 +954,10 @@ export const OrchestrationV2PendingBackgroundTask = kindUnionWithFallback(
     Schema.Struct({ ...PendingBackgroundTaskFields, kind: Schema.Literal("background_task") }),
   ],
   (kind) => Schema.Struct({ ...PendingBackgroundTaskFields, kind }),
-  ({ taskId, description }) => ({
+  ({ taskId, description, githubActionsRun }) => ({
     taskId,
     ...(description === undefined ? {} : { description }),
+    ...(githubActionsRun === undefined ? {} : { githubActionsRun }),
     kind: "background_task",
   }),
 );

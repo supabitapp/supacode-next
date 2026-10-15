@@ -92,6 +92,31 @@ describe("derivePendingBackgroundWork", () => {
     expect(tasks).toEqual([{ taskId: "cmd-1", description: "npm test", kind: "command" }]);
   });
 
+  it("names the GitHub Actions run a background command watches", () => {
+    const tasks = derivePendingBackgroundWork({
+      latestRun: { id: "run-1" as never, ordinal: 1, status: "completed" },
+      providerThreads: [],
+      turnItems: [
+        {
+          id: "item-1" as never,
+          type: "command_execution",
+          status: "running",
+          title: null,
+          nativeItemRef: { nativeId: "cmd-1" },
+          input: "gh run watch 42 -R acme/web --exit-status",
+        },
+      ],
+    });
+    expect(tasks).toEqual([
+      {
+        taskId: "cmd-1",
+        description: "gh run watch 42 -R acme/web --exit-status",
+        kind: "command",
+        githubActionsRun: { runId: 42, repository: "acme/web" },
+      },
+    ]);
+  });
+
   it("still returns empty when the latest run is running even with background items", () => {
     const tasks = derivePendingBackgroundWork({
       latestRun: { id: "run-1" as never, ordinal: 1, status: "running" },

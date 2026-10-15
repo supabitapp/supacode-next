@@ -445,6 +445,17 @@ export interface PullRequestProviderApi {
     input: ProviderRepositoryRef & { readonly number: number },
   ) => Effect.Effect<PullRequestChecks, PullRequestProviderError>;
 
+  /**
+   * A CI run's jobs, as checks. Only hosts with run ids a command can name implement it. Without
+   * a `repository`, the run is read from the repository the host's CLI would pick in `cwd`.
+   */
+  readonly getWorkflowRunChecks?: (
+    input: Omit<ProviderRepositoryRef, "repository"> & {
+      readonly repository?: string;
+      readonly runId: number;
+    },
+  ) => Effect.Effect<ReadonlyArray<PullRequestCheck>, PullRequestProviderError>;
+
   readonly getChangeRequest: (
     input: ProviderRepositoryRef & { readonly number: number },
   ) => Effect.Effect<ProviderChangeRequestDetail, PullRequestProviderError>;

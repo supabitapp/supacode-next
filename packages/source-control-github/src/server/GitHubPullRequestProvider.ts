@@ -379,6 +379,9 @@ export const make = Effect.gen(function* () {
         Effect.mapError(fail("getChangeRequestChecks")),
       ),
 
+    getWorkflowRunChecks: (input) =>
+      cli.getWorkflowRunChecks(input).pipe(Effect.mapError(fail("getWorkflowRunChecks"))),
+
     getChangeRequest: (input) =>
       readChecks(input).pipe(
         Effect.map((pullRequest): ProviderChangeRequestDetail => ({
