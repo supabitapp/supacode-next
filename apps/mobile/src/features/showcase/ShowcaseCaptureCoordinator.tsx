@@ -97,7 +97,9 @@ function EnabledShowcaseCaptureCoordinator(props: { readonly pathname: string })
   const {
     isReady: appearancePreferencesReady,
     themeId,
+    themeMode,
     setThemeIdForBothAppearances,
+    setThemeMode,
   } = useAppearancePreferences();
   const workspace = useWorkspaceState();
   const projects = useProjects();
@@ -168,19 +170,34 @@ function EnabledShowcaseCaptureCoordinator(props: { readonly pathname: string })
     return () => clearInterval(interval);
   }, []);
 
-  const themeApplied = requestedTheme === null ? themeRequestSettled : themeId === requestedTheme;
+  const themeApplied =
+    appearancePreferencesReady &&
+    themeMode === "system" &&
+    (requestedTheme === null ? themeRequestSettled : themeId === requestedTheme);
 
   useEffect(() => {
     if (
-      requestedTheme === null ||
+      !themeRequestSettled ||
       themeApplied ||
       // Writing before stored preferences load would be overwritten by them.
       !appearancePreferencesReady
     ) {
       return;
     }
-    setThemeIdForBothAppearances(requestedTheme);
-  }, [appearancePreferencesReady, requestedTheme, setThemeIdForBothAppearances, themeApplied]);
+    if (themeMode !== "system") {
+      setThemeMode("system");
+      return;
+    }
+    if (requestedTheme !== null) setThemeIdForBothAppearances(requestedTheme);
+  }, [
+    appearancePreferencesReady,
+    requestedTheme,
+    setThemeIdForBothAppearances,
+    setThemeMode,
+    themeApplied,
+    themeMode,
+    themeRequestSettled,
+  ]);
 
   useEffect(() => {
     if (pairingUrls.length === 0) return;

@@ -311,7 +311,8 @@ export function ThemeAppearanceSection() {
     systemColorsAvailable,
   } = useAppearancePreferences();
   const select = (changed: boolean, apply: () => void) => {
-    if (changed) void Haptics.selectionAsync();
+    if (!changed) return;
+    void Haptics.selectionAsync();
     apply();
   };
 
@@ -352,8 +353,13 @@ export function ThemeAppearanceSection() {
                 )
               }
               onSelectBoth={() =>
-                select(theme.id !== themeIds.light || theme.id !== themeIds.dark, () =>
-                  setThemeIdForBothAppearances(theme.id),
+                select(
+                  (["light", "dark"] as const).some(
+                    (appearance) =>
+                      mobileThemeSupportsAppearance(theme.id, appearance) &&
+                      theme.id !== themeIds[appearance],
+                  ),
+                  () => setThemeIdForBothAppearances(theme.id),
                 )
               }
               themeId={theme.id}
