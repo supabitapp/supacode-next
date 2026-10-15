@@ -178,39 +178,39 @@ describe("mobile connection storage", () => {
   it("persists independent light and dark theme choices", async () => {
     mocks.setPreferencesJson(
       JSON.stringify({
-        themeId: "grove",
-        lightThemeId: "iris",
-        darkThemeId: "ocean",
+        themeId: "dracula",
+        lightThemeId: "catppuccin-latte",
+        darkThemeId: "nord",
         themeMode: "system",
       }),
       10,
     );
 
     await expect(loadPreferences()).resolves.toEqual({
-      themeId: "grove",
-      lightThemeId: "iris",
-      darkThemeId: "ocean",
+      themeId: "dracula",
+      lightThemeId: "catppuccin-latte",
+      darkThemeId: "nord",
       themeMode: "system",
     });
   });
 
   it("persists Material You independently for each appearance", async () => {
-    const themes = { lightThemeId: "material-you", darkThemeId: "ocean" } as const;
+    const themes = { lightThemeId: "material-you", darkThemeId: "nord" } as const;
     await savePreferencesPatch(themes);
     await expect(loadPreferences()).resolves.toEqual(themes);
-    await savePreferencesPatch({ lightThemeId: "supaterm-chat" });
-    await expect(loadPreferences()).resolves.toEqual({ ...themes, lightThemeId: "supaterm-chat" });
+    await savePreferencesPatch({ lightThemeId: "one-light" });
+    await expect(loadPreferences()).resolves.toEqual({ ...themes, lightThemeId: "one-light" });
   });
 
   it.each([true, false])("drops the removed Android layout preference (%s)", async (enabled) => {
     mocks.setPreferencesJson(
       JSON.stringify({
         materialYouStyleLayoutEnabled: enabled,
-        lightThemeId: "supaterm-chat",
+        lightThemeId: "one-light",
       }),
       10,
     );
-    await expect(loadPreferences()).resolves.toEqual({ lightThemeId: "supaterm-chat" });
+    await expect(loadPreferences()).resolves.toEqual({ lightThemeId: "one-light" });
   });
 
   it("drops the removed theme transition preference", async () => {

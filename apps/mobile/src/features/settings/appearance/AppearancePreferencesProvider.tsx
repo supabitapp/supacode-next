@@ -206,11 +206,11 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
 
   const setThemeIdForBothAppearances = useCallback(
     (value: MobileThemeId) => {
-      const patch = createMobileThemePairPatch(value);
+      const patch = createMobileThemePairPatch(selectedThemeIdsRef.current, themeAppearance, value);
       selectedThemeIdsRef.current = resolveMobileThemeIds(patch);
       updateThemePreferences(patch);
     },
-    [updateThemePreferences],
+    [themeAppearance, updateThemePreferences],
   );
 
   const setThemeMode = useCallback(
