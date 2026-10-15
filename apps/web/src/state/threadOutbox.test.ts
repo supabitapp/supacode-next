@@ -761,6 +761,22 @@ describe("web thread outbox delivery", () => {
     expect(webThreadOutbox.getSnapshot()).toEqual([]);
   });
 
+  it("keeps the follow-ups when a pending task is already being delivered", async () => {
+    const { cancelThreadOutboxTurn, enqueueThreadOutboxTurns, webThreadOutbox } =
+      await import("./threadOutbox");
+    await enqueueThreadOutboxTurns(pendingTaskWithFollowUp());
+    harness.records.set("message", { ...harness.records.get("message")!, attempted: true });
+
+    await expect(cancelThreadOutboxTurn(webThreadOutbox.getSnapshot()[0]!)).rejects.toThrow(
+      "Delivery has already started.",
+    );
+
+    expect(webThreadOutbox.getSnapshot().map((entry) => entry.id)).toEqual([
+      "message",
+      "follow-up",
+    ]);
+  });
+
   it.each(["arrived", "archived"])(
     "keeps an acknowledged creation until the server snapshot confirms it %s",
     async (state) => {

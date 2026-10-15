@@ -1306,6 +1306,7 @@ describe("thread outbox", () => {
         shellStatus: "synchronizing",
         environmentConnected: true,
         threadBusy: false,
+        awaitingCreatedThread: false,
       }),
     ).toBe("wait");
     expect(
@@ -1315,6 +1316,7 @@ describe("thread outbox", () => {
         shellStatus: "live",
         environmentConnected: true,
         threadBusy: false,
+        awaitingCreatedThread: false,
       }),
     ).toBe("remove");
     expect(
@@ -1324,6 +1326,7 @@ describe("thread outbox", () => {
         shellStatus: "live",
         environmentConnected: true,
         threadBusy: false,
+        awaitingCreatedThread: false,
       }),
     ).toBe("send");
   });
@@ -1349,6 +1352,7 @@ describe("thread outbox", () => {
         shellStatus: "live",
         environmentConnected: true,
         threadBusy: true,
+        awaitingCreatedThread: false,
       }),
     ).toBe("send");
     expect(
@@ -1358,6 +1362,7 @@ describe("thread outbox", () => {
         shellStatus: "live",
         environmentConnected: false,
         threadBusy: true,
+        awaitingCreatedThread: false,
       }),
     ).toBe("wait");
   });
@@ -1370,6 +1375,7 @@ describe("thread outbox", () => {
         shellStatus: "cached",
         environmentConnected: false,
         threadBusy: false,
+        awaitingCreatedThread: false,
       }),
     ).toBe("wait");
     // Connected but not yet synchronized: a previously delivered creation may
@@ -1381,6 +1387,7 @@ describe("thread outbox", () => {
         shellStatus: "synchronizing",
         environmentConnected: true,
         threadBusy: false,
+        awaitingCreatedThread: false,
       }),
     ).toBe("wait");
     expect(
@@ -1390,6 +1397,7 @@ describe("thread outbox", () => {
         shellStatus: "live",
         environmentConnected: true,
         threadBusy: false,
+        awaitingCreatedThread: false,
       }),
     ).toBe("send");
     expect(
@@ -1399,6 +1407,7 @@ describe("thread outbox", () => {
         shellStatus: "live",
         environmentConnected: true,
         threadBusy: true,
+        awaitingCreatedThread: false,
       }),
     ).toBe("remove");
   });

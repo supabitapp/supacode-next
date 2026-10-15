@@ -370,19 +370,6 @@ export async function recoverEditedCreationAfterDelivery(
   );
 }
 
-/**
- * A follow-up queued behind a creation the server rejected has no thread to
- * reach. Append it to the task draft the rejected creation was restored into,
- * so reopening that task carries everything the user sent.
- * Exported for tests; the drain is the only production caller.
- */
-export async function foldFollowUpIntoRejectedCreation(
-  queuedMessage: QueuedThreadMessage,
-  creationMessageId: MessageId,
-): Promise<boolean> {
-  return moveQueuedMessageToDraft(queuedMessage, restoredNewTaskDraftKey(creationMessageId));
-}
-
 async function moveQueuedMessageToDraft(
   queuedMessage: QueuedThreadMessage,
   draftKey: string,
@@ -581,6 +568,14 @@ export async function restoreRejectedQueuedMessage(
         message: queuedMessage,
         reason: message,
       });
+      // Follow-ups queued behind the task have no thread to reach. Folded in
+      // while the drain still waits on this recovery, before any of them can
+      // reach the missing-thread removal.
+      const followUps =
+        appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? [];
+      for (const followUp of followUps) {
+        if (!followUp.creation) await moveQueuedMessageToDraft(followUp, draftKey);
+      }
     }
     return "restored";
   } catch (error) {
@@ -1261,19 +1256,7 @@ export function useThreadOutboxDrain(): void {
       }
 
       const creation = nextQueuedMessage.creation;
-      const creationOutcome = creationOutcomes[threadKey];
-      if (creation === undefined && thread === undefined && creationOutcome?.kind === "failed") {
-        beginDispatchingQueuedMessage(nextQueuedMessage.messageId);
-        void foldFollowUpIntoRejectedCreation(nextQueuedMessage, creationOutcome.message.messageId)
-          .then((folded) => {
-            if (!folded) {
-              scheduleQueuedMessageRetry(nextQueuedMessage.messageId);
-            }
-          })
-          .finally(() => finishDispatchingQueuedMessage(nextQueuedMessage.messageId));
-        return;
-      }
-      const awaitingCreatedThread = creationOutcome?.kind === "delivered";
+      const awaitingCreatedThread = creationOutcomes[threadKey]?.kind === "delivered";
       const environment = connectedEnvironments.find(
         (candidate) => candidate.environmentId === nextQueuedMessage.environmentId,
       );

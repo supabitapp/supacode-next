@@ -43,7 +43,7 @@ export function resolveThreadOutboxDeliveryAction(input: {
   readonly environmentConnected: boolean;
   readonly threadBusy: boolean;
   /** The thread's creation was delivered but its shell has not arrived yet. */
-  readonly awaitingCreatedThread?: boolean;
+  readonly awaitingCreatedThread: boolean;
 }): ThreadOutboxDeliveryAction {
   if (input.isCreation) {
     // A pending task creates its thread on delivery. If the thread already

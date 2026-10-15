@@ -82,15 +82,28 @@ export async function removeThreadOutboxMessage(
   return true;
 }
 
-/** Removes the follow-ups queued behind a pending task the user deleted. */
-export async function removeQueuedFollowUps(creation: QueuedThreadMessage): Promise<void> {
+/**
+ * Deletes a pending task together with the follow-ups queued behind it. The
+ * task goes first: until then it heads their queue, so none can be sent.
+ */
+export async function removePendingThreadCreation(
+  creation: QueuedThreadMessage,
+  canRemove: () => boolean,
+): Promise<boolean> {
   const queue =
     appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[
       scopedThreadKey(creation.environmentId, creation.threadId)
     ] ?? [];
+  if (!(await removeThreadOutboxMessage(creation, undefined, canRemove))) return false;
   for (const message of queue) {
-    if (message.creation === undefined) await removeThreadOutboxMessage(message);
+    if (message.creation !== undefined) continue;
+    // The drain drops leftovers once the shell is live; this keeps them from
+    // lingering while offline.
+    await removeThreadOutboxMessage(message).catch((error: unknown) => {
+      console.warn("[thread-outbox] failed to remove a deleted task's follow-up", error);
+    });
   }
+  return true;
 }
 
 /** Removes every queued message of an environment and releases their files. */

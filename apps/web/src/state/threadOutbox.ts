@@ -364,33 +364,12 @@ export function enqueueThreadOutboxTurns(
   return webThreadOutbox.enqueueMany(targets.map(prepareThreadOutboxTurn));
 }
 
-/**
- * Pauses the follow-ups queued behind a creation before it moves or leaves.
- * The creation heads their queue until then, so none is in flight, and the
- * pause keeps the drain from sending one to the abandoned thread id after.
- */
-async function holdQueuedFollowUps(creation: PendingThreadTurn) {
-  const followUps = webThreadOutbox
-    .getSnapshot()
-    .filter((entry) => entry.scope === creation.scope && entry.id !== creation.id);
-  for (const followUp of followUps) await webThreadOutbox.pause(followUp.id, true);
-  return followUps;
-}
-
-async function releaseQueuedFollowUps(followUps: ReadonlyArray<PendingThreadTurn>) {
-  for (const followUp of followUps) await webThreadOutbox.pause(followUp.id, false);
-}
-
-/** Cancels a pending task together with the follow-ups queued behind it. */
+/** Cancelling a pending task also cancels the follow-ups queued behind it. */
 export async function cancelThreadOutboxTurn(entry: PendingThreadTurn) {
-  const followUps = entry.payload.input.bootstrap?.createThread
-    ? await holdQueuedFollowUps(entry)
-    : [];
-  if (!(await webThreadOutbox.cancel(entry.id))) {
-    await releaseQueuedFollowUps(followUps);
-    throw new Error("Delivery has already started.");
-  }
-  for (const followUp of followUps) await webThreadOutbox.cancel(followUp.id);
+  const cancelled = entry.payload.input.bootstrap?.createThread
+    ? await webThreadOutbox.cancelWithFollowing(entry.id)
+    : await webThreadOutbox.cancel(entry.id);
+  if (!cancelled) throw new Error("Delivery has already started.");
 }
 
 /** Rejected thread creation needs fresh identifiers; uncertain sends cannot be edited. */
@@ -400,33 +379,27 @@ export async function replaceThreadOutboxTurn(entry: PendingThreadTurn, payload:
       ? newThreadId()
       : payload.input.threadId;
   const scope = scopedThreadKey(scopeThreadRef(payload.environmentId, threadId));
-  const followUps = scope === entry.scope ? [] : await holdQueuedFollowUps(entry);
   const compactBeforeSend =
     payload.compactBeforeSend === true &&
     threadId === entry.payload.input.threadId &&
     payload.input.modelSelection?.instanceId === entry.payload.input.modelSelection?.instanceId &&
     payload.input.message.text.trim().toLowerCase() !== "/compact";
   const { compactAccepted, ...payloadWithoutCompactAccepted } = payload;
-  const changed = await webThreadOutbox.edit(
-    entry.id,
-    decodeTurn({
-      ...payloadWithoutCompactAccepted,
-      compactBeforeSend,
-      ...(compactBeforeSend && compactAccepted === true ? { compactAccepted: true } : {}),
-      input: { ...payload.input, threadId, commandId: CommandId.make(randomUUID()) },
-    }),
-    scope,
-  );
-  if (!changed) {
-    await releaseQueuedFollowUps(followUps);
-    throw new Error("Delivery has already started. Reconnect to confirm the message.");
-  }
-  for (const followUp of followUps)
-    await webThreadOutbox.edit(
-      followUp.id,
-      { ...followUp.payload, input: { ...followUp.payload.input, threadId } },
-      scope,
-    );
+  const edited = decodeTurn({
+    ...payloadWithoutCompactAccepted,
+    compactBeforeSend,
+    ...(compactBeforeSend && compactAccepted === true ? { compactAccepted: true } : {}),
+    input: { ...payload.input, threadId, commandId: CommandId.make(randomUUID()) },
+  });
+  // Follow-ups queued behind a rejected task move with it to its new thread.
+  const changed =
+    scope === entry.scope
+      ? await webThreadOutbox.edit(entry.id, edited, scope)
+      : await webThreadOutbox.editWithFollowing(entry.id, edited, scope, (followUp) => ({
+          ...followUp,
+          input: { ...followUp.input, threadId },
+        }));
+  if (!changed) throw new Error("Delivery has already started. Reconnect to confirm the message.");
   if (threadId !== entry.payload.input.threadId && payload.draftId) {
     const draftId = DraftId.make(payload.draftId);
     const draft = useComposerDraftStore.getState().getDraftSession(draftId);

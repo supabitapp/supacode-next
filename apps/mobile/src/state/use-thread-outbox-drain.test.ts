@@ -166,7 +166,6 @@ import { recoverFailedThreadDraft } from "./recover-failed-thread-draft";
 import { editingQueuedMessageIdsAtom } from "./use-thread-outbox";
 import {
   completeQueuedMessageDelivery,
-  foldFollowUpIntoRejectedCreation,
   prepareQueuedMessageAttachments,
   recoverEditedCreationAfterDelivery,
   removeAcknowledgedExistingThreadMessage,
@@ -770,31 +769,38 @@ describe("thread outbox delivered creation recovery", () => {
 });
 
 describe("thread outbox follow-ups behind a rejected creation", () => {
-  it("appends the follow-up to the task draft the creation was restored into", async () => {
-    const followUp = queuedMessage({
-      messageId: "follow-up",
-      text: "Also cover the empty state",
-      fileUri: "file:///documents/supaterm-composer-attachments/follow-up.pdf",
-    });
-    const draftKey = "new-task:restored-rejected-creation";
-    await composerDrafts.mergeComposerDraftContent(draftKey, {
-      text: "Original prompt",
-      attachments: [],
-    });
+  it("folds them into the task draft the rejected creation is restored into", async () => {
+    const creation: QueuedThreadMessage = {
+      ...queuedMessage({ messageId: "rejected-creation", text: "Original prompt" }),
+      modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5.6-sol" },
+      creation: {
+        projectId: ProjectId.make("project-1"),
+        workspaceMode: "local",
+        branch: null,
+        worktreePath: null,
+      },
+    };
+    const followUp = {
+      ...queuedMessage({
+        messageId: "follow-up",
+        text: "Also cover the empty state",
+        fileUri: "file:///documents/supaterm-composer-attachments/follow-up.pdf",
+      }),
+      createdAt: "2026-08-24T12:01:00.000Z",
+    };
+    await harness.manager.enqueue(creation);
     await harness.manager.enqueue(followUp);
 
-    await expect(
-      foldFollowUpIntoRejectedCreation(followUp, MessageId.make("rejected-creation")),
-    ).resolves.toBe(true);
+    await expect(restoreRejectedQueuedMessage(creation, "rejected by server")).resolves.toBe(
+      "restored",
+    );
 
-    expect(composerDrafts.getComposerDraftSnapshot(draftKey)).toMatchObject({
+    expect(
+      composerDrafts.getComposerDraftSnapshot("new-task:restored-rejected-creation"),
+    ).toMatchObject({
       text: "Original prompt\n\nAlso cover the empty state",
       attachments: followUp.attachments,
     });
-    expect(
-      composerDrafts.getComposerDraftSnapshot(`${followUp.environmentId}:${followUp.threadId}`)
-        .text,
-    ).toBe("");
     expect(remainingMessages()).toEqual([]);
     expect(harness.removePersistedFile).not.toHaveBeenCalled();
   });
