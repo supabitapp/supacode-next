@@ -102,7 +102,6 @@ export function AutomationsPage() {
             </WorkspaceBreadcrumbItem>
           </WorkspaceBreadcrumb>
           <Button
-            size="comfortable"
             variant="default"
             disabled={!creationEnvironment}
             onClick={() => creationEnvironment && openForCreate(creationEnvironment.environmentId)}
@@ -248,7 +247,7 @@ function AutomationEnvironmentSection({
               <div
                 key={index}
                 aria-hidden
-                className="flex min-h-40 flex-col gap-3 px-4 py-5 sm:px-5"
+                className="flex min-h-39 flex-col gap-3 px-4 py-5 sm:px-5"
               >
                 <div className="h-5 w-1/3 rounded bg-muted" />
                 <div className="h-10 w-4/5 rounded bg-muted/60" />
@@ -272,7 +271,6 @@ function AutomationEnvironmentSection({
                 action={
                   canCreate ? (
                     <Button
-                      size="comfortable"
                       variant="outline"
                       aria-label={`Create automation on ${environment.label}`}
                       onClick={() => onCreate(environment.environmentId)}
@@ -321,7 +319,7 @@ function AutomationNotice({
       <div className="flex min-w-0 items-start gap-3" role="status">
         <Icon
           aria-hidden
-          className={`mt-0.5 size-5 shrink-0 ${error ? "text-destructive" : "text-muted-foreground"}`}
+          className={`mt-0.5 size-4 shrink-0 ${error ? "text-destructive" : "text-muted-foreground"}`}
         />
         <div className="flex min-w-0 flex-col gap-1">
           <h3 className="text-sm font-medium">{title}</h3>

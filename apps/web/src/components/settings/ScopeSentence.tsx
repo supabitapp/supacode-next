@@ -88,11 +88,7 @@ function ScopeMenu({
       <MenuTrigger
         aria-label={`${ariaLabel}: ${label}`}
         render={
-          presentation === "filters" ? (
-            <Button variant="outline" size="comfortable" />
-          ) : (
-            <InlineButton tone="picker" />
-          )
+          presentation === "filters" ? <Button variant="outline" /> : <InlineButton tone="picker" />
         }
         className="min-w-0 max-w-72"
       >
