@@ -5,7 +5,10 @@ import { Alert } from "react-native";
 
 import { withThreadDismissal } from "./thread-dismissal";
 import { appAtomRegistry } from "../../state/atom-registry";
-import { removeThreadOutboxMessage } from "../../state/thread-outbox-removal";
+import {
+  removeQueuedFollowUps,
+  removeThreadOutboxMessage,
+} from "../../state/thread-outbox-removal";
 import { clearComposerDraftContent } from "../../state/use-composer-drafts";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import {
@@ -94,6 +97,13 @@ export function usePendingTaskListActions(): {
                     () => appAtomRegistry.get(dispatchingQueuedMessageIdAtom) !== messageId,
                   );
                   releaseDeletingQueuedMessage(messageId, removed);
+                  // The drain also drops them once the shell is live; this only
+                  // keeps them from lingering while offline.
+                  if (removed) {
+                    await removeQueuedFollowUps(pendingTask.message).catch((error: unknown) => {
+                      console.warn("[thread-outbox] failed to remove follow-ups", error);
+                    });
+                  }
                   const route = navigation.getState()?.routes.at(-1);
                   if (
                     removed &&

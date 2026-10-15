@@ -364,12 +364,43 @@ export function enqueueThreadOutboxTurns(
   return webThreadOutbox.enqueueMany(targets.map(prepareThreadOutboxTurn));
 }
 
+/**
+ * Pauses the follow-ups queued behind a creation before it moves or leaves.
+ * The creation heads their queue until then, so none is in flight, and the
+ * pause keeps the drain from sending one to the abandoned thread id after.
+ */
+async function holdQueuedFollowUps(creation: PendingThreadTurn) {
+  const followUps = webThreadOutbox
+    .getSnapshot()
+    .filter((entry) => entry.scope === creation.scope && entry.id !== creation.id);
+  for (const followUp of followUps) await webThreadOutbox.pause(followUp.id, true);
+  return followUps;
+}
+
+async function releaseQueuedFollowUps(followUps: ReadonlyArray<PendingThreadTurn>) {
+  for (const followUp of followUps) await webThreadOutbox.pause(followUp.id, false);
+}
+
+/** Cancels a pending task together with the follow-ups queued behind it. */
+export async function cancelThreadOutboxTurn(entry: PendingThreadTurn) {
+  const followUps = entry.payload.input.bootstrap?.createThread
+    ? await holdQueuedFollowUps(entry)
+    : [];
+  if (!(await webThreadOutbox.cancel(entry.id))) {
+    await releaseQueuedFollowUps(followUps);
+    throw new Error("Delivery has already started.");
+  }
+  for (const followUp of followUps) await webThreadOutbox.cancel(followUp.id);
+}
+
 /** Rejected thread creation needs fresh identifiers; uncertain sends cannot be edited. */
 export async function replaceThreadOutboxTurn(entry: PendingThreadTurn, payload: OutboxTurn) {
   const threadId =
     entry.status === "failed" && payload.input.bootstrap?.createThread
       ? newThreadId()
       : payload.input.threadId;
+  const scope = scopedThreadKey(scopeThreadRef(payload.environmentId, threadId));
+  const followUps = scope === entry.scope ? [] : await holdQueuedFollowUps(entry);
   const compactBeforeSend =
     payload.compactBeforeSend === true &&
     threadId === entry.payload.input.threadId &&
@@ -384,9 +415,18 @@ export async function replaceThreadOutboxTurn(entry: PendingThreadTurn, payload:
       ...(compactBeforeSend && compactAccepted === true ? { compactAccepted: true } : {}),
       input: { ...payload.input, threadId, commandId: CommandId.make(randomUUID()) },
     }),
-    scopedThreadKey(scopeThreadRef(payload.environmentId, threadId)),
+    scope,
   );
-  if (!changed) throw new Error("Delivery has already started. Reconnect to confirm the message.");
+  if (!changed) {
+    await releaseQueuedFollowUps(followUps);
+    throw new Error("Delivery has already started. Reconnect to confirm the message.");
+  }
+  for (const followUp of followUps)
+    await webThreadOutbox.edit(
+      followUp.id,
+      { ...followUp.payload, input: { ...followUp.payload.input, threadId } },
+      scope,
+    );
   if (threadId !== entry.payload.input.threadId && payload.draftId) {
     const draftId = DraftId.make(payload.draftId);
     const draft = useComposerDraftStore.getState().getDraftSession(draftId);

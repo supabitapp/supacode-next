@@ -166,6 +166,7 @@ import { recoverFailedThreadDraft } from "./recover-failed-thread-draft";
 import { editingQueuedMessageIdsAtom } from "./use-thread-outbox";
 import {
   completeQueuedMessageDelivery,
+  foldFollowUpIntoRejectedCreation,
   prepareQueuedMessageAttachments,
   recoverEditedCreationAfterDelivery,
   removeAcknowledgedExistingThreadMessage,
@@ -765,6 +766,37 @@ describe("thread outbox delivered creation recovery", () => {
     await expect(recoverEditedCreationAfterDelivery(message)).resolves.toBe(false);
 
     expect(remainingMessages()).toEqual([message]);
+  });
+});
+
+describe("thread outbox follow-ups behind a rejected creation", () => {
+  it("appends the follow-up to the task draft the creation was restored into", async () => {
+    const followUp = queuedMessage({
+      messageId: "follow-up",
+      text: "Also cover the empty state",
+      fileUri: "file:///documents/supaterm-composer-attachments/follow-up.pdf",
+    });
+    const draftKey = "new-task:restored-rejected-creation";
+    await composerDrafts.mergeComposerDraftContent(draftKey, {
+      text: "Original prompt",
+      attachments: [],
+    });
+    await harness.manager.enqueue(followUp);
+
+    await expect(
+      foldFollowUpIntoRejectedCreation(followUp, MessageId.make("rejected-creation")),
+    ).resolves.toBe(true);
+
+    expect(composerDrafts.getComposerDraftSnapshot(draftKey)).toMatchObject({
+      text: "Original prompt\n\nAlso cover the empty state",
+      attachments: followUp.attachments,
+    });
+    expect(
+      composerDrafts.getComposerDraftSnapshot(`${followUp.environmentId}:${followUp.threadId}`)
+        .text,
+    ).toBe("");
+    expect(remainingMessages()).toEqual([]);
+    expect(harness.removePersistedFile).not.toHaveBeenCalled();
   });
 });
 

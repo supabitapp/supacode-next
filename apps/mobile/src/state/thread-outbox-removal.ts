@@ -1,5 +1,6 @@
 import type { EnvironmentId } from "@supaterm/contracts";
 
+import { scopedThreadKey } from "../lib/scopedEntities";
 import { appAtomRegistry } from "./atom-registry";
 import { threadOutboxManager } from "./thread-outbox";
 import type { QueuedThreadMessage } from "./thread-outbox-model";
@@ -79,6 +80,17 @@ export async function removeThreadOutboxMessage(
   // have added files the snapshot never saw.
   await cleanUpRemovedMessages([removed]);
   return true;
+}
+
+/** Removes the follow-ups queued behind a pending task the user deleted. */
+export async function removeQueuedFollowUps(creation: QueuedThreadMessage): Promise<void> {
+  const queue =
+    appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[
+      scopedThreadKey(creation.environmentId, creation.threadId)
+    ] ?? [];
+  for (const message of queue) {
+    if (message.creation === undefined) await removeThreadOutboxMessage(message);
+  }
 }
 
 /** Removes every queued message of an environment and releases their files. */

@@ -3713,7 +3713,8 @@ export default function ChatView(props: ChatViewProps) {
   // worktree or starting its agent, so a send during setup waits there and
   // starts on its own instead of being refused.
   const sendQueuesBehindSetup =
-    isServerThread && (activeRunPreparing || activeActivityRun?.status === "starting");
+    (pendingThreadCreation !== null && !serverThread) ||
+    (isServerThread && (activeRunPreparing || activeActivityRun?.status === "starting"));
   useEffect(() => {
     attachmentPreviewHandoffByMessageIdRef.current = attachmentPreviewHandoffByMessageId;
   }, [attachmentPreviewHandoffByMessageId]);
@@ -8878,7 +8879,6 @@ export default function ChatView(props: ChatViewProps) {
     if (
       !readCanQueueComposerMessage(environmentId) ||
       !activeThread ||
-      (pendingThreadCreation && !serverThread) ||
       isSendBusy ||
       isConnecting ||
       isRevertingCheckpoint ||
@@ -10858,20 +10858,17 @@ export default function ChatView(props: ChatViewProps) {
                                       ? "This connection cannot change threads."
                                       : outboxEditor.editing
                                         ? null
-                                        : pendingThreadCreation && !serverThread
-                                          ? "Task waiting to start"
-                                          : isEnvironmentChanging
-                                            ? "Preparing machine"
-                                            : isRevertingCheckpoint
-                                              ? "Rewinding conversation"
-                                              : feedbackUploading
-                                                ? "Sending feedback"
-                                                : threadDetailLoading &&
-                                                    !activeEnvironmentUnavailable
-                                                  ? "Messages loading"
-                                                  : worktreeSetupBlocksSend
-                                                    ? "Preparing worktree"
-                                                    : projectCloneSendBlockReason
+                                        : isEnvironmentChanging
+                                          ? "Preparing machine"
+                                          : isRevertingCheckpoint
+                                            ? "Rewinding conversation"
+                                            : feedbackUploading
+                                              ? "Sending feedback"
+                                              : threadDetailLoading && !activeEnvironmentUnavailable
+                                                ? "Messages loading"
+                                                : worktreeSetupBlocksSend
+                                                  ? "Preparing worktree"
+                                                  : projectCloneSendBlockReason
                                   }
                                   isPreparingWorktree={
                                     isPreparingWorktree && !sendQueuesBehindSetup

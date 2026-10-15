@@ -169,6 +169,45 @@ function worktreeTarget() {
   };
 }
 
+function pendingTaskWithFollowUp() {
+  const original = target();
+  return [
+    {
+      ...original,
+      input: {
+        ...original.input,
+        createdAt: "2026-10-06T00:00:00Z",
+        bootstrap: {
+          createThread: {
+            projectId: ProjectId.make("project"),
+            title: "Task",
+            modelSelection: original.input.modelSelection,
+            runtimeMode: original.input.runtimeMode,
+            interactionMode: original.input.interactionMode,
+            branch: null,
+            worktreePath: null,
+            createdAt: "2026-10-06T00:00:00Z",
+          },
+        },
+      },
+    },
+    {
+      ...original,
+      input: {
+        ...original.input,
+        commandId: CommandId.make("follow-up-command"),
+        message: {
+          ...original.input.message,
+          messageId: MessageId.make("follow-up"),
+          text: "Follow-up",
+        },
+        dispatchMode: "queue" as const,
+        createdAt: "2026-10-06T00:01:00Z",
+      },
+    },
+  ] as const;
+}
+
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
@@ -677,6 +716,49 @@ describe("web thread outbox delivery", () => {
         input: { threadId: "replacement-thread", commandId: "generated-command" },
       },
     });
+  });
+
+  it("carries follow-ups queued behind a rejected creation to its replacement thread", async () => {
+    const { enqueueThreadOutboxTurns, replaceThreadOutboxTurn, webThreadOutbox } =
+      await import("./threadOutbox");
+    const [creation, followUp] = pendingTaskWithFollowUp();
+    await enqueueThreadOutboxTurns([creation, followUp]);
+    harness.online = true;
+    harness.run.mockResolvedValueOnce(
+      AsyncResult.fail({ _tag: "OrchestrationDispatchCommandError", message: "Rejected." }),
+    );
+    await webThreadOutbox.drain();
+    expect(harness.run).toHaveBeenCalledTimes(1);
+    const failed = webThreadOutbox.getSnapshot()[0]!;
+    expect(failed.status).toBe("failed");
+    harness.online = false;
+
+    await replaceThreadOutboxTurn(failed, failed.payload);
+
+    expect(webThreadOutbox.getSnapshot()).toEqual([
+      expect.objectContaining({ id: "message", scope: "environment:replacement-thread" }),
+      expect.objectContaining({
+        id: "follow-up",
+        scope: "environment:replacement-thread",
+        paused: false,
+        payload: expect.objectContaining({
+          input: expect.objectContaining({
+            threadId: "replacement-thread",
+            commandId: "follow-up-command",
+          }),
+        }),
+      }),
+    ]);
+  });
+
+  it("cancels the follow-ups queued behind a cancelled pending task", async () => {
+    const { cancelThreadOutboxTurn, enqueueThreadOutboxTurns, webThreadOutbox } =
+      await import("./threadOutbox");
+    await enqueueThreadOutboxTurns(pendingTaskWithFollowUp());
+
+    await cancelThreadOutboxTurn(webThreadOutbox.getSnapshot()[0]!);
+
+    expect(webThreadOutbox.getSnapshot()).toEqual([]);
   });
 
   it.each(["arrived", "archived"])(

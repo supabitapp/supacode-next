@@ -1328,6 +1328,19 @@ describe("thread outbox", () => {
     ).toBe("send");
   });
 
+  it("holds a follow-up while its delivered creation's shell is on the way", () => {
+    expect(
+      resolveThreadOutboxDeliveryAction({
+        isCreation: false,
+        threadExists: false,
+        shellStatus: "live",
+        environmentConnected: true,
+        threadBusy: false,
+        awaitingCreatedThread: true,
+      }),
+    ).toBe("wait");
+  });
+
   it("sends existing-thread messages whenever connected so queued messages can steer", () => {
     expect(
       resolveThreadOutboxDeliveryAction({

@@ -364,6 +364,29 @@ export async function removeAcknowledgedExistingThreadMessage(
 export async function recoverEditedCreationAfterDelivery(
   queuedMessage: QueuedThreadMessage,
 ): Promise<boolean> {
+  return moveQueuedMessageToDraft(
+    queuedMessage,
+    scopedThreadKey(queuedMessage.environmentId, queuedMessage.threadId),
+  );
+}
+
+/**
+ * A follow-up queued behind a creation the server rejected has no thread to
+ * reach. Append it to the task draft the rejected creation was restored into,
+ * so reopening that task carries everything the user sent.
+ * Exported for tests; the drain is the only production caller.
+ */
+export async function foldFollowUpIntoRejectedCreation(
+  queuedMessage: QueuedThreadMessage,
+  creationMessageId: MessageId,
+): Promise<boolean> {
+  return moveQueuedMessageToDraft(queuedMessage, restoredNewTaskDraftKey(creationMessageId));
+}
+
+async function moveQueuedMessageToDraft(
+  queuedMessage: QueuedThreadMessage,
+  draftKey: string,
+): Promise<boolean> {
   const kept = Object.values(appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom))
     .flat()
     .find((candidate) => candidate.messageId === queuedMessage.messageId);
@@ -374,7 +397,6 @@ export async function recoverEditedCreationAfterDelivery(
   if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[kept.messageId]) {
     return true;
   }
-  const draftKey = scopedThreadKey(kept.environmentId, kept.threadId);
   try {
     // Merge before removing: the draft's reference keeps the removal sweep
     // from deleting the attachment files. allowOverflow mirrors the
@@ -411,7 +433,7 @@ export async function recoverEditedCreationAfterDelivery(
   } catch (error) {
     // Keep the entry queued. The drain retries with backoff, and the merge is
     // idempotent so content that persisted before the failure is not repeated.
-    console.warn("[thread-outbox] could not hand an edited pending task to the composer", error);
+    console.warn("[thread-outbox] could not hand a queued message to its draft", error);
     return false;
   }
   if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[kept.messageId]) {
@@ -424,7 +446,7 @@ export async function recoverEditedCreationAfterDelivery(
       () => !appAtomRegistry.get(editingQueuedMessageIdsAtom)[kept.messageId],
     );
   } catch (error) {
-    console.warn("[thread-outbox] could not remove recovered pending task", error);
+    console.warn("[thread-outbox] could not remove a message handed to its draft", error);
     return false;
   }
 }
@@ -1239,6 +1261,19 @@ export function useThreadOutboxDrain(): void {
       }
 
       const creation = nextQueuedMessage.creation;
+      const creationOutcome = creationOutcomes[threadKey];
+      if (creation === undefined && thread === undefined && creationOutcome?.kind === "failed") {
+        beginDispatchingQueuedMessage(nextQueuedMessage.messageId);
+        void foldFollowUpIntoRejectedCreation(nextQueuedMessage, creationOutcome.message.messageId)
+          .then((folded) => {
+            if (!folded) {
+              scheduleQueuedMessageRetry(nextQueuedMessage.messageId);
+            }
+          })
+          .finally(() => finishDispatchingQueuedMessage(nextQueuedMessage.messageId));
+        return;
+      }
+      const awaitingCreatedThread = creationOutcome?.kind === "delivered";
       const environment = connectedEnvironments.find(
         (candidate) => candidate.environmentId === nextQueuedMessage.environmentId,
       );
@@ -1249,6 +1284,7 @@ export function useThreadOutboxDrain(): void {
         shellStatus,
         environmentConnected: environment?.connectionState === "connected",
         threadBusy: threadRuntimeIsActive(thread?.runtime),
+        awaitingCreatedThread,
       });
       if (deliveryAction === "send" && !operableEnvironments.has(nextQueuedMessage.environmentId)) {
         continue;
@@ -1362,6 +1398,7 @@ export function useThreadOutboxDrain(): void {
             shellStatus,
             environmentConnected: environment?.connectionState === "connected",
             threadBusy: liveThreadBusy,
+            awaitingCreatedThread,
           });
           if (liveDeliveryAction !== "send") {
             return true;
@@ -1406,6 +1443,7 @@ export function useThreadOutboxDrain(): void {
     }
   }, [
     connectedEnvironments,
+    creationOutcomes,
     dispatchingQueuedMessageId,
     editingQueuedMessageIds,
     operableEnvironments,
