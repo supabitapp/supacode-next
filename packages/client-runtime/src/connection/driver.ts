@@ -21,7 +21,7 @@ import * as ConnectionResolver from "./resolver.ts";
 import { connectionRouteKind, connectionRoutes, routeEntry, routeHttpBaseUrl } from "./routes.ts";
 import * as RpcSession from "../rpc/session.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
-import { resolveRelayOrigin } from "../relay/gateway.ts";
+import { leaseRelayOrigin } from "../relay/gateway.ts";
 
 export type ConnectionDriverProgress =
   | {
@@ -53,6 +53,8 @@ export type RouteCheck = "answered" | "silent" | "unchecked";
 export const ROUTE_CHECK_TIMEOUT_MS = 2_500;
 /** How long a connection attempt keeps listening for a route that missed the first check. */
 export const LATE_ROUTE_CHECK_TIMEOUT_MS = 15_000;
+/** How long the routes ranked above a relay have to answer before the relay is checked too. */
+export const RELAY_CHECK_DELAY_MS = 500;
 const ROUTE_PREFERENCE_WAIT_MS = 250;
 const PREFLIGHT_VALIDITY_NANOS = 10_000_000_000n;
 
@@ -81,28 +83,77 @@ export class ConnectionDriver extends Context.Service<
   }
 >()("@supaterm/client-runtime/connection/driver/ConnectionDriver") {}
 
+/**
+ * Checks a relay without opening a tunnel that a reachable preferred route
+ * makes unnecessary. The relay is checked once every route above it is silent,
+ * or once none of them has answered within {@link RELAY_CHECK_DELAY_MS}. If one
+ * answers first, the relay stays unchecked and waits for the routes above it.
+ */
+const checkRelayAfter = Effect.fnUntraced(function* (
+  ahead: ReadonlyArray<Fiber.Fiber<Option.Option<RouteCheck>>>,
+  check: Effect.Effect<RouteCheck>,
+) {
+  if (ahead.length === 0) return yield* check;
+  const mayConnect = (result: Option.Option<RouteCheck>) =>
+    Option.isSome(result) && result.value !== "silent";
+  const settled = Effect.forEach(ahead, Fiber.join, { concurrency: "unbounded" });
+  const open = yield* Effect.raceAll([
+    settled.pipe(Effect.map((results) => !results.some(mayConnect))),
+    Effect.raceAll(
+      ahead.map((fiber) =>
+        Fiber.join(fiber).pipe(Effect.filterOrElse(mayConnect, () => Effect.never)),
+      ),
+    ).pipe(Effect.as(false)),
+    Effect.sleep(RELAY_CHECK_DELAY_MS).pipe(Effect.as(true)),
+  ]);
+  if (open) return yield* check;
+  yield* settled;
+  return "unchecked" as const;
+});
+
 export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")(function* <R>(
   entry: ConnectionCatalogEntry,
-  checkRoute: (route: ConnectionRoute) => Effect.Effect<RouteCheck>,
+  checkRoute: (route: ConnectionRoute) => Effect.Effect<RouteCheck, never, Scope.Scope>,
+  connectRoute: (
+    route: ConnectionRoute,
+  ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, R | Scope.Scope>,
+) {
+  // Checks, and the relay tunnels they open, end with route selection. A relay
+  // route that wins has retained its tunnel by then.
+  const checkScope = yield* Scope.make();
+  return yield* selectRoute(entry, checkScope, checkRoute, connectRoute).pipe(
+    Effect.onExit((exit) => Scope.close(checkScope, exit)),
+  );
+});
+
+const selectRoute = Effect.fnUntraced(function* <R>(
+  entry: ConnectionCatalogEntry,
+  checkScope: Scope.Scope,
+  checkRoute: (route: ConnectionRoute) => Effect.Effect<RouteCheck, never, Scope.Scope>,
   connectRoute: (
     route: ConnectionRoute,
   ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, R | Scope.Scope>,
 ) {
   const routes = connectionRoutes(entry);
-  const checks =
-    routes.length === 1
-      ? []
-      : yield* Effect.forEach(routes, (route) =>
-          Effect.forkChild(
-            connectionRouteKind(route) === "relay"
-              ? Effect.succeed<RouteCheck>("unchecked")
-              : checkRoute(route),
-          ),
-        );
-  const firstChecks = yield* Effect.forEach(checks, (check) =>
-    Effect.forkChild(Fiber.join(check).pipe(Effect.timeoutOption(ROUTE_CHECK_TIMEOUT_MS))),
-  );
-  const preferenceWindow = yield* Effect.forkChild(
+  const checks: Array<Fiber.Fiber<RouteCheck>> = [];
+  const firstChecks: Array<Fiber.Fiber<Option.Option<RouteCheck>>> = [];
+  if (routes.length > 1) {
+    for (const route of routes) {
+      const check = checkRoute(route).pipe(Scope.provide(checkScope));
+      const fiber = yield* Effect.forkIn(
+        connectionRouteKind(route) === "relay" ? checkRelayAfter([...firstChecks], check) : check,
+        checkScope,
+      );
+      checks.push(fiber);
+      firstChecks.push(
+        yield* Effect.forkIn(
+          Fiber.join(fiber).pipe(Effect.timeoutOption(ROUTE_CHECK_TIMEOUT_MS)),
+          checkScope,
+        ),
+      );
+    }
+  }
+  const preferenceWindow = yield* Effect.forkIn(
     (checks.length === 0
       ? Effect.never
       : Effect.raceAll(
@@ -116,6 +167,7 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
       Effect.andThen(Effect.sleep(ROUTE_PREFERENCE_WAIT_MS)),
       Effect.as(Option.none<RouteCheck>()),
     ),
+    checkScope,
   );
   const attemptScope = yield* Scope.Scope;
   let transient: ConnectionAttemptError | undefined;
@@ -148,28 +200,8 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
   const slow: Array<number> = [];
   const silent: Array<number> = [];
   for (const [index, route] of routes.entries()) {
-    const isRelay = connectionRouteKind(route) === "relay";
-    if (isRelay) {
-      const earlier = slow.splice(0);
-      while (earlier.length > 0) {
-        const [index, check] = yield* Effect.raceAll(
-          earlier.map((index) =>
-            Fiber.join(firstChecks[index]!).pipe(Effect.map((check) => [index, check] as const)),
-          ),
-        );
-        earlier.splice(earlier.indexOf(index), 1);
-        if (Option.isNone(check)) {
-          slow.push(index);
-        } else if (check.value === "silent") {
-          silent.push(index);
-        } else {
-          const lease = yield* attempt(routes[index]!);
-          if (Option.isSome(lease)) return lease.value;
-        }
-      }
-    }
     const check =
-      isRelay || firstChecks.length === 0
+      firstChecks.length === 0
         ? Option.some<RouteCheck>("unchecked")
         : yield* Effect.raceFirst(Fiber.join(firstChecks[index]!), Fiber.join(preferenceWindow));
     if (Option.isNone(check)) {
@@ -224,10 +256,10 @@ export const make = Effect.gen(function* () {
     const origin =
       parseRelayAddress(httpBaseUrl) === null
         ? Effect.succeed(httpBaseUrl)
-        : resolveRelayOrigin(
+        : leaseRelayOrigin(
             httpBaseUrl,
             profile?._tag === "BearerConnectionProfile" ? profile.relayUrl : undefined,
-          );
+          ).pipe(Effect.map(({ origin }) => origin));
     // The descriptor is public, so this sends no credential to whatever
     // answers at a saved LAN address on a different network.
     return origin.pipe(
@@ -301,12 +333,13 @@ export const make = Effect.gen(function* () {
             }).pipe(Effect.orElseSucceed(() => Option.none<PreparedRoute>()))
           : Effect.succeedNone,
       ),
+      Effect.scoped,
       Effect.withSpan("ConnectionDriver.preflight"),
     );
 
   return ConnectionDriver.of({
     connect,
-    checkRoute: (entry, route) => checkRoute(entry, route, ROUTE_CHECK_TIMEOUT_MS),
+    checkRoute: (entry, route) => Effect.scoped(checkRoute(entry, route, ROUTE_CHECK_TIMEOUT_MS)),
     preflight,
   });
 });
