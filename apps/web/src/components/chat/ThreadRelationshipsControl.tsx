@@ -21,6 +21,7 @@ import {
   orderWebThreadLineageRows,
   resolveMergeBackTargetThreadId,
   type ThreadRelationshipEdge,
+  type ThreadRelationshipKind,
   type ThreadRelationshipWalkRow,
 } from "@supaterm/client-runtime/state/thread-relationships";
 import {
@@ -172,10 +173,7 @@ const THREAD_LINEAGE_TITLE_PARTS = [
   ["transfer", "transfers"],
 ] as const;
 
-/** Names the section after what it holds, e.g. "Subagents" or "Parent & subagents". */
-export function threadLineageTitle(
-  kinds: ReadonlySet<ThreadRelationshipEdge["kind"] | "parent">,
-): string {
+export function threadLineageTitle(kinds: ReadonlySet<ThreadRelationshipKind>) {
   const parts = THREAD_LINEAGE_TITLE_PARTS.flatMap(([kind, part]) =>
     kinds.has(kind) ? [part] : [],
   );
