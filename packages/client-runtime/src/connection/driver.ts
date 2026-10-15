@@ -8,12 +8,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Scope from "effect/Scope";
 import * as HttpClient from "effect/http/HttpClient";
-import { parseRelayAddress } from "@supaterm/shared/relay/protocol";
 
 import type { ConnectionCatalogEntry, ConnectionRoute } from "./catalog.ts";
 import type {
   ConnectionAttemptError,
   ConnectionAttemptStage,
+  ConnectionTransientReason,
   PreparedConnection,
 } from "./model.ts";
 import { ConnectionTransientError } from "./model.ts";
@@ -49,7 +49,7 @@ export interface PreparedRoute {
  */
 export type RouteCheck = "answered" | "silent" | "unchecked";
 
-/** How long a direct route has to answer before it counts as unreachable from here. */
+/** How long a route has to answer before it counts as unreachable from here. */
 export const ROUTE_CHECK_TIMEOUT_MS = 2_500;
 /** How long a connection attempt keeps listening for a route that missed the first check. */
 export const LATE_ROUTE_CHECK_TIMEOUT_MS = 15_000;
@@ -64,13 +64,13 @@ export class ConnectionDriver extends Context.Service<
       reportProgress: (progress: ConnectionDriverProgress) => Effect.Effect<void>,
       preflight?: PreparedRoute,
     ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, Scope.Scope>;
-    /** Whether a direct route answers as the entry's environment, without credentials. */
+    /** Whether a route answers as the entry's environment, without credentials. */
     readonly checkRoute: (
       entry: ConnectionCatalogEntry,
       route: ConnectionRoute,
     ) => Effect.Effect<RouteCheck>;
     /**
-     * Whether a direct route answers and accepts this client's credential,
+     * Whether a route answers and accepts this client's credential,
      * without opening a socket. Switching to a route that fails this would
      * drop a working connection for nothing.
      */
@@ -81,8 +81,30 @@ export class ConnectionDriver extends Context.Service<
   }
 >()("@supaterm/client-runtime/connection/driver/ConnectionDriver") {}
 
-const unanswered = (error: ConnectionTransientError) =>
-  error.reason === "network" || error.reason === "timeout";
+/**
+ * How well a failure explains why no route connected. A route whose host or
+ * relay answered with a reason, such as an offline host, explains more than
+ * one that never answered, and a transient failure is reported over a blocked
+ * one so the connection keeps retrying.
+ */
+const TRANSIENT_FAILURE_RANK: Record<ConnectionTransientReason, number> = {
+  network: 1,
+  timeout: 1,
+  transport: 1,
+  "endpoint-unavailable": 2,
+  "remote-unavailable": 2,
+};
+const failureRank = (failure: ConnectionAttemptError) =>
+  failure._tag === "ConnectionBlockedError" ? 0 : TRANSIENT_FAILURE_RANK[failure.reason];
+
+/** The origin that reaches a route's address from here, through a leased relay tunnel if it has one. */
+export const leaseRouteOrigin = (route: ConnectionRoute, httpBaseUrl: string) => {
+  const profile = Option.getOrNull(route.profile);
+  return leaseRelayOrigin(
+    httpBaseUrl,
+    profile?._tag === "BearerConnectionProfile" ? profile.relayUrl : undefined,
+  ).pipe(Effect.map(({ origin }) => origin));
+};
 
 type CheckRoute = (route: ConnectionRoute) => Effect.Effect<RouteCheck, never, Scope.Scope>;
 type ConnectRoute<R> = (
@@ -96,36 +118,27 @@ export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")
 ) {
   // Checks, and the relay tunnels they lease, end with route selection.
   // Connecting over a relay resolves its origin, which retains its tunnel.
-  return yield* Effect.scopedWith((checkScope) =>
-    selectRoute(entry, checkScope, checkRoute, connectRoute),
+  const connectionScope = yield* Scope.Scope;
+  return yield* selectAndConnect(entry, connectionScope, checkRoute, connectRoute).pipe(
+    Effect.scoped,
   );
 });
 
-const selectRoute = Effect.fnUntraced(function* <R>(
+const selectAndConnect = Effect.fnUntraced(function* <R>(
   entry: ConnectionCatalogEntry,
-  checkScope: Scope.Scope,
+  connectionScope: Scope.Scope,
   checkRoute: CheckRoute,
   connectRoute: ConnectRoute<R>,
 ) {
   const routes = connectionRoutes(entry);
-  const checks: Array<Fiber.Fiber<RouteCheck>> = [];
-  const firstChecks: Array<Fiber.Fiber<Option.Option<RouteCheck>>> = [];
-  if (routes.length > 1) {
-    for (const route of routes) {
-      const fiber = yield* Effect.forkIn(
-        checkRoute(route).pipe(Scope.provide(checkScope)),
-        checkScope,
-      );
-      checks.push(fiber);
-      firstChecks.push(
-        yield* Effect.forkIn(
-          Fiber.join(fiber).pipe(Effect.timeoutOption(ROUTE_CHECK_TIMEOUT_MS)),
-          checkScope,
-        ),
-      );
-    }
-  }
-  const preferenceWindow = yield* Effect.forkIn(
+  const checks =
+    routes.length === 1
+      ? []
+      : yield* Effect.forEach(routes, (route) => Effect.forkScoped(checkRoute(route)));
+  const firstChecks = yield* Effect.forEach(checks, (check) =>
+    Effect.forkScoped(Fiber.join(check).pipe(Effect.timeoutOption(ROUTE_CHECK_TIMEOUT_MS))),
+  );
+  const preferenceWindow = yield* Effect.forkScoped(
     (checks.length === 0
       ? Effect.never
       : Effect.raceAll(
@@ -139,14 +152,11 @@ const selectRoute = Effect.fnUntraced(function* <R>(
       Effect.andThen(Effect.sleep(ROUTE_PREFERENCE_WAIT_MS)),
       Effect.as(Option.none<RouteCheck>()),
     ),
-    checkScope,
   );
-  const attemptScope = yield* Scope.Scope;
-  let transient: ConnectionTransientError | undefined;
-  let blocked: ConnectionAttemptError | undefined;
+  let failure: ConnectionAttemptError | undefined;
   // Each route gets its own scope so a half-open session closes before the next try.
   const attempt = Effect.fnUntraced(function* (route: ConnectionRoute) {
-    const routeScope = yield* Scope.fork(attemptScope);
+    const routeScope = yield* Scope.fork(connectionScope);
     const result = yield* connectRoute(route).pipe(
       Effect.timeoutOrElse({
         duration: "15 seconds",
@@ -165,11 +175,8 @@ const selectRoute = Effect.fnUntraced(function* <R>(
     if (result._tag === "Success") return Option.some(result.success);
     // An incompatible server is the same server on every route.
     if (result.failure.reason === "unsupported") return yield* result.failure;
-    // A route that reached something, such as the relay of an offline host,
-    // explains a failure better than one that never answered.
-    if (result.failure._tag === "ConnectionBlockedError") blocked ??= result.failure;
-    else if (transient === undefined || (unanswered(transient) && !unanswered(result.failure)))
-      transient = result.failure;
+    if (failure === undefined || failureRank(result.failure) > failureRank(failure))
+      failure = result.failure;
     return Option.none();
   });
   const slow: Array<number> = [];
@@ -209,8 +216,7 @@ const selectRoute = Effect.fnUntraced(function* <R>(
     if (Option.isSome(lease)) return lease.value;
   }
   return yield* (
-    transient ??
-      blocked ??
+    failure ??
       new ConnectionTransientError({
         reason: "endpoint-unavailable",
         detail: `${entry.target.label} did not answer on any saved route.`,
@@ -227,17 +233,9 @@ export const make = Effect.gen(function* () {
   const checkRoute = (entry: ConnectionCatalogEntry, route: ConnectionRoute, timeoutMs: number) => {
     const httpBaseUrl = routeHttpBaseUrl(route);
     if (httpBaseUrl === null) return Effect.succeed<RouteCheck>("unchecked");
-    const profile = Option.getOrNull(route.profile);
-    const origin =
-      parseRelayAddress(httpBaseUrl) === null
-        ? Effect.succeed(httpBaseUrl)
-        : leaseRelayOrigin(
-            httpBaseUrl,
-            profile?._tag === "BearerConnectionProfile" ? profile.relayUrl : undefined,
-          ).pipe(Effect.map(({ origin }) => origin));
     // The descriptor is public, so this sends no credential to whatever
     // answers at a saved LAN address on a different network.
-    return origin.pipe(
+    return leaseRouteOrigin(route, httpBaseUrl).pipe(
       Effect.flatMap((resolved) =>
         fetchRemoteEnvironmentDescriptor({ httpBaseUrl: resolved, timeoutMs }),
       ),

@@ -72,7 +72,7 @@ describe("direct route connection attempts", () => {
             }),
         );
         expect(result.prepared.target).toEqual(relay.target);
-        expect(attempted.map((route) => route.target)).toEqual([relay.target]);
+        expect(attempted).toEqual([relay]);
       }),
   );
 
@@ -123,7 +123,7 @@ describe("direct route connection attempts", () => {
         (route) => {
           if (route.target === lan.target)
             return Deferred.succeed(checked, undefined).pipe(Effect.as("answered" as const));
-          if (route === tailnet || route === relay) return Effect.never;
+          if (route.target === tailnet.target || route.target === relay.target) return Effect.never;
           return Effect.sleep(500).pipe(Effect.as("answered" as const));
         },
         (route) =>
@@ -147,7 +147,7 @@ describe("direct route connection attempts", () => {
       const fiber = yield* connectOverRoutes(
         { ...lan, enabled: true, alternateRoutes: [tailnet, relay] },
         (route) =>
-          route === relay
+          route.target === relay.target
             ? Effect.succeed("answered")
             : Deferred.succeed(checking, undefined).pipe(Effect.andThen(Effect.never)),
         (route) =>
@@ -169,7 +169,7 @@ describe("direct route connection attempts", () => {
       const fiber = yield* connectOverRoutes(
         { ...tailnet, enabled: true, alternateRoutes: [relay] },
         (route) =>
-          route === relay
+          route.target === relay.target
             ? Effect.acquireRelease(
                 Effect.sync(() => {
                   lifecycle.push("opened relay");
@@ -202,7 +202,7 @@ describe("direct route connection attempts", () => {
       const attempted: ConnectionRoute[] = [];
       const result = yield* connectOverRoutes(
         { ...lan, enabled: true, alternateRoutes: [tailnet, relay] },
-        (route) => Effect.succeed(route === relay ? "answered" : "silent"),
+        (route) => Effect.succeed(route.target === relay.target ? "answered" : "silent"),
         (route) =>
           Effect.sync(() => {
             attempted.push(route);
@@ -220,7 +220,7 @@ describe("direct route connection attempts", () => {
       const fiber = yield* connectOverRoutes(
         { ...lan, enabled: true, alternateRoutes: [relay] },
         (route) =>
-          route === relay
+          route.target === relay.target
             ? Effect.succeed("silent")
             : Deferred.succeed(checking, undefined).pipe(
                 Effect.andThen(Effect.sleep(ROUTE_CHECK_TIMEOUT_MS + 500)),
@@ -229,7 +229,7 @@ describe("direct route connection attempts", () => {
         (route) =>
           Effect.gen(function* () {
             attempted.push(route);
-            return yield* route === relay
+            return yield* route.target === relay.target
               ? new ConnectionTransientError({
                   reason: "endpoint-unavailable",
                   detail: "Host offline",
@@ -250,7 +250,7 @@ describe("direct route connection attempts", () => {
       const attempted: ConnectionRoute[] = [];
       const result = yield* connectOverRoutes(
         { ...lan, enabled: true, alternateRoutes: [relay] },
-        (route) => Effect.succeed(route === relay ? "answered" : "silent"),
+        (route) => Effect.succeed(route.target === relay.target ? "answered" : "silent"),
         (route) =>
           Effect.gen(function* () {
             attempted.push(route);
