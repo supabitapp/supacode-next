@@ -287,7 +287,7 @@ import { PullRequestsUnavailableState } from "./pullRequest/PullRequestsUnavaila
 import { RightPanelTabs } from "./RightPanelTabs";
 import { LinkPullRequestDialogHost } from "./pullRequest/LinkPullRequestDialog";
 import { ThreadPullRequestsPanel } from "./pullRequest/ThreadPullRequestsPanel";
-import { BackgroundWorkIcon } from "./chat/BackgroundWorkIcon";
+import { BackgroundWorkIcon, BackgroundWorkTitle } from "./chat/BackgroundWork";
 import { useDeviceState } from "~/state/device";
 import { DeviceSetup } from "./device/DeviceSetup";
 import { Dialog } from "./ui/dialog";
@@ -2469,6 +2469,7 @@ export default function ChatView(props: ChatViewProps) {
   const [threadPanelPresentation, setThreadPanelPresentation] =
     useState<ThreadPanelPresentation>("inline");
   const [threadPanelPopoverHandle] = useState(PopoverCreateHandle);
+  const [backgroundWorkChecksHandle] = useState(PopoverCreateHandle);
   const threadPanelOpen = useRightPanelStore((state) =>
     selectThreadPanelOpen(
       state.threadPanelVisibilityByThreadKey,
@@ -7721,22 +7722,25 @@ export default function ChatView(props: ChatViewProps) {
     }
     // One watched run colors the dot; with more, no one run speaks for the banner.
     const watches = serverProjection?.thread.workflowRunWatches ?? [];
-    const run = watches.length === 1 ? watches[0]! : null;
+    const watchedRun = {
+      run: watches.length === 1 ? watches[0]! : null,
+      environmentId: activeThread.environmentId,
+      projectId: activeThread.projectId,
+      handle: backgroundWorkChecksHandle,
+    };
     return {
       id: `background-work:${activeThread.id}`,
       variant: "default",
       priority: "activity",
       icon: (
         <BackgroundWorkIcon
+          {...watchedRun}
           waiting={presentation.waiting}
-          run={run}
-          environmentId={activeThread.environmentId}
-          projectId={activeThread.projectId}
           threadRef={activeThreadRef}
         />
       ),
-      iconInteractive: run !== null,
-      title: presentation.title,
+      iconInteractive: watchedRun.run !== null,
+      title: <BackgroundWorkTitle {...watchedRun} title={presentation.title} />,
       // A single named item is already in the title.
       description:
         presentation.items.length === 1 && presentation.items[0]?.childThreadId === undefined
@@ -7775,6 +7779,7 @@ export default function ChatView(props: ChatViewProps) {
     activeBackgroundTasks,
     activeThread,
     activeThreadRef,
+    backgroundWorkChecksHandle,
     canOperateThread,
     handleStopBackgroundWork,
     isStoppingBackgroundWork,

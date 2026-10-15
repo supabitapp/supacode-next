@@ -146,7 +146,6 @@ export function PullRequestChecksPopover({
   variant = "icon",
   className,
   render,
-  children,
 }: {
   checksState: PullRequestChecksState;
   /** The checks already in hand, for the detail header. Absent on a listing row. */
@@ -159,8 +158,6 @@ export function PullRequestChecksPopover({
   variant?: "icon" | "button";
   className?: string;
   render?: React.ReactElement;
-  /** What the trigger shows in place of the ring, or of the rollup's icon. */
-  children?: React.ReactNode;
 }) {
   const presentation = pullRequestChecksStatePresentation(checksState);
   // Counts beat the rollup's own wording where they are known, the way GitHub's own header reads.
@@ -190,33 +187,63 @@ export function PullRequestChecksPopover({
         }
         onClick={(event) => event.stopPropagation()}
       >
-        {children ??
-          (checks !== undefined && checks.length > 0 && !stale ? (
-            <PullRequestChecksRing checks={checks} />
-          ) : (
-            <presentation.Icon aria-hidden className={cn("size-3.5", presentation.toneClassName)} />
-          ))}
+        {checks !== undefined && checks.length > 0 && !stale ? (
+          <PullRequestChecksRing checks={checks} />
+        ) : (
+          <presentation.Icon aria-hidden className={cn("size-3.5", presentation.toneClassName)} />
+        )}
         {variant === "button" ? <ChevronDownIcon aria-hidden className="size-3" /> : null}
       </PopoverTrigger>
       <PopoverPopup align="start" width="md" side="bottom">
-        <p className="mb-1 font-medium text-sm">{presentation.label}</p>
-        {summary === null ? null : (
-          <p className="mb-2 text-muted-foreground text-xs tabular-nums">{summary}</p>
-        )}
-        {stale ? (
-          <p className="text-muted-foreground text-xs">
-            Check details are out of date. Refresh the pull request to update them.
-          </p>
-        ) : checks !== undefined ? (
-          <ChecksBody checks={checks} threadRef={threadRef} />
-        ) : environmentId !== undefined && reference !== undefined ? (
-          <LazyChecksBody
-            environmentId={environmentId}
-            reference={reference}
-            threadRef={threadRef}
-          />
-        ) : null}
+        <PullRequestChecksDetails
+          checksState={checksState}
+          checks={checks}
+          stale={stale}
+          environmentId={environmentId}
+          reference={reference}
+          threadRef={threadRef}
+        />
       </PopoverPopup>
     </Popover>
+  );
+}
+
+/**
+ * What a checks popover lists: the rollup's headline, its counts, then every check. Shared by
+ * every popover that opens on checks, whatever its trigger.
+ */
+export function PullRequestChecksDetails({
+  checksState,
+  checks,
+  stale = false,
+  environmentId,
+  reference,
+  threadRef,
+}: {
+  checksState: PullRequestChecksState;
+  checks?: ReadonlyArray<PullRequestCheck> | undefined;
+  stale?: boolean;
+  environmentId?: EnvironmentId | undefined;
+  reference?: PullRequestRef | undefined;
+  threadRef: ScopedThreadRef | null;
+}) {
+  const presentation = pullRequestChecksStatePresentation(checksState);
+  const summary = checks === undefined || stale ? null : summarizePullRequestChecks(checks);
+  return (
+    <>
+      <p className="mb-1 font-medium text-sm">{presentation.label}</p>
+      {summary === null ? null : (
+        <p className="mb-2 text-muted-foreground text-xs tabular-nums">{summary}</p>
+      )}
+      {stale ? (
+        <p className="text-muted-foreground text-xs">
+          Check details are out of date. Refresh the pull request to update them.
+        </p>
+      ) : checks !== undefined ? (
+        <ChecksBody checks={checks} threadRef={threadRef} />
+      ) : environmentId !== undefined && reference !== undefined ? (
+        <LazyChecksBody environmentId={environmentId} reference={reference} threadRef={threadRef} />
+      ) : null}
+    </>
   );
 }
