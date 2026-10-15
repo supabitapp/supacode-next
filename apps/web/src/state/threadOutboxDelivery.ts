@@ -228,20 +228,22 @@ export function createBrowserThreadOutbox<Payload>(options: {
     payload: Payload,
     scope: string,
     retarget: (payload: Payload) => Payload,
-  ) {
+  ): Promise<boolean> {
     await load();
     const head = getEntries().find((entry) => entry.id === id);
     if (!head) return false;
-    return (
-      (await options.storage.withLock(head.scope, async () => {
-        if (!(await edit(id, payload, scope))) return false;
-        // The edit reloaded the queue: whatever is still queued for the old
-        // thread follows the task, including a follow-up sent while it moved.
-        for (const entry of getEntries().filter((candidate) => candidate.scope === head.scope))
-          await mutate(entry.id, (live) => ({ ...live, scope, payload: retarget(live.payload) }));
-        return true;
-      })) ?? false
-    );
+    const moved = await options.storage.withLock(head.scope, async () => {
+      await reload();
+      // Another tab moved the task since the snapshot: follow it to its scope.
+      if (getEntries().find((entry) => entry.id === id)?.scope !== head.scope) return "moved";
+      if (!(await edit(id, payload, scope))) return false;
+      // The edit reloaded the queue: whatever is still queued for the old
+      // thread follows the task, including a follow-up sent while it moved.
+      for (const entry of getEntries().filter((candidate) => candidate.scope === head.scope))
+        await mutate(entry.id, (live) => ({ ...live, scope, payload: retarget(live.payload) }));
+      return true;
+    });
+    return moved === "moved" ? editWithFollowing(id, payload, scope, retarget) : (moved ?? false);
   }
 
   /** Cancels an entry and the entries queued behind it, those first so none is left at the head. */

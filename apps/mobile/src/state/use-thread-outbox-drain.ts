@@ -364,16 +364,6 @@ export async function removeAcknowledgedExistingThreadMessage(
 export async function recoverEditedCreationAfterDelivery(
   queuedMessage: QueuedThreadMessage,
 ): Promise<boolean> {
-  return moveQueuedMessageToDraft(
-    queuedMessage,
-    scopedThreadKey(queuedMessage.environmentId, queuedMessage.threadId),
-  );
-}
-
-async function moveQueuedMessageToDraft(
-  queuedMessage: QueuedThreadMessage,
-  draftKey: string,
-): Promise<boolean> {
   const kept = Object.values(appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom))
     .flat()
     .find((candidate) => candidate.messageId === queuedMessage.messageId);
@@ -384,6 +374,7 @@ async function moveQueuedMessageToDraft(
   if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[kept.messageId]) {
     return true;
   }
+  const draftKey = scopedThreadKey(kept.environmentId, kept.threadId);
   try {
     // Merge before removing: the draft's reference keeps the removal sweep
     // from deleting the attachment files. allowOverflow mirrors the
@@ -420,7 +411,7 @@ async function moveQueuedMessageToDraft(
   } catch (error) {
     // Keep the entry queued. The drain retries with backoff, and the merge is
     // idempotent so content that persisted before the failure is not repeated.
-    console.warn("[thread-outbox] could not hand a queued message to its draft", error);
+    console.warn("[thread-outbox] could not hand an edited pending task to the composer", error);
     return false;
   }
   if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[kept.messageId]) {
@@ -433,7 +424,7 @@ async function moveQueuedMessageToDraft(
       () => !appAtomRegistry.get(editingQueuedMessageIdsAtom)[kept.messageId],
     );
   } catch (error) {
-    console.warn("[thread-outbox] could not remove a message handed to its draft", error);
+    console.warn("[thread-outbox] could not remove recovered pending task", error);
     return false;
   }
 }
@@ -529,6 +520,32 @@ export async function restoreRejectedQueuedMessage(
           }
         : {}),
     });
+    // Follow-ups queued behind a rejected task have no thread to reach. They
+    // join its draft in this same merge, so a rollback takes them out with the
+    // task and a retry cannot add them twice.
+    const followUps = queuedMessage.creation
+      ? (
+          appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? []
+        ).filter((followUp) => !followUp.creation)
+      : [];
+    const editingQueuedMessageIds = appAtomRegistry.get(editingQueuedMessageIdsAtom);
+    if (followUps.some((followUp) => editingQueuedMessageIds[followUp.messageId])) {
+      withdrawError();
+      await undoComposerDraftMerge(draftKey, originalDraft, getComposerDraftSnapshot(draftKey));
+      return "deferred";
+    }
+    for (const followUp of followUps) {
+      try {
+        await mergeComposerDraftContent(draftKey, {
+          text: followUp.text,
+          context: followUp.context,
+          attachments: [],
+        });
+        appendComposerDraftAttachments(draftKey, followUp.attachments, { allowOverflow: true });
+      } finally {
+        rollback = { snapshot: originalDraft, merged: getComposerDraftSnapshot(draftKey) };
+      }
+    }
     const restoredDraft = getComposerDraftSnapshot(draftKey);
     rollback = { snapshot: originalDraft, merged: restoredDraft };
     await flushComposerDrafts();
@@ -540,14 +557,6 @@ export async function restoreRejectedQueuedMessage(
       withdrawError();
       await undoComposerDraftMerge(draftKey, originalDraft, restoredDraft);
       return "deferred";
-    }
-    // Follow-ups queued behind a rejected task have no thread to reach. They
-    // fold in while the task still heads their queue, so a failed fold
-    // retries with the task instead of leaving them to the missing-thread
-    // removal. The undo keeps whatever already folded.
-    if (queuedMessage.creation && !(await foldQueuedFollowUps(threadKey, draftKey))) {
-      await undoComposerDraftMerge(draftKey, originalDraft, restoredDraft);
-      return "retry";
     }
     // Revision-checked: an edit that landed after the confirmation above
     // must not be deleted with the pre-edit payload this recovery restored.
@@ -576,6 +585,13 @@ export async function restoreRejectedQueuedMessage(
         message: queuedMessage,
         reason: message,
       });
+      for (const followUp of followUps) {
+        // The draft holds its content now. One left behind is dropped with
+        // the missing thread.
+        await removeThreadOutboxMessage(followUp).catch((error: unknown) => {
+          console.warn("[thread-outbox] failed to remove a follow-up of a rejected task", error);
+        });
+      }
     }
     return "restored";
   } catch (error) {
@@ -597,15 +613,6 @@ export async function restoreRejectedQueuedMessage(
     );
     return "retry";
   }
-}
-
-async function foldQueuedFollowUps(threadKey: string, draftKey: string): Promise<boolean> {
-  const queue =
-    appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? [];
-  for (const followUp of queue) {
-    if (!followUp.creation && !(await moveQueuedMessageToDraft(followUp, draftKey))) return false;
-  }
-  return true;
 }
 
 /**
