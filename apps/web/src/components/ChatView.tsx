@@ -8405,6 +8405,12 @@ export default function ChatView(props: ChatViewProps) {
         command === "composer.mode" ||
         command === "composer.workspace"
       ) {
+        if (
+          (command === "composer.host" || command === "composer.workspace") &&
+          !showDraftProjectPicker
+        ) {
+          return;
+        }
         event.preventDefault();
         event.stopPropagation();
         if (!event.repeat) composerRef.current?.openControl(command);
