@@ -247,12 +247,16 @@ function AutomationEnvironmentSection({
               <div
                 key={index}
                 aria-hidden
-                className="flex min-h-39 flex-col gap-3 px-4 py-5 sm:px-5"
+                className="flex flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5"
               >
-                <div className="h-5 w-1/3 rounded bg-muted" />
-                <div className="h-10 w-4/5 rounded bg-muted/60" />
-                <div className="h-4 w-1/2 rounded bg-muted/60" />
-                <div className="h-4 w-2/3 rounded bg-muted/60" />
+                <div className="flex flex-col gap-1.5">
+                  <div className="h-5 w-1/3 rounded bg-muted" />
+                  <div className="h-10 w-4/5 rounded bg-muted/60" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="h-4 w-1/2 rounded bg-muted/60" />
+                  <div className="h-4 w-2/3 rounded bg-muted/60" />
+                </div>
               </div>
             ))}
           </div>

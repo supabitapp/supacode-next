@@ -35,11 +35,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { lastRunLabel, nextRunLabel, scheduleLabel } from "./automations.logic";
 
-const RUN_STATUS_APPEARANCE = {
+const RUN_STATUS_BADGE = {
   failed: { Icon: CircleAlertIcon, variant: "error" },
   running: { Icon: SendIcon, variant: "info" },
-  succeeded: { Icon: CheckIcon, variant: null },
-  never: { Icon: Clock3Icon, variant: null },
 } as const;
 
 export function AutomationRow({
@@ -96,7 +94,6 @@ export function AutomationRow({
       );
     }
   };
-  const lastRun = lastRunLabel(task, now);
   const target = threadRef ? (thread?.title ?? "Its thread") : "New thread each run";
   return (
     <article className="flex min-w-0 flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5">
@@ -205,7 +202,7 @@ export function AutomationRow({
             <span className={task.enabled ? "text-foreground" : "text-muted-foreground"}>
               {nextRunLabel(task, now)}
             </span>
-            {lastRun ? <LastRunStatus status={task.lastRunStatus} label={lastRun} /> : null}
+            <LastRunStatus task={task} now={now} />
           </div>
         </div>
       </div>
@@ -219,23 +216,19 @@ export function AutomationRow({
   );
 }
 
-/** Failures and in-flight sends stand out as badges; a delivered run stays quiet. */
-function LastRunStatus({
-  status,
-  label,
-}: {
-  readonly status: ScheduledTask["lastRunStatus"];
-  readonly label: string;
-}) {
-  const { Icon, variant } = RUN_STATUS_APPEARANCE[status];
-  if (!variant) {
+function LastRunStatus({ task, now }: { readonly task: ScheduledTask; readonly now: number }) {
+  const status = task.lastRunStatus;
+  if (status === "never") return null;
+  const label = lastRunLabel(task, now);
+  if (status === "succeeded") {
     return (
       <span className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon aria-hidden className="size-3.5 shrink-0" />
+        <CheckIcon aria-hidden className="size-3.5 shrink-0" />
         {label}
       </span>
     );
   }
+  const { Icon, variant } = RUN_STATUS_BADGE[status];
   return (
     <Badge variant={variant}>
       <Icon aria-hidden />
