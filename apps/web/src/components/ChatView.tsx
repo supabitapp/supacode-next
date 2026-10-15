@@ -8427,6 +8427,7 @@ export default function ChatView(props: ChatViewProps) {
       }
 
       if (command === "composer.branch") {
+        if (!isGitRepo || !showDraftProjectPicker) return;
         event.preventDefault();
         event.stopPropagation();
         if (!event.repeat) branchToolbarRef.current?.openBranchPicker();
@@ -8554,6 +8555,8 @@ export default function ChatView(props: ChatViewProps) {
     hasMultipleEnvironments,
     logicalProjectEnvironments,
     onEnvironmentChange,
+    isGitRepo,
+    showDraftProjectPicker,
   ]);
 
   useEffect(() => {
