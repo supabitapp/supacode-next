@@ -107,12 +107,12 @@ import { ComposerPopoverAnchor } from "./ComposerPopoverAnchor";
 import { ComposerQueuedEditAttachments } from "./ComposerQueuedEdit";
 import { useComposerCommandMenu } from "./use-composer-command-menu";
 import {
+  ComposerDictationConfirmAction,
   ComposerDictationLeadingAction,
   ComposerDictationDraftContent,
-  ComposerDictationPrimaryAction,
-  ComposerDictationStartAction,
   ComposerDictationStatus,
   ComposerDictationToolbar,
+  ComposerDictationTrailingActions,
   composerDictationToolbarHeight,
 } from "../voice-input/ComposerDictationControl";
 import { useVoiceInputController } from "../voice-input/useVoiceInputController";
@@ -442,7 +442,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   }, [props.serverConfig, props.selectedThread.modelSelection.instanceId]);
   const composerOwnerKey = scopedThreadKey(props.environmentId, props.selectedThread.id);
   // Content lives under the edit's own draft while a queued message is open;
-  // the owner key still identifies this composer for settings and dictation.
+  // the owner key still identifies this composer for settings.
   const composerDraftKey = props.draftKey ?? composerOwnerKey;
   const openDraftDocument = (attachment: ComposerDocumentAttachment) => {
     Keyboard.dismiss();
@@ -483,7 +483,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
 
   const composerMenu = useComposerCommandMenu({
     draftMessage: props.draftMessage,
-    ownerKey: composerOwnerKey,
+    ownerKey: composerDraftKey,
     environmentId: props.environmentId,
     threadShells: useThreadShells(),
     currentThreadId: props.selectedThread.id,
@@ -770,13 +770,14 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     voiceInput.start();
   };
   const draftAction = (
-    <View className="shrink-0 flex-row items-center">
-      <ComposerDictationStartAction
-        state={voiceInput.state}
-        isAvailable={voiceInput.isAvailable}
-        onStart={startDictation}
-        onCancel={voiceInput.cancel}
-      />
+    <ComposerDictationTrailingActions
+      state={voiceInput.state}
+      isAvailable={voiceInput.isAvailable}
+      disabled={queuedEdit?.saving}
+      reservesSendWidth={isExpanded}
+      onStart={startDictation}
+      onCancel={voiceInput.cancel}
+    >
       {showStopAction ? (
         <ComposerActionButton
           accessibilityLabel="Stop agent"
@@ -796,7 +797,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
           onSend={handleSend}
         />
       ) : null}
-    </View>
+    </ComposerDictationTrailingActions>
   );
 
   return (
@@ -1175,15 +1176,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 {voicePresentation.showsSend ? (
                   draftAction
                 ) : (
-                  <ComposerDictationPrimaryAction
-                    state={voiceInput.state}
+                  <ComposerDictationConfirmAction
                     presentation={voicePresentation}
-                    isAvailable={voiceInput.isAvailable}
                     disabled={!canSubmitDraft}
-                    onStart={startDictation}
                     onConfirm={voiceInput.stopAndSubmit}
                     submitsMessage
-                    onCancel={voiceInput.cancel}
                   />
                 )}
               </ComposerToolbarRow>

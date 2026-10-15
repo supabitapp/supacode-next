@@ -85,11 +85,11 @@ import { ComposerSurface } from "./ThreadComposer";
 import { ComposerCommandPopover } from "./ComposerCommandPopover";
 import { useComposerCommandMenu } from "./use-composer-command-menu";
 import {
+  ComposerDictationConfirmAction,
   ComposerDictationLeadingAction,
-  ComposerDictationPrimaryAction,
-  ComposerDictationStartAction,
   ComposerDictationStatus,
   ComposerDictationToolbar,
+  ComposerDictationTrailingActions,
 } from "../voice-input/ComposerDictationControl";
 import { useVoiceInputController } from "../voice-input/useVoiceInputController";
 import { resolveVoiceComposerPresentation } from "../voice-input/voiceInputPresentation";
@@ -651,6 +651,22 @@ export function NewTaskDraftScreen(props: {
     !isImportingShare &&
     pendingPastedTextAttachmentCount === 0;
   const canStart = canSubmitDraft && hasContent && !voiceInput.blocksSubmission;
+  const startTaskLabel =
+    taskPermissionReason ??
+    attachmentBlockReason ??
+    (cloneBlocksStart
+      ? projectClone === null || projectClone.phase === "running"
+        ? "Cloning repository"
+        : "Repository not cloned"
+      : pendingPastedTextAttachmentCount > 0
+        ? "Attaching pasted text"
+        : flow.submitting
+          ? "Starting task"
+          : attachmentsUploading
+            ? "Queue task, sends when uploads finish"
+            : environmentConnected
+              ? "Start task"
+              : "Queue task");
   const appliedInitialProjectKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (cancelledIncomingShareId === props.incomingShareId) {
@@ -1860,33 +1876,17 @@ export function NewTaskDraftScreen(props: {
                 </>
               )}
               {voicePresentation.showsSend ? (
-                <View className="shrink-0 flex-row items-center">
-                  <ComposerDictationStartAction
-                    state={voiceInput.state}
-                    isAvailable={voiceInput.isAvailable}
-                    disabled={dictationDisabled}
-                    onStart={startDictation}
-                    onCancel={voiceInput.cancel}
-                  />
+                <ComposerDictationTrailingActions
+                  state={voiceInput.state}
+                  isAvailable={voiceInput.isAvailable}
+                  disabled={dictationDisabled}
+                  reservesSendWidth
+                  onStart={startDictation}
+                  onCancel={voiceInput.cancel}
+                >
                   {hasContent || !voiceInput.isAvailable ? (
                     <ComposerActionButton
-                      accessibilityLabel={
-                        taskPermissionReason ??
-                        attachmentBlockReason ??
-                        (cloneBlocksStart
-                          ? projectClone === null || projectClone.phase === "running"
-                            ? "Cloning repository"
-                            : "Repository not cloned"
-                          : pendingPastedTextAttachmentCount > 0
-                            ? "Attaching pasted text"
-                            : flow.submitting
-                              ? "Starting task"
-                              : attachmentsUploading
-                                ? "Queue task, sends when uploads finish"
-                                : environmentConnected
-                                  ? "Start task"
-                                  : "Queue task")
-                      }
+                      accessibilityLabel={startTaskLabel}
                       disabled={!canStart}
                       icon={queuesInsteadOfStarting ? "tray.and.arrow.up" : "arrow.up"}
                       onPress={() => {
@@ -1896,17 +1896,13 @@ export function NewTaskDraftScreen(props: {
                       variant="primary"
                     />
                   ) : null}
-                </View>
+                </ComposerDictationTrailingActions>
               ) : (
-                <ComposerDictationPrimaryAction
-                  state={voiceInput.state}
+                <ComposerDictationConfirmAction
                   presentation={voicePresentation}
-                  isAvailable={voiceInput.isAvailable}
                   disabled={!canSubmitDraft}
-                  onStart={startDictation}
                   onConfirm={voiceInput.stopAndSubmit}
                   submitsMessage
-                  onCancel={voiceInput.cancel}
                 />
               )}
             </ComposerToolbarRow>
