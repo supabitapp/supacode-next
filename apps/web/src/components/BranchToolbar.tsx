@@ -407,10 +407,13 @@ export const BranchToolbar = memo(function BranchToolbar({
   );
   const activeEnvironmentOption =
     availableEnvironments?.find((env) => env.environmentId === environmentId) ?? null;
-  const showEnvironmentIndicator = shouldShowEnvironmentIndicator({
-    activeEnvironment: activeEnvironmentOption,
-    canPickEnvironment: showEnvironmentPicker,
-  });
+  const showEnvironmentIndicator =
+    !envLocked &&
+    shouldShowEnvironmentIndicator({
+      activeEnvironment: activeEnvironmentOption,
+      canPickEnvironment: showEnvironmentPicker,
+    });
+  const showStripGitControls = showGitControls && !envLocked;
   const [stripElement, setStripElement] = useState<HTMLDivElement | null>(null);
   const labelsOverflow = useLabelsOverflow(stripElement);
 
@@ -484,7 +487,7 @@ export const BranchToolbar = memo(function BranchToolbar({
           {...(showEnvironmentPicker && onEnvironmentChange ? { onEnvironmentChange } : {})}
         />
       ) : null}
-      {showGitControls ? (
+      {showStripGitControls ? (
         <BranchToolbarBranchSelector
           forceNewWorktree={forceNewWorktree}
           ref={branchSelectorRef}
@@ -502,7 +505,7 @@ export const BranchToolbar = memo(function BranchToolbar({
           {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
         />
       ) : null}
-      {showGitControls ? (
+      {showStripGitControls ? (
         <BranchToolbarEnvModeSelector
           forceNewWorktree={forceNewWorktree}
           envLocked={envModeLocked}

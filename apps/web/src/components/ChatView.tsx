@@ -4389,8 +4389,8 @@ export default function ChatView(props: ChatViewProps) {
     showProjectPicker: showDraftProjectPicker,
     persistInActiveThreads: settings.persistComposerContextStrip,
     hasActiveProject: activeProject !== null && !showProviderSubagentBar,
-    isGitRepo,
-    showEnvironmentIndicator: showComposerEnvironmentIndicator,
+    isGitRepo: isGitRepo && !envLocked,
+    showEnvironmentIndicator: showComposerEnvironmentIndicator && !envLocked,
   };
   const mountComposerContextStrip = shouldShowComposerContextStrip({
     ...composerContextStripInput,
@@ -11071,8 +11071,8 @@ export default function ChatView(props: ChatViewProps) {
                                   restingControlsHaveLeadingContext={
                                     mountComposerContextStrip &&
                                     (showDraftProjectPicker ||
-                                      isGitRepo ||
-                                      showComposerEnvironmentIndicator)
+                                      composerContextStripInput.isGitRepo ||
+                                      composerContextStripInput.showEnvironmentIndicator)
                                   }
                                   onRestingControlsVisibilityChange={
                                     setRestingComposerControlsVisible
