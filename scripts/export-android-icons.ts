@@ -21,6 +21,8 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import sharp from "sharp";
 
+import { boltMask } from "./lib/icon-artwork.ts";
+
 const ICON_VARIANTS = ["dev", "nightly", "prod"] as const;
 type IconVariant = (typeof ICON_VARIANTS)[number];
 
@@ -28,10 +30,6 @@ type IconVariant = (typeof ICON_VARIANTS)[number];
 const ADAPTIVE_CANVAS = 432;
 // 288dp at xxxhdpi: the full Android 12+ splash canvas, so the icon needs no upscaling.
 const SPLASH_CANVAS = 1152;
-// Matches the fill in each variant's icon.json, so the margin continues the casing.
-const CASING = { r: 231, g: 225, b: 211, alpha: 1 };
-// The bolt glows inside the screen; everything else in the artwork is low-saturation casing.
-const SCREEN = { left: 0.17, top: 0.13, right: 0.83, bottom: 0.75 };
 // Bolt height as a fraction of the 108dp canvas, inside the 66dp safe zone.
 const MARK_FRACTION = 0.42;
 const OUTPUT_DIRECTORY = "apps/mobile/assets";
@@ -49,6 +47,34 @@ const transparentCanvas = (size: number) =>
 const render = <A>(layer: string, run: () => Promise<A>) =>
   Effect.tryPromise({ try: run, catch: (cause) => new AndroidIconRenderError({ layer, cause }) });
 
+interface Casing {
+  readonly r: number;
+  readonly g: number;
+  readonly b: number;
+  readonly alpha: number;
+}
+
+const IconComposerFill = Schema.Struct({ fill: Schema.Struct({ solid: Schema.String }) });
+const decodeIconComposerFill = Schema.decodeUnknownEffect(Schema.fromJsonString(IconComposerFill));
+
+// The icon's fill is the casing colour, so the parallax margin continues the casing.
+const readCasing = Effect.fn("androidIcons.readCasing")(function* (repositoryRoot: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const document = yield* fs
+    .readFileString(path.join(repositoryRoot, "assets", "prod", "app-icon.icon", "icon.json"))
+    .pipe(Effect.flatMap(decodeIconComposerFill));
+  const channels = document.fill.solid
+    .replace(/^[a-z-]+:/, "")
+    .split(",")
+    .map(Number);
+  if (channels.length !== 4 || channels.some((channel) => !Number.isFinite(channel))) {
+    return yield* new AndroidIconRenderError({ layer: "icon.json", cause: document.fill.solid });
+  }
+  const [r, g, b, alpha] = channels as [number, number, number, number];
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255), alpha };
+});
+
 const readArtwork = Effect.fn("androidIcons.readArtwork")(function* (
   repositoryRoot: string,
   variant: IconVariant,
@@ -60,12 +86,17 @@ const readArtwork = Effect.fn("androidIcons.readArtwork")(function* (
   );
 });
 
-const renderBackground = (variant: IconVariant, artwork: Uint8Array, size: number) =>
+const renderBackground = (
+  variant: IconVariant,
+  artwork: Uint8Array,
+  casing: Casing,
+  size: number,
+) =>
   render(`${variant}-background`, async () => {
     const visible = Math.round((size * 2) / 3);
     const inset = Math.round((size - visible) / 2);
     const fitted = await sharp(artwork).resize(visible, visible).png().toBuffer();
-    return sharp({ create: { width: size, height: size, channels: 4, background: CASING } })
+    return sharp({ create: { width: size, height: size, channels: 4, background: casing } })
       .composite([{ input: fitted, left: inset, top: inset }])
       .png()
       .toBuffer();
@@ -74,51 +105,36 @@ const renderBackground = (variant: IconVariant, artwork: Uint8Array, size: numbe
 const renderTransparent = (size: number) =>
   render("foreground", () => transparentCanvas(size).png().toBuffer());
 
-const isBoltPixel = (r: number, g: number, b: number) => {
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  return max > 150 && (max - min) / max > 0.55 && r > b && g > b;
-};
-
 const renderMark = (artwork: Uint8Array, size: number) =>
   render("monochrome", async () => {
     const { data, info } = await sharp(artwork)
       .removeAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
-    const pixels = info.width * info.height;
-    const mask = Buffer.alloc(pixels);
-    for (let y = Math.floor(SCREEN.top * info.height); y < SCREEN.bottom * info.height; y += 1) {
-      for (let x = Math.floor(SCREEN.left * info.width); x < SCREEN.right * info.width; x += 1) {
-        const source = (y * info.width + x) * 3;
-        if (isBoltPixel(data[source]!, data[source + 1]!, data[source + 2]!)) {
-          mask[y * info.width + x] = 255;
-        }
-      }
-    }
+    const mask = boltMask({ data, width: info.width, height: info.height });
+    if (mask === null) throw new Error("the production artwork has no yellow bolt");
+    const raw = { width: info.width, height: info.height, channels: 1 } as const;
     // The bolt is drawn as a grid of lit cells; closing the gaps between them gives the themed
     // icon a solid silhouette.
-    const solid = await sharp(mask, {
-      raw: { width: info.width, height: info.height, channels: 1 },
-    })
+    const solid = await sharp(mask, { raw })
       .blur(6)
       .threshold(90)
       .extractChannel(0)
       .raw()
       .toBuffer();
-    const white = Buffer.alloc(pixels * 4);
-    for (let index = 0; index < pixels; index += 1) {
-      if (solid[index]! > 0) white.fill(255, index * 4, index * 4 + 4);
-    }
-    const bolt = await sharp(white, {
-      raw: { width: info.width, height: info.height, channels: 4 },
+    const bolt = await sharp({
+      create: { width: info.width, height: info.height, channels: 3, background: "#ffffff" },
     })
+      .joinChannel(solid, { raw })
+      .png()
+      .toBuffer();
+    const trimmed = await sharp(bolt)
       .trim()
       .resize({ height: Math.round(size * MARK_FRACTION) })
       .png()
       .toBuffer();
     return transparentCanvas(size)
-      .composite([{ input: bolt, gravity: "center" }])
+      .composite([{ input: trimmed, gravity: "center" }])
       .png()
       .toBuffer();
   });
@@ -136,15 +152,16 @@ const exportAndroidIcons = Effect.gen(function* () {
     "android-icon-mark.png",
     yield* renderMark(yield* readArtwork(repositoryRoot, "prod"), ADAPTIVE_CANVAS),
   );
+  const casing = yield* readCasing(repositoryRoot);
   for (const variant of ICON_VARIANTS) {
     const artwork = yield* readArtwork(repositoryRoot, variant);
     yield* write(
       `android-icon-background-${variant}.png`,
-      yield* renderBackground(variant, artwork, ADAPTIVE_CANVAS),
+      yield* renderBackground(variant, artwork, casing, ADAPTIVE_CANVAS),
     );
     yield* write(
       `android-splash-icon-${variant}.png`,
-      yield* renderBackground(variant, artwork, SPLASH_CANVAS),
+      yield* renderBackground(variant, artwork, casing, SPLASH_CANVAS),
     );
   }
 });
