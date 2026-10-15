@@ -87,6 +87,7 @@ import { useComposerCommandMenu } from "./use-composer-command-menu";
 import {
   ComposerDictationLeadingAction,
   ComposerDictationPrimaryAction,
+  ComposerDictationStartAction,
   ComposerDictationStatus,
   ComposerDictationToolbar,
 } from "../voice-input/ComposerDictationControl";
@@ -581,13 +582,14 @@ export function NewTaskDraftScreen(props: {
     enabled: isComposerFocused && !isComposerInteractionLocked,
     onChangeDraftMessage: flow.setPrompt,
   });
+  const dictationDisabled = isIncomingShareTransferPending || isImportingShare || flow.submitting;
   const voiceInput = useVoiceInputController({
     ownerKey: flow.draftKey,
     label: selectedProjectLabel ? `New task in ${selectedProjectLabel}` : "New task",
     readDraftMessage: () => (flow.draftKey ? getComposerDraftSnapshot(flow.draftKey).text : null),
     subscribeToDraftChanges: (onChange) => appAtomRegistry.subscribe(composerDraftsAtom, onChange),
     selection: composerMenu.selection,
-    disabled: isIncomingShareTransferPending || isImportingShare || flow.submitting,
+    disabled: dictationDisabled,
     onChangeDraftMessage: flow.setPrompt,
     onChangeSelection: composerMenu.onSelectionChange,
     onSubmit: () => {
@@ -599,6 +601,10 @@ export function NewTaskDraftScreen(props: {
     voiceInput.elapsedSeconds,
   );
   const isVoiceInputPresented = voicePresentation.statusLabel !== null;
+  const startDictation = () => {
+    promptInputRef.current?.blur();
+    voiceInput.start();
+  };
   const preventRemove =
     (isIncomingShareTransferPending && !isProjectPickerReturnActive) ||
     isCancellingShareImport ||
@@ -1853,47 +1859,51 @@ export function NewTaskDraftScreen(props: {
                   />
                 </>
               )}
-              {voicePresentation.showsSend && (hasContent || !voiceInput.isAvailable) ? (
-                <ComposerActionButton
-                  accessibilityLabel={
-                    taskPermissionReason ??
-                    attachmentBlockReason ??
-                    (cloneBlocksStart
-                      ? projectClone === null || projectClone.phase === "running"
-                        ? "Cloning repository"
-                        : "Repository not cloned"
-                      : pendingPastedTextAttachmentCount > 0
-                        ? "Attaching pasted text"
-                        : flow.submitting
-                          ? "Starting task"
-                          : attachmentsUploading
-                            ? "Queue task, sends when uploads finish"
-                            : environmentConnected
-                              ? "Start task"
-                              : "Queue task")
-                  }
-                  disabled={!canStart}
-                  icon={queuesInsteadOfStarting ? "tray.and.arrow.up" : "arrow.up"}
-                  onPress={() => {
-                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    void handleStart();
-                  }}
-                  variant="primary"
-                />
+              {voicePresentation.showsSend ? (
+                <View className="shrink-0 flex-row items-center">
+                  <ComposerDictationStartAction
+                    state={voiceInput.state}
+                    isAvailable={voiceInput.isAvailable}
+                    disabled={dictationDisabled}
+                    onStart={startDictation}
+                    onCancel={voiceInput.cancel}
+                  />
+                  {hasContent || !voiceInput.isAvailable ? (
+                    <ComposerActionButton
+                      accessibilityLabel={
+                        taskPermissionReason ??
+                        attachmentBlockReason ??
+                        (cloneBlocksStart
+                          ? projectClone === null || projectClone.phase === "running"
+                            ? "Cloning repository"
+                            : "Repository not cloned"
+                          : pendingPastedTextAttachmentCount > 0
+                            ? "Attaching pasted text"
+                            : flow.submitting
+                              ? "Starting task"
+                              : attachmentsUploading
+                                ? "Queue task, sends when uploads finish"
+                                : environmentConnected
+                                  ? "Start task"
+                                  : "Queue task")
+                      }
+                      disabled={!canStart}
+                      icon={queuesInsteadOfStarting ? "tray.and.arrow.up" : "arrow.up"}
+                      onPress={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        void handleStart();
+                      }}
+                      variant="primary"
+                    />
+                  ) : null}
+                </View>
               ) : (
                 <ComposerDictationPrimaryAction
                   state={voiceInput.state}
                   presentation={voicePresentation}
                   isAvailable={voiceInput.isAvailable}
-                  disabled={
-                    voiceInput.isBusy
-                      ? !canSubmitDraft
-                      : isIncomingShareTransferPending || isImportingShare || flow.submitting
-                  }
-                  onStart={() => {
-                    promptInputRef.current?.blur();
-                    voiceInput.start();
-                  }}
+                  disabled={!canSubmitDraft}
+                  onStart={startDictation}
                   onConfirm={voiceInput.stopAndSubmit}
                   submitsMessage
                   onCancel={voiceInput.cancel}

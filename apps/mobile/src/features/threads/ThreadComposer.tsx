@@ -769,31 +769,34 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     inputRef.current?.blur();
     voiceInput.start();
   };
-  const draftAction = showStopAction ? (
-    <ComposerActionButton
-      accessibilityLabel="Stop agent"
-      disabled={!props.canOperateThread}
-      icon="stop.fill"
-      variant="danger"
-      onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        props.onStopThread();
-      }}
-    />
-  ) : hasContent || !voiceInput.isAvailable ? (
-    <SendActionButton
-      accessibilityLabel={sendBlockedReason ?? sendLabel}
-      presentation={sendPresentation}
-      disabled={!canSend}
-      onSend={handleSend}
-    />
-  ) : (
-    <ComposerDictationStartAction
-      state={voiceInput.state}
-      isAvailable={voiceInput.isAvailable}
-      onStart={startDictation}
-      onCancel={voiceInput.cancel}
-    />
+  const draftAction = (
+    <View className="shrink-0 flex-row items-center">
+      <ComposerDictationStartAction
+        state={voiceInput.state}
+        isAvailable={voiceInput.isAvailable}
+        onStart={startDictation}
+        onCancel={voiceInput.cancel}
+      />
+      {showStopAction ? (
+        <ComposerActionButton
+          accessibilityLabel="Stop agent"
+          disabled={!props.canOperateThread}
+          icon="stop.fill"
+          variant="danger"
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            props.onStopThread();
+          }}
+        />
+      ) : hasContent || !voiceInput.isAvailable ? (
+        <SendActionButton
+          accessibilityLabel={sendBlockedReason ?? sendLabel}
+          presentation={sendPresentation}
+          disabled={!canSend}
+          onSend={handleSend}
+        />
+      ) : null}
+    </View>
   );
 
   return (
