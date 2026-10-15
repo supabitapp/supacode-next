@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react";
-import { isEnvironmentConnected } from "@supaterm/client-runtime/connection";
 import { scopeThreadRef, scopedThreadKey } from "@supaterm/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@supaterm/contracts";
 import { CircleAlertIcon, Clock3Icon, PencilIcon, RotateCwIcon, XIcon } from "lucide-react";
@@ -17,23 +16,26 @@ import {
   useThreadOutbox,
   webThreadOutbox,
   replaceThreadOutboxTurn,
+  threadOutboxDeliverableAtom,
   type PendingThreadTurn,
 } from "../../state/threadOutbox";
-import { environmentPresentations } from "../../state/presentation";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
-import { ComposerBanner } from "./ComposerBanner";
-import { resolveThreadOutboxStatus, type ThreadOutboxStatus } from "./threadOutboxStatus";
+import { ComposerBanner, type ComposerBannerVariant } from "./ComposerBanner";
+import { resolveThreadOutboxStatus, type ThreadOutboxStatus } from "./ThreadOutboxControl.logic";
 import { useThreadOutboxVisibility } from "./useThreadOutboxVisibility";
 
-const STATUS_HEADERS: Record<ThreadOutboxStatus, { icon: ReactNode; label: string }> = {
-  failed: { icon: <CircleAlertIcon />, label: "Not sent" },
-  offline: { icon: <Clock3Icon />, label: "Sends when reconnected" },
-  editing: { icon: <PencilIcon />, label: "Paused while editing" },
-  sending: { icon: <Spinner />, label: "Sending…" },
-  retrying: { icon: <RotateCwIcon />, label: "Retrying shortly" },
-  waiting: { icon: <Clock3Icon />, label: "Waiting to send" },
-};
+const STATUS_HEADERS = {
+  failed: { icon: <CircleAlertIcon className="text-error" />, label: "Not sent", variant: "error" },
+  editing: { icon: <PencilIcon />, label: "Paused while editing", variant: "default" },
+  offline: { icon: <Clock3Icon />, label: "Sends once connected", variant: "default" },
+  sending: { icon: <Spinner />, label: "Sending…", variant: "default" },
+  retrying: { icon: <RotateCwIcon />, label: "Retrying shortly", variant: "default" },
+  waiting: { icon: <Clock3Icon />, label: "Waiting to send", variant: "default" },
+} satisfies Record<
+  ThreadOutboxStatus,
+  { icon: ReactNode; label: string; variant: ComposerBannerVariant }
+>;
 
 export function ThreadOutboxControl(props: {
   readonly environmentId: EnvironmentId;
@@ -48,14 +50,11 @@ export function ThreadOutboxControl(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const connected = useAtomValue(
-    environmentPresentations.presentationAtom(props.environmentId),
-    isEnvironmentConnected,
-  );
+  const deliverable = useAtomValue(threadOutboxDeliverableAtom(props.environmentId));
   const status = resolveThreadOutboxStatus({
-    entries: pending,
-    connected,
-    editing: props.editingMessageId !== null,
+    head: pending[0],
+    editingMessageId: props.editingMessageId,
+    deliverable,
     isSending: webThreadOutbox.isSending,
   });
   const header = STATUS_HEADERS[status];
@@ -83,7 +82,7 @@ export function ThreadOutboxControl(props: {
       <ComposerBanner.Root
         role="region"
         aria-label={`${pending.length} pending ${pending.length === 1 ? "message" : "messages"}`}
-        variant={status === "failed" ? "error" : "default"}
+        variant={header.variant}
       >
         <ComposerBanner.Row>
           <ComposerBanner.Icon>{header.icon}</ComposerBanner.Icon>

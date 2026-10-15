@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
-import { resolveThreadOutboxStatus } from "./threadOutboxStatus";
+import { resolveThreadOutboxStatus } from "./ThreadOutboxControl.logic";
 
 const pending = { id: "a", status: "pending", error: null } as const;
-const failed = { id: "b", status: "failed", error: "Thread is archived." } as const;
-const backingOff = { id: "c", status: "pending", error: "Connection lost." } as const;
+const failed = { id: "a", status: "failed", error: "Thread is archived." } as const;
+const backingOff = { id: "a", status: "pending", error: "Connection lost." } as const;
 const notSending = () => false;
 
 describe("resolveThreadOutboxStatus", () => {
   it("reports a failed message before anything else", () => {
     expect(
       resolveThreadOutboxStatus({
-        entries: [pending, failed],
-        connected: false,
-        editing: true,
+        head: failed,
+        editingMessageId: failed.id,
+        deliverable: false,
         isSending: () => true,
       }),
     ).toBe("failed");
@@ -21,20 +21,31 @@ describe("resolveThreadOutboxStatus", () => {
   it("reports editing over a lost connection, since the edit holds delivery", () => {
     expect(
       resolveThreadOutboxStatus({
-        entries: [pending],
-        connected: false,
-        editing: true,
+        head: pending,
+        editingMessageId: pending.id,
+        deliverable: false,
         isSending: notSending,
       }),
     ).toBe("editing");
   });
 
-  it("waits for the connection while disconnected", () => {
+  it("keeps reporting the first message while a later one is edited", () => {
     expect(
       resolveThreadOutboxStatus({
-        entries: [backingOff],
-        connected: false,
-        editing: false,
+        head: pending,
+        editingMessageId: "later",
+        deliverable: true,
+        isSending: (id) => id === pending.id,
+      }),
+    ).toBe("sending");
+  });
+
+  it("waits for the environment while it cannot deliver", () => {
+    expect(
+      resolveThreadOutboxStatus({
+        head: backingOff,
+        editingMessageId: null,
+        deliverable: false,
         isSending: notSending,
       }),
     ).toBe("offline");
@@ -43,9 +54,9 @@ describe("resolveThreadOutboxStatus", () => {
   it("reports an attempt in flight, even when an earlier attempt failed", () => {
     expect(
       resolveThreadOutboxStatus({
-        entries: [backingOff],
-        connected: true,
-        editing: false,
+        head: backingOff,
+        editingMessageId: null,
+        deliverable: true,
         isSending: (id) => id === backingOff.id,
       }),
     ).toBe("sending");
@@ -54,9 +65,9 @@ describe("resolveThreadOutboxStatus", () => {
   it("reports a retry backoff when the last attempt failed transiently", () => {
     expect(
       resolveThreadOutboxStatus({
-        entries: [pending, backingOff],
-        connected: true,
-        editing: false,
+        head: backingOff,
+        editingMessageId: null,
+        deliverable: true,
         isSending: notSending,
       }),
     ).toBe("retrying");
@@ -65,9 +76,9 @@ describe("resolveThreadOutboxStatus", () => {
   it("falls back to waiting for delivery to start", () => {
     expect(
       resolveThreadOutboxStatus({
-        entries: [pending],
-        connected: true,
-        editing: false,
+        head: pending,
+        editingMessageId: null,
+        deliverable: true,
         isSending: notSending,
       }),
     ).toBe("waiting");
