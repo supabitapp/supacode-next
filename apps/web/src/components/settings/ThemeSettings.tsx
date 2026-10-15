@@ -8,7 +8,7 @@ import {
   Trash2Icon,
   UploadIcon,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { BUILT_IN_THEMES } from "@supaterm/shared/themePalettes";
 import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";
 import { readThemeHalvesRaw } from "../../hooks/useTheme";
@@ -44,7 +44,6 @@ import {
 } from "../ui/select";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { SettingsGroup } from "./SettingsGroup";
-import { SettingsRow } from "./settingsLayout";
 import { ThemeImportDialog } from "./ThemeImportDialog";
 import { searchableSetting } from "./settingsSearch";
 import { useThemeEditorStore } from "./themeEditorStore";
@@ -108,6 +107,7 @@ export function ThemeLibrary({
   themeHalves: ThemeHalves | null;
   setThemeHalf: (appearance: ThemeAppearance, themeId: string | null) => boolean;
 }) {
+  const pickerId = useId();
   const openThemeEditor = useThemeEditorStore((store) => store.openThemeEditor);
   const environmentThemes = useEnvironmentThemeDefinitions();
   // Keep the collection after closing so the dialog text remains populated
@@ -332,7 +332,11 @@ export function ThemeLibrary({
     ];
     const selectedIsCustom = selected !== null && isCustomTheme(selected.id);
     return (
-      <div className="flex w-full items-center gap-1 sm:w-64">
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2.5 sm:px-4">
+        <label className="w-9 shrink-0 text-sm font-medium" htmlFor={`${pickerId}-${appearance}`}>
+          {appearanceLabel}
+          <span className="sr-only"> theme</span>
+        </label>
         <Select
           value={selected?.id ?? DEFAULT_THEME_VALUE}
           onValueChange={(value) => {
@@ -341,7 +345,8 @@ export function ThemeLibrary({
           }}
         >
           <SelectTrigger
-            size="sm"
+            id={`${pickerId}-${appearance}`}
+            size="comfortable"
             className="w-full min-w-0"
             aria-label={`${appearanceLabel} theme`}
           >
@@ -377,7 +382,7 @@ export function ThemeLibrary({
             render={
               <Button
                 aria-label={`More actions for the ${appearance} theme`}
-                size="icon-sm"
+                size="icon-xl"
                 variant="ghost-muted"
               />
             }
@@ -469,9 +474,11 @@ export function ThemeLibrary({
             </Button>
           </div>
         </div>
-        <SettingsGroup>
-          <SettingsRow title="Light theme" control={renderThemePicker("light")} />
-          <SettingsRow title="Dark theme" control={renderThemePicker("dark")} />
+        <SettingsGroup divided={false} className="@container/theme-pickers">
+          <div className="grid divide-y divide-border/50 @min-[40rem]/theme-pickers:grid-cols-2 @min-[40rem]/theme-pickers:divide-x @min-[40rem]/theme-pickers:divide-y-0">
+            {renderThemePicker("light")}
+            {renderThemePicker("dark")}
+          </div>
         </SettingsGroup>
       </div>
       <ThemeImportDialog
