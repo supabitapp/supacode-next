@@ -554,7 +554,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "usage-limits",
     title: "Usage limits",
     to: "/settings/appearance",
-    searchTerms: ["composer quota rate limits session weekly remaining"],
+    searchTerms: ["composer context strip quota rate limits session weekly remaining"],
   },
   {
     id: "keybindings",
