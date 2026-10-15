@@ -67,8 +67,10 @@ import {
   PULL_REQUEST_HEADS_GRAPHQL_QUERY,
   decodeWorkflowRunsJson,
   decodeWorkflowRunJobsJson,
+  decodeWorkflowRunJson,
   pullRequestCoreGraphQlQuery,
   type GitHubPullRequestCore,
+  type GitHubWorkflowRunSummary,
   type GitHubPullRequestSummary,
   type GitHubPullRequestWatchFingerprint,
   decodePullRequestPreviewJson,
@@ -451,6 +453,12 @@ export interface GitHubPullRequestFilesViewed {
   readonly truncated: boolean;
 }
 
+export interface GitHubWorkflowRun extends GitHubWorkflowRunSummary {
+  /** `owner/name`, resolved from the checkout when the caller named no repository. */
+  readonly repository: string;
+  readonly checks: ReadonlyArray<PullRequestCheck>;
+}
+
 export class GitHubPullRequestApi extends Context.Service<
   GitHubPullRequestApi,
   {
@@ -567,15 +575,15 @@ export class GitHubPullRequestApi extends Context.Service<
     }) => Effect.Effect<ReadonlyArray<GitHubWorkflowRunApproval>, GitHubPullRequestApiError>;
 
     /**
-     * A workflow run's jobs on its latest attempt, as checks. Without a `repository`, the run is
+     * A workflow run and its latest attempt's jobs, as checks. Without a `repository`, the run is
      * read from the repository `gh` would pick in `cwd`.
      */
-    readonly getWorkflowRunChecks: (input: {
+    readonly getWorkflowRun: (input: {
       readonly cwd: string;
       readonly repository?: string;
       readonly host: string;
       readonly runId: number;
-    }) => Effect.Effect<ReadonlyArray<PullRequestCheck>, GitHubPullRequestApiError>;
+    }) => Effect.Effect<GitHubWorkflowRun, GitHubPullRequestApiError>;
 
     /**
      * The host-native stack this pull request is in, or null when it is in none — which is also
@@ -1726,7 +1734,7 @@ export const make = Effect.gen(function* () {
   const checkoutRepository = (cwd: string, host: string) =>
     readCheckoutGitHubRepository({
       process: sourceControlHost.process,
-      operation: "getWorkflowRunChecks",
+      operation: "getWorkflowRun",
       cwd,
       hostHint: host,
       defaultHost: host,
@@ -1734,7 +1742,7 @@ export const make = Effect.gen(function* () {
       Effect.flatMap(({ locator }) =>
         locator === null
           ? Effect.fail(
-              readError(cwd, "getWorkflowRunChecks", `No GitHub repository on ${host} was found.`),
+              readError(cwd, "getWorkflowRun", `No GitHub repository on ${host} was found.`),
             )
           : Effect.succeed(locator),
       ),
@@ -1742,25 +1750,33 @@ export const make = Effect.gen(function* () {
 
   // A run past 500 jobs shows its first 500.
   const workflowRunJobPages = 5;
-  const getWorkflowRunChecks: GitHubPullRequestApi["Service"]["getWorkflowRunChecks"] = (input) =>
+  const getWorkflowRun: GitHubPullRequestApi["Service"]["getWorkflowRun"] = (input) =>
     Effect.gen(function* () {
       const { owner, name } =
         input.repository === undefined
           ? yield* checkoutRepository(input.cwd, input.host)
           : parseRepositorySelector(input.repository);
+      const runPath = `repos/${owner}/${name}/actions/runs/${input.runId}`;
+      const run = yield* restRead({
+        cwd: input.cwd,
+        host: input.host,
+        operation: "getWorkflowRun",
+        path: runPath,
+        decode: decodeWorkflowRunJson,
+      });
       const checks: PullRequestCheck[] = [];
       for (let page = 1; page <= workflowRunJobPages; page++) {
         const read = yield* restRead({
           cwd: input.cwd,
           host: input.host,
-          operation: "getWorkflowRunChecks",
-          path: `repos/${owner}/${name}/actions/runs/${input.runId}/jobs?per_page=100&page=${page}`,
+          operation: "getWorkflowRun",
+          path: `${runPath}/jobs?per_page=100&page=${page}`,
           decode: decodeWorkflowRunJobsJson,
         });
         checks.push(...read.checks);
         if (read.rawCount < 100) break;
       }
-      return checks;
+      return { ...run, repository: `${owner}/${name}`, checks };
     });
 
   /** One pull request's summary, through the same aliased query the batch uses. */
@@ -2168,7 +2184,7 @@ export const make = Effect.gen(function* () {
       });
     },
     listWorkflowRunsRequiringApproval,
-    getWorkflowRunChecks,
+    getWorkflowRun,
 
     getPullRequestStack: (input) => {
       const { owner, name } = parseRepositorySelector(input.repository);

@@ -9,6 +9,7 @@ import type {
   PullRequestCapabilities,
   PullRequestChecksState,
   PullRequestCheck,
+  PullRequestCheckStatus,
   PullRequestChecks,
   PullRequestComment,
   PullRequestFileViewed,
@@ -310,6 +311,16 @@ export interface ProviderFileRevisions {
   readonly complete?: boolean;
 }
 
+export interface ProviderWorkflowRun {
+  /** The repository the run was read from, which a run named only by id resolves from `cwd`. */
+  readonly repository: string;
+  readonly name: string;
+  readonly url: string | null;
+  /** The run's own verdict: pending until it completes. */
+  readonly status: PullRequestCheckStatus;
+  readonly checks: ReadonlyArray<PullRequestCheck>;
+}
+
 export interface ProviderRepositoryRef {
   readonly cwd: string;
   /** Provider-native repository identity, e.g. `owner/repo` or `group/subgroup/project`. */
@@ -446,15 +457,15 @@ export interface PullRequestProviderApi {
   ) => Effect.Effect<PullRequestChecks, PullRequestProviderError>;
 
   /**
-   * A CI run's jobs, as checks. Only hosts with run ids a command can name implement it. Without
-   * a `repository`, the run is read from the repository the host's CLI would pick in `cwd`.
+   * A CI run and its jobs, as checks. Only hosts whose runs have ids implement it. Without a
+   * `repository`, the run is read from the repository the host's CLI would pick in `cwd`.
    */
-  readonly getWorkflowRunChecks?: (
+  readonly getWorkflowRun?: (
     input: Omit<ProviderRepositoryRef, "repository"> & {
       readonly repository?: string;
       readonly runId: number;
     },
-  ) => Effect.Effect<ReadonlyArray<PullRequestCheck>, PullRequestProviderError>;
+  ) => Effect.Effect<ProviderWorkflowRun, PullRequestProviderError>;
 
   readonly getChangeRequest: (
     input: ProviderRepositoryRef & { readonly number: number },

@@ -3095,8 +3095,7 @@ export default function ChatView(props: ChatViewProps) {
   });
   const pullRequestsCapabilityKnown = serverConfig !== null;
   const supportsPullRequests = serverConfig?.environment.capabilities.pullRequests === true;
-  const supportsWorkflowRunChecks =
-    serverConfig?.environment.capabilities.workflowRunChecks === true;
+  const supportsWorkflowRuns = serverConfig?.environment.capabilities.workflowRuns === true;
   const attachmentEnvironmentConfig = environmentById.get(environmentId)?.serverConfig ?? null;
   const attachmentUploadsCapabilityKnown = attachmentEnvironmentConfig !== null;
   const supportsQuestionAttachments =
@@ -3732,6 +3731,7 @@ export default function ChatView(props: ChatViewProps) {
         activeProviderThreadId: serverProjection.thread.activeProviderThreadId,
         runs: serverProjection.runs,
         pullRequests: serverProjection.thread.pullRequests,
+        workflowRunWatches: serverProjection.thread.workflowRunWatches,
       }),
     ];
   }, [serverProjection]);
@@ -7720,7 +7720,7 @@ export default function ChatView(props: ChatViewProps) {
     if (presentation === null || !activeThread) {
       return null;
     }
-    const run = supportsWorkflowRunChecks ? presentation.githubActionsRun : null;
+    const run = supportsWorkflowRuns ? presentation.githubActionsRun : null;
     return {
       id: `background-work:${activeThread.id}`,
       variant: "default",
@@ -7778,7 +7778,7 @@ export default function ChatView(props: ChatViewProps) {
     handleStopBackgroundWork,
     isStoppingBackgroundWork,
     onOpenRelatedThread,
-    supportsWorkflowRunChecks,
+    supportsWorkflowRuns,
   ]);
   // Settled, snoozed, and woke are thread state, not composer actions: each
   // gets one quiet line after the last message instead of a banner. A woken

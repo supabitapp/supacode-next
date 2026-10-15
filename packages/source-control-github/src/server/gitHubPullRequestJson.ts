@@ -449,6 +449,16 @@ const RawWorkflowRunsSchema = Schema.Struct({
   ),
 });
 
+/** `GET /repos/{owner}/{repo}/actions/runs/{run_id}`. */
+const RawWorkflowRunSchema = Schema.Struct({
+  id: Schema.Int,
+  name: Schema.optional(Schema.NullOr(Schema.String)),
+  display_title: Schema.optional(Schema.NullOr(Schema.String)),
+  status: Schema.optional(Schema.NullOr(Schema.String)),
+  conclusion: Schema.optional(Schema.NullOr(Schema.String)),
+  html_url: Schema.optional(Schema.NullOr(Schema.String)),
+});
+
 /** `GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`, one page of it. */
 const RawWorkflowRunJobsSchema = Schema.Struct({
   jobs: Schema.Array(
@@ -1797,6 +1807,7 @@ const decodeStats = decodeJsonResult(RawStatsSchema);
 const decodeDetail = decodeJsonResult(RawDetailSchema);
 const decodeWorkflowRuns = decodeJsonResult(RawWorkflowRunsSchema);
 const decodeWorkflowRunJobs = decodeJsonResult(RawWorkflowRunJobsSchema);
+const decodeWorkflowRun = decodeJsonResult(RawWorkflowRunSchema);
 const decodePullRequestHeads = decodeJsonResult(RawPullRequestHeadsSchema);
 const decodeActivity = decodeJsonResult(RawActivitySchema);
 const decodeRepositoryPullRequests = decodeJsonResult(RawRepositoryPullRequestsSchema);
@@ -2372,6 +2383,26 @@ export function decodeWorkflowRunsJson(
       url: trimmed(run.html_url),
     })),
     rawCount: decoded.success.workflow_runs.length,
+  });
+}
+
+export interface GitHubWorkflowRunSummary {
+  readonly name: string;
+  readonly url: string | null;
+  /** The run's verdict, read the way a check run's is: pending until it completes. */
+  readonly status: PullRequestCheckStatus;
+}
+
+export function decodeWorkflowRunJson(
+  raw: string,
+): Result.Result<GitHubWorkflowRunSummary, DecodeFailure> {
+  const decoded = decodeWorkflowRun(raw);
+  if (!Result.isSuccess(decoded)) return Result.fail(decoded.failure);
+  const run = decoded.success;
+  return Result.succeed({
+    name: trimmed(run.name) ?? trimmed(run.display_title) ?? `Run ${run.id}`,
+    url: trimmed(run.html_url),
+    status: toCheckStatus(run),
   });
 }
 

@@ -10,12 +10,14 @@ import { pullRequestEnvironment } from "~/state/pullRequests";
 import { useEnvironmentQuery } from "~/state/query";
 
 import { PullRequestChecksPopover } from "../pullRequest/PullRequestChecksPopover";
-import { pullRequestChecksState } from "../pullRequest/pullRequestPresentation";
+import {
+  pullRequestChecksState,
+  pullRequestChecksStateRingToneClassName,
+} from "../pullRequest/pullRequestPresentation";
 
 /**
- * The background-work banner's icon. Work that follows a CI run shows the run's checks ring,
- * opening the same list a pull request's checks do; anything else, and a run with no job to
- * show yet, gets the dot.
+ * The background-work banner's dot. Work that will wake the agent pulses, and a watched CI run
+ * colors it the way its checks ring would be, opening the same list a pull request's checks do.
  */
 export function BackgroundWorkIcon({
   waiting,
@@ -30,28 +32,37 @@ export function BackgroundWorkIcon({
   projectId: ProjectId;
   threadRef: ScopedThreadRef | null;
 }) {
-  const { data: checks } = useEnvironmentQuery(
+  const { data: workflowRun } = useEnvironmentQuery(
     run === null
       ? null
-      : pullRequestEnvironment.workflowRunChecks({ environmentId, input: { projectId, ...run } }),
+      : pullRequestEnvironment.workflowRun({ environmentId, input: { projectId, ...run } }),
   );
-  const checksState = checks ? pullRequestChecksState(checks) : null;
-  if (checks && checksState !== null) {
-    return (
-      <PullRequestChecksPopover
-        checksState={checksState}
-        checks={checks}
-        threadRef={threadRef}
-        className="size-full justify-center"
-      />
-    );
-  }
+  const checksState = workflowRun ? pullRequestChecksState(workflowRun.checks) : null;
   // A dev server can run for hours after the agent is done, so only work
-  // that will wake the agent pulses.
-  return (
+  // that will wake the agent pulses; a finished run stops.
+  const dot = (
     <span
-      className={cn("size-1.5 rounded-full bg-foreground", waiting && "animate-status-pulse")}
+      className={cn(
+        "size-1.5 rounded-full",
+        checksState === null
+          ? "bg-foreground"
+          : ["bg-current", pullRequestChecksStateRingToneClassName(checksState)],
+        waiting &&
+          (workflowRun == null || workflowRun.status === "pending") &&
+          "animate-status-pulse",
+      )}
       aria-hidden="true"
     />
+  );
+  if (!workflowRun || checksState === null) return dot;
+  return (
+    <PullRequestChecksPopover
+      checksState={checksState}
+      checks={workflowRun.checks}
+      threadRef={threadRef}
+      className="size-full justify-center"
+    >
+      {dot}
+    </PullRequestChecksPopover>
   );
 }

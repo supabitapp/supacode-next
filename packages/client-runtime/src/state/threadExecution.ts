@@ -254,6 +254,7 @@ export function deriveThreadRuntime(
       activeProviderThreadId: projection.thread.activeProviderThreadId,
       runs: projection.runs,
       pullRequests: projection.thread.pullRequests,
+      workflowRunWatches: projection.thread.workflowRunWatches,
     }),
   );
   // A pull request watch can hold a thread that never ran.
@@ -331,7 +332,7 @@ export interface PendingBackgroundWorkPresentation {
    * only commands remain, such as a dev server: the agent is done.
    */
   readonly waiting: boolean;
-  /** The CI run the work follows, when it follows exactly one. */
+  /** The CI run the work watches, when it watches exactly one. */
   readonly githubActionsRun: OrchestrationV2GitHubActionsRun | null;
 }
 
@@ -347,10 +348,7 @@ export function presentPendingBackgroundWork(
   if (tasks.length === 0) return null;
   const waiting = backgroundWorkHoldsCompletion(tasks);
   const runs = tasks.flatMap((task) => task.githubActionsRun ?? []);
-  const githubActionsRun =
-    new Set(runs.map((run) => run.runId)).size === 1
-      ? (runs.find((run) => run.repository !== undefined) ?? runs[0]!)
-      : null;
+  const githubActionsRun = runs.length === 1 ? runs[0]! : null;
   const items = tasks
     .map((task): PendingBackgroundWorkItem => {
       const description = task.description?.trim();

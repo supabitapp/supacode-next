@@ -361,6 +361,26 @@ export const OrchestrationV2LimitRecoveryUpdate = Schema.Struct({
 );
 export type OrchestrationV2LimitRecoveryUpdate = typeof OrchestrationV2LimitRecoveryUpdate.Type;
 
+/** A GitHub Actions run, by the repository it belongs to. */
+export const OrchestrationV2GitHubActionsRun = Schema.Struct({
+  host: TrimmedNonEmptyString,
+  repository: TrimmedNonEmptyString,
+  runId: PositiveInt,
+});
+export type OrchestrationV2GitHubActionsRun = typeof OrchestrationV2GitHubActionsRun.Type;
+
+/**
+ * A GitHub Actions run the server watches for the thread's agent, which it wakes once when the
+ * run completes. Ends then, on unwatch, Stop, settle or archive, and after reads keep failing.
+ */
+export const ThreadWorkflowRunWatch = Schema.Struct({
+  ...OrchestrationV2GitHubActionsRun.fields,
+  name: TrimmedNonEmptyString,
+  url: Schema.NullOr(TrimmedNonEmptyString),
+  startedAt: IsoDateTime,
+});
+export type ThreadWorkflowRunWatch = typeof ThreadWorkflowRunWatch.Type;
+
 export const OrchestrationV2AppThread = Schema.Struct({
   ...OrchestrationV2CreationFields,
   id: ThreadId,
@@ -376,6 +396,7 @@ export const OrchestrationV2AppThread = Schema.Struct({
       pre-linking servers still decode. */
   linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   pullRequests: Schema.optional(Schema.Array(ThreadPullRequestLink)),
+  workflowRunWatches: Schema.optional(Schema.Array(ThreadWorkflowRunWatch)),
   /** Pull request discovered from the thread's current branch. */
   branchPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   activeProviderThreadId: Schema.NullOr(ProviderThreadId),
@@ -915,17 +936,6 @@ function kindUnionWithFallback<
   // Members are tried in order, so the fallback must come last.
   return Schema.Union([...members, unknownKind]);
 }
-
-/**
- * A GitHub Actions run background work follows, such as `gh run watch`. `repository`, and the
- * `host` that qualifies it, are present only when the command names them.
- */
-export const OrchestrationV2GitHubActionsRun = Schema.Struct({
-  runId: PositiveInt,
-  repository: Schema.optional(TrimmedNonEmptyString),
-  host: Schema.optional(TrimmedNonEmptyString),
-});
-export type OrchestrationV2GitHubActionsRun = typeof OrchestrationV2GitHubActionsRun.Type;
 
 const PendingBackgroundTaskFields = {
   taskId: TrimmedNonEmptyString,
@@ -1787,6 +1797,7 @@ export const OrchestrationV2DomainEvent = Schema.Union([
       "thread.marked-unread",
       "thread.metadata-updated",
       "thread.pull-request-synced",
+      "thread.workflow-run-watch-synced",
       "thread.runtime-mode-updated",
       "thread.interaction-mode-updated",
       "thread.model-selection-updated",
@@ -2605,6 +2616,7 @@ export const OrchestrationV2DomainEventJson = Schema.Union([
       "thread.visited",
       "thread.marked-unread",
       "thread.pull-request-synced",
+      "thread.workflow-run-watch-synced",
       "thread.metadata-updated",
       "thread.runtime-mode-updated",
       "thread.interaction-mode-updated",
@@ -2904,6 +2916,18 @@ export const OrchestrationV2Command = Schema.Union([
     /** Links the pull request first when starting a watch on one the thread has not linked. */
     link: Schema.optional(
       Schema.Struct({ url: TrimmedNonEmptyString, source: ThreadPullRequestLinkSource }),
+    ),
+  }),
+  /** Start or stop the server watching a GitHub Actions run for this thread's agent. */
+  Schema.Struct({
+    type: Schema.Literal("thread.workflow-run.watch"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    ...OrchestrationV2GitHubActionsRun.fields,
+    watching: Schema.Boolean,
+    /** The run as read when the watch starts; required to start one. */
+    run: Schema.optional(
+      Schema.Struct({ name: TrimmedNonEmptyString, url: Schema.NullOr(TrimmedNonEmptyString) }),
     ),
   }),
   Schema.Struct({
@@ -3213,6 +3237,25 @@ const OrchestrationV2InternalCommand = Schema.Union([
     startedAt: IsoDateTime,
     /** The watch to record, or null to end it. */
     watch: Schema.NullOr(ThreadPullRequestWatch),
+    wake: Schema.optional(
+      Schema.Struct({
+        messageId: MessageId,
+        text: Schema.String,
+        notification: OrchestrationV2Notification,
+      }),
+    ),
+  }),
+  /**
+   * Ends the workflow run watch started at `startedAt`, waking the agent in the same transaction
+   * when `wake` is set. Rejected once that watch has ended, and a wake is rejected on a settled
+   * or archived thread, so a read that raced either changes nothing.
+   */
+  Schema.Struct({
+    type: Schema.Literal("thread.workflow-run-watch.end"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    ...OrchestrationV2GitHubActionsRun.fields,
+    startedAt: IsoDateTime,
     wake: Schema.optional(
       Schema.Struct({
         messageId: MessageId,

@@ -146,6 +146,7 @@ export function PullRequestChecksPopover({
   variant = "icon",
   className,
   render,
+  children,
 }: {
   checksState: PullRequestChecksState;
   /** The checks already in hand, for the detail header. Absent on a listing row. */
@@ -158,6 +159,8 @@ export function PullRequestChecksPopover({
   variant?: "icon" | "button";
   className?: string;
   render?: React.ReactElement;
+  /** What the trigger shows in place of the ring, or of the rollup's icon. */
+  children?: React.ReactNode;
 }) {
   const presentation = pullRequestChecksStatePresentation(checksState);
   // Counts beat the rollup's own wording where they are known, the way GitHub's own header reads.
@@ -187,11 +190,12 @@ export function PullRequestChecksPopover({
         }
         onClick={(event) => event.stopPropagation()}
       >
-        {checks !== undefined && checks.length > 0 && !stale ? (
-          <PullRequestChecksRing checks={checks} />
-        ) : (
-          <presentation.Icon aria-hidden className={cn("size-3.5", presentation.toneClassName)} />
-        )}
+        {children ??
+          (checks !== undefined && checks.length > 0 && !stale ? (
+            <PullRequestChecksRing checks={checks} />
+          ) : (
+            <presentation.Icon aria-hidden className={cn("size-3.5", presentation.toneClassName)} />
+          ))}
         {variant === "button" ? <ChevronDownIcon aria-hidden className="size-3" /> : null}
       </PopoverTrigger>
       <PopoverPopup align="start" width="md" side="bottom">

@@ -297,6 +297,13 @@ A watched thread counts as working between wakes, so it stays in the **Working**
 not auto-settle. Agents stop watching when they hand the work back to you, and the thread then
 returns to your inbox.
 
+Agents wait on a GitHub Actions run, such as CI, a release, or a deploy, with
+`watch_workflow_run` instead of a shell loop. The server checks the run every minute and wakes the
+agent once when it completes, naming each job that failed, was cancelled, or was skipped. While the
+run goes, the thread's background-work banner shows a dot in the run's checks color; click it to
+see each job. Watching ends when the run completes, after 8 failed reads in a row, or when you
+press Stop, settle, or archive the thread.
+
 Cross-repository links use a project on the same host. Azure DevOps reviews require a project checked
 out from the matching organization and repository.
 

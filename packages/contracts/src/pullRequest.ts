@@ -713,6 +713,19 @@ export const PullRequestWorkflowRunRef = Schema.Struct({
 });
 export type PullRequestWorkflowRunRef = typeof PullRequestWorkflowRunRef.Type;
 
+/** A GitHub Actions run read as checks: its jobs, and its own verdict once it completes. */
+export const PullRequestWorkflowRun = Schema.Struct({
+  host: TrimmedNonEmptyString,
+  /** `owner/name`, resolved from the checkout when the reference named none. */
+  repository: TrimmedNonEmptyString,
+  name: TrimmedNonEmptyString,
+  url: Schema.NullOr(TrimmedNonEmptyString),
+  /** Pending until the run completes. */
+  status: PullRequestCheckStatus,
+  checks: Schema.Array(PullRequestCheck),
+});
+export type PullRequestWorkflowRun = typeof PullRequestWorkflowRun.Type;
+
 /** Account discovery never needs the originating project's private repository metadata. */
 export const PullRequestRoutingIdentityInput = Schema.Struct({
   host: TrimmedNonEmptyString,

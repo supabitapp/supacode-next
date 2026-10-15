@@ -2169,9 +2169,15 @@ it.effect("reads a bare workflow run id from the project's checkout, a named one
       ],
       providers: [
         fakeProvider(SourceControlProviderKind.make("github"), {
-          getWorkflowRunChecks: (input) => {
+          getWorkflowRun: (input) => {
             reads.push(input);
-            return Effect.succeed([job]);
+            return Effect.succeed({
+              repository: input.repository ?? "acme/web",
+              name: "Release",
+              url: null,
+              status: "pending" as const,
+              checks: [job],
+            });
           },
         }),
         fakeProvider(SourceControlProviderKind.make("gitlab")),
@@ -2179,10 +2185,17 @@ it.effect("reads a bare workflow run id from the project's checkout, a named one
     });
 
     assert.deepStrictEqual(
-      yield* service.workflowRunChecks({ projectId: "p1" as ProjectId, runId: 42 }),
-      [job],
+      yield* service.workflowRun({ projectId: "p1" as ProjectId, runId: 42 }),
+      {
+        host: "github.com",
+        repository: "acme/web",
+        name: "Release",
+        url: null,
+        status: "pending",
+        checks: [job],
+      },
     );
-    yield* service.workflowRunChecks({
+    yield* service.workflowRun({
       projectId: "p1" as ProjectId,
       repository: "acme/api",
       runId: 43,
@@ -2191,8 +2204,8 @@ it.effect("reads a bare workflow run id from the project's checkout, a named one
       { cwd: "/repo", host: "github.com", runId: 42 },
       { cwd: "/repo", repository: "acme/api", host: "github.com", runId: 43 },
     ]);
-    assert.isNull(yield* service.workflowRunChecks({ projectId: "p2" as ProjectId, runId: 42 }));
-    assert.isNull(yield* service.workflowRunChecks({ projectId: "p3" as ProjectId, runId: 42 }));
+    assert.isNull(yield* service.workflowRun({ projectId: "p2" as ProjectId, runId: 42 }));
+    assert.isNull(yield* service.workflowRun({ projectId: "p3" as ProjectId, runId: 42 }));
     assert.strictEqual(reads.length, 2);
   }),
 );

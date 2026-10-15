@@ -40,7 +40,6 @@ import type {
   WebSearchOutput,
 } from "@anthropic-ai/claude-agent-sdk/sdk-tools";
 import { parseCliArgs } from "@supaterm/shared/cliArgs";
-import { githubActionsRunFromCommand } from "@supaterm/shared/githubActionsRun";
 import { AgentScope } from "@supaterm/shared/AgentScope";
 import * as HostProcess from "@supaterm/shared/HostProcess";
 import { applyClaudePromptEffortPrefix } from "@supaterm/shared/model";
@@ -60,7 +59,6 @@ import {
   OrchestrationV2ProviderGoal,
   type OrchestrationV2PlanArtifact,
   type OrchestrationV2PlanStep,
-  type OrchestrationV2GitHubActionsRun,
   type OrchestrationV2PendingBackgroundTask,
   type OrchestrationV2ProviderRetry,
   type OrchestrationV2ProviderSession,
@@ -1946,7 +1944,6 @@ function claudePendingBackgroundTask(input: {
   // that started it tells it apart from a background Bash command.
   readonly startedByMonitor: boolean;
   readonly description: string | undefined;
-  readonly githubActionsRun: OrchestrationV2GitHubActionsRun | undefined;
 }): OrchestrationV2PendingBackgroundTask {
   return {
     taskId: input.taskId,
@@ -1958,7 +1955,6 @@ function claudePendingBackgroundTask(input: {
     ...(input.description !== undefined && input.description.trim().length > 0
       ? { description: input.description }
       : {}),
-    ...(input.githubActionsRun === undefined ? {} : { githubActionsRun: input.githubActionsRun }),
   };
 }
 
@@ -1998,7 +1994,6 @@ function claudePendingBackgroundTasksFromRoster(
 function parseClaudeBackgroundTaskEntry(
   entry: unknown,
   monitorTasks: ReadonlyMap<string, unknown>,
-  githubActionsRuns: ReadonlyMap<string, OrchestrationV2GitHubActionsRun>,
 ): OrchestrationV2PendingBackgroundTask | null {
   if (entry === null || typeof entry !== "object") {
     return null;
@@ -2020,7 +2015,6 @@ function parseClaudeBackgroundTaskEntry(
     taskType,
     startedByMonitor: monitorTasks.has(taskId),
     description: typeof description === "string" ? description : undefined,
-    githubActionsRun: githubActionsRuns.get(taskId),
   });
 }
 
@@ -3566,36 +3560,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
         const lastKnownOpaqueTasks = yield* Ref.make(
           new Map<string, OrchestrationV2PendingBackgroundTask>(),
         );
-        // The GitHub Actions run each local_bash task's command follows, linked at
-        // task_started while its Bash or Monitor call is still open: roster snapshots
-        // carry no tool call, and a task moved to the background arrives only in one.
-        const githubActionsRunsByTaskId = yield* Ref.make(
-          new Map<string, OrchestrationV2GitHubActionsRun>(),
-        );
-        const linkGitHubActionsRun = (input: {
-          readonly taskId: string;
-          readonly toolUseId: string | undefined;
-          readonly context: ActiveClaudeTurnContext | null;
-        }) => {
-          const toolCall =
-            input.toolUseId === undefined
-              ? undefined
-              : (input.context?.toolCalls.get(input.toolUseId) ??
-                subagentToolCalls.get(input.toolUseId));
-          const command =
-            toolCall === undefined ? undefined : firstStringInputField(toolCall.input, ["command"]);
-          const run = command === undefined ? null : githubActionsRunFromCommand(command);
-          if (run === null) return Effect.succeed(undefined);
-          return Ref.update(githubActionsRunsByTaskId, (current) => {
-            const updated = new Map(current).set(input.taskId, run);
-            // Bounded: an entry only outlives its task when no notification came.
-            for (const oldest of updated.keys()) {
-              if (updated.size <= 64) break;
-              updated.delete(oldest);
-            }
-            return updated;
-          }).pipe(Effect.as(run));
-        };
         // Live Claude monitors. A Monitor call waits in `calls` until its
         // task_started links it to a task, or its tool_result ends the call
         // without one. A task stays in `tasks` until it leaves its native
@@ -6470,9 +6434,8 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               (taskId, task) =>
                 task.nativeThreadId === input.nativeThreadId && !listedTaskIds.has(taskId),
             );
-            const githubActionsRuns = yield* Ref.get(githubActionsRunsByTaskId);
             for (const entry of roster) {
-              const task = parseClaudeBackgroundTaskEntry(entry, monitorTasks, githubActionsRuns);
+              const task = parseClaudeBackgroundTaskEntry(entry, monitorTasks);
               if (task !== null) {
                 nextTasks.push(task);
               }
@@ -6486,15 +6449,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             // A foreground task blocks its tool call (a subagent's own Bash
             // steps included), so it is not background work; one moved to
             // the background later arrives in background_tasks_changed.
-            if (!isClaudeNonSubagentTask(message)) {
-              return false;
-            }
-            const githubActionsRun = yield* linkGitHubActionsRun({
-              taskId: message.task_id,
-              toolUseId: message.tool_use_id,
-              context: input.activeContext,
-            });
-            if (message.is_backgrounded === false) {
+            if (!isClaudeNonSubagentTask(message) || message.is_backgrounded === false) {
               return false;
             }
             yield* upsertPendingBackgroundTask(
@@ -6509,18 +6464,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 }),
                 description:
                   typeof message.description === "string" ? message.description : undefined,
-                githubActionsRun,
               }),
             );
             rosterChanged = true;
           } else if (message.type === "system" && message.subtype === "task_notification") {
             yield* endClaudeMonitorTasks((taskId) => taskId === message.task_id);
-            yield* Ref.update(githubActionsRunsByTaskId, (current) => {
-              if (!current.has(message.task_id)) return current;
-              const updated = new Map(current);
-              updated.delete(message.task_id);
-              return updated;
-            });
             const removed = yield* clearPendingBackgroundTask(
               input.nativeThreadId,
               message.task_id,

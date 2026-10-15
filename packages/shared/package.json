@@ -55,10 +55,6 @@
       "types": "./src/githubMedia.ts",
       "import": "./src/githubMedia.ts"
     },
-    "./githubActionsRun": {
-      "types": "./src/githubActionsRun.ts",
-      "import": "./src/githubActionsRun.ts"
-    },
     "./sourceControl": {
       "types": "./src/sourceControl.ts",
       "import": "./src/sourceControl.ts"

@@ -92,31 +92,6 @@ describe("derivePendingBackgroundWork", () => {
     expect(tasks).toEqual([{ taskId: "cmd-1", description: "npm test", kind: "command" }]);
   });
 
-  it("names the GitHub Actions run a background command watches", () => {
-    const tasks = derivePendingBackgroundWork({
-      latestRun: { id: "run-1" as never, ordinal: 1, status: "completed" },
-      providerThreads: [],
-      turnItems: [
-        {
-          id: "item-1" as never,
-          type: "command_execution",
-          status: "running",
-          title: null,
-          nativeItemRef: { nativeId: "cmd-1" },
-          input: "gh run watch 42 -R acme/web --exit-status",
-        },
-      ],
-    });
-    expect(tasks).toEqual([
-      {
-        taskId: "cmd-1",
-        description: "gh run watch 42 -R acme/web --exit-status",
-        kind: "command",
-        githubActionsRun: { runId: 42, repository: "acme/web" },
-      },
-    ]);
-  });
-
   it("still returns empty when the latest run is running even with background items", () => {
     const tasks = derivePendingBackgroundWork({
       latestRun: { id: "run-1" as never, ordinal: 1, status: "running" },
@@ -609,6 +584,48 @@ describe("derivePendingBackgroundWork kinds", () => {
           pullRequests,
         }),
       ).toEqual([]);
+    });
+  });
+
+  describe("workflow run watches", () => {
+    const workflowRunWatches = [
+      {
+        host: "github.com",
+        repository: "acme/app",
+        runId: 42,
+        name: "Release",
+        url: "https://github.com/acme/app/actions/runs/42",
+        startedAt: "2026-10-05T00:00:00.000Z",
+      },
+    ];
+
+    it("keeps a settled run waiting on each watch, as a monitor naming its run", () => {
+      const tasks = derivePendingBackgroundWork({
+        latestRun: { id: "run-1" as never, ordinal: 1, status: "completed" },
+        providerThreads: [],
+        turnItems: [],
+        workflowRunWatches,
+      });
+      expect(tasks).toEqual([
+        {
+          taskId: "workflow-run-watch:github.com/acme/app#42",
+          description: "Watching Release run",
+          kind: "monitor",
+          githubActionsRun: { host: "github.com", repository: "acme/app", runId: 42 },
+        },
+      ]);
+      expect(backgroundWorkHoldsCompletion(tasks)).toBe(true);
+    });
+
+    it("keeps a thread that never ran waiting on its watch", () => {
+      expect(
+        derivePendingBackgroundWork({
+          latestRun: null,
+          providerThreads: [],
+          turnItems: [],
+          workflowRunWatches,
+        }).map((task) => task.taskId),
+      ).toEqual(["workflow-run-watch:github.com/acme/app#42"]);
     });
   });
 });

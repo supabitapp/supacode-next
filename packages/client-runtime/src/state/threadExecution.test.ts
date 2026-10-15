@@ -574,24 +574,18 @@ describe("presentPendingBackgroundWork", () => {
     expect(presentPendingBackgroundWork([])).toBeNull();
   });
 
-  it("names the CI run only when the work follows exactly one", () => {
-    const run = { runId: 42, repository: "acme/web" };
+  it("names the CI run only when the work watches exactly one", () => {
+    const run = { host: "github.com", repository: "acme/web", runId: 42 };
     expect(
       presentPendingBackgroundWork([
         { taskId: "dev", kind: "command", description: "vp run dev" },
-        { taskId: "watch", kind: "command", description: "Watch CI", githubActionsRun: run },
+        { taskId: "watch", kind: "monitor", description: "Watching CI run", githubActionsRun: run },
       ])?.githubActionsRun,
     ).toEqual(run);
     expect(
       presentPendingBackgroundWork([
-        { taskId: "watch", kind: "command", githubActionsRun: { runId: 42 } },
-        { taskId: "monitor", kind: "monitor", githubActionsRun: run },
-      ])?.githubActionsRun,
-    ).toEqual(run);
-    expect(
-      presentPendingBackgroundWork([
-        { taskId: "a", kind: "command", githubActionsRun: run },
-        { taskId: "b", kind: "monitor", githubActionsRun: { runId: 43 } },
+        { taskId: "a", kind: "monitor", githubActionsRun: run },
+        { taskId: "b", kind: "monitor", githubActionsRun: { ...run, runId: 43 } },
       ])?.githubActionsRun,
     ).toBeNull();
   });

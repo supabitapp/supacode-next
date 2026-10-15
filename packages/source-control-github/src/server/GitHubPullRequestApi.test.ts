@@ -927,7 +927,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
     }),
   );
 
-  it.effect("reads a workflow run's jobs as checks, paging past a full page", () =>
+  it.effect("reads a workflow run with its jobs as checks, paging past a full page", () =>
     Effect.gen(function* () {
       const job = (name: string | null, status: string, conclusion: string | null) => ({
         name,
@@ -936,6 +936,19 @@ layer("GitHubPullRequestApi.layer", (it) => {
         html_url: `https://github.com/acme/web/actions/runs/42/job/${name}`,
       });
       mockedExecute
+        .mockReturnValueOnce(
+          Effect.succeed(
+            output(
+              encodeJson({
+                id: 42,
+                name: "Release",
+                status: "in_progress",
+                conclusion: null,
+                html_url: "https://github.com/acme/web/actions/runs/42",
+              }),
+            ),
+          ),
+        )
         .mockReturnValueOnce(
           Effect.succeed(
             output(
@@ -957,13 +970,20 @@ layer("GitHubPullRequestApi.layer", (it) => {
         );
       const cli = yield* GitHubPullRequestApi.GitHubPullRequestApi;
 
-      const checks = yield* cli.getWorkflowRunChecks({
+      const run = yield* cli.getWorkflowRun({
         cwd: "/w",
         repository: "acme/web",
         host: "github.com",
         runId: 42,
       });
 
+      expect(run).toMatchObject({
+        repository: "acme/web",
+        name: "Release",
+        url: "https://github.com/acme/web/actions/runs/42",
+        status: "pending",
+      });
+      const { checks } = run;
       assert.strictEqual(checks.length, 100);
       assert.deepStrictEqual(
         [checks[0], checks[1], checks.at(-1)].map((check) => [check?.name, check?.status]),
@@ -989,7 +1009,13 @@ layer("GitHubPullRequestApi.layer", (it) => {
 
   it.effect("reads a bare run id from the repository gh would pick in a fork checkout", () =>
     Effect.gen(function* () {
-      mockedExecute.mockReturnValueOnce(Effect.succeed(output(encodeJson({ jobs: [] }))));
+      mockedExecute
+        .mockReturnValueOnce(
+          Effect.succeed(
+            output(encodeJson({ id: 42, status: "completed", conclusion: "failure" })),
+          ),
+        )
+        .mockReturnValueOnce(Effect.succeed(output(encodeJson({ jobs: [] }))));
       const cli = yield* GitHubPullRequestApi.make.pipe(
         Effect.provide(
           Layer.mergeAll(
@@ -1013,11 +1039,15 @@ layer("GitHubPullRequestApi.layer", (it) => {
         ),
       );
 
-      yield* cli.getWorkflowRunChecks({ cwd: "/fork", host: "github.com", runId: 42 });
+      const run = yield* cli.getWorkflowRun({ cwd: "/fork", host: "github.com", runId: 42 });
 
+      expect(run).toMatchObject({ repository: "acme-fork/web", name: "Run 42", status: "failure" });
       assert.deepStrictEqual(
-        restCallsTo("actions/runs/42/jobs").map((call) => call.path),
-        ["repos/acme-fork/web/actions/runs/42/jobs?per_page=100&page=1"],
+        restCallsTo("actions/runs/42").map((call) => call.path),
+        [
+          "repos/acme-fork/web/actions/runs/42",
+          "repos/acme-fork/web/actions/runs/42/jobs?per_page=100&page=1",
+        ],
       );
     }),
   );

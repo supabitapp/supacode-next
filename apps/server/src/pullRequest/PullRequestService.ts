@@ -34,7 +34,6 @@ import {
   type PullRequestCommentUpdateInput,
   type PullRequestDetail,
   type PullRequestPreview,
-  type PullRequestCheck,
   type PullRequestChecks,
   type PullRequestDiffFileContentsInput,
   type PullRequestDiffFileContentsResult,
@@ -54,6 +53,7 @@ import {
   type PullRequestProviderSummary,
   type PullRequestReactionInput,
   type PullRequestRef,
+  type PullRequestWorkflowRun,
   type PullRequestWorkflowRunRef,
   type PullRequestRoutingResult,
   type PullRequestRoutingIdentityInput,
@@ -198,6 +198,16 @@ const VIEWER_CACHE_CAPACITY = 32;
 
 export type PullRequestError = PullRequestUnavailableError | PullRequestOperationError;
 
+/** A rate limit is the host asking to wait, not a sign the read cannot succeed. */
+export const isRateLimited = (cause: Cause.Cause<PullRequestError>): boolean =>
+  Option.match(Cause.findErrorOption(cause), {
+    onNone: () => false,
+    onSome: (error) =>
+      error._tag === "PullRequestOperationError" &&
+      isPullRequestProviderError(error.cause) &&
+      error.cause.reason === "rate-limited",
+  });
+
 const routingCredential = Context.Reference<{
   readonly credentialFingerprint: string;
   readonly viewer: string;
@@ -267,10 +277,10 @@ export class PullRequestService extends Context.Service<
     readonly checks: (
       input: PullRequestRef,
     ) => Effect.Effect<PullRequestChecks | null, PullRequestError>;
-    /** A CI run's jobs as checks, or null where the project's host has no runs to read. */
-    readonly workflowRunChecks: (
+    /** A CI run and its jobs as checks, or null where the project's host has no runs to read. */
+    readonly workflowRun: (
       input: PullRequestWorkflowRunRef,
-    ) => Effect.Effect<ReadonlyArray<PullRequestCheck> | null, PullRequestError>;
+    ) => Effect.Effect<PullRequestWorkflowRun | null, PullRequestError>;
     /**
      * What a pull request watch compares between passes, so it reads detail and activity only
      * when something moved. Null when the host has no fingerprint or gave none for this one.
@@ -643,9 +653,9 @@ function withRateLimitBackoff(
     ...(api.getChangeRequestChecks === undefined
       ? {}
       : { getChangeRequestChecks: wrap("getChangeRequestChecks", api.getChangeRequestChecks) }),
-    ...(api.getWorkflowRunChecks === undefined
+    ...(api.getWorkflowRun === undefined
       ? {}
-      : { getWorkflowRunChecks: wrap("getWorkflowRunChecks", api.getWorkflowRunChecks) }),
+      : { getWorkflowRun: wrap("getWorkflowRun", api.getWorkflowRun) }),
     ...(api.getChangeRequestSummary === undefined
       ? {}
       : {
@@ -3084,7 +3094,7 @@ export const make = Effect.gen(function* () {
    * is its `upstream`, while `gh run watch` follows `gh repo set-default`. One named without a
    * host is on the project's host.
    */
-  const workflowRunChecksCache = yield* Cache.makeWith(
+  const workflowRunCache = yield* Cache.makeWith(
     (key: string) => {
       const input = JSON.parse(key) as PullRequestWorkflowRunRef;
       return listWorkspaceProjects({ projectId: input.projectId }).pipe(
@@ -3098,16 +3108,19 @@ export const make = Effect.gen(function* () {
           });
         }),
         Effect.flatMap((project) =>
-          project?.api.getWorkflowRunChecks === undefined
+          project?.api.getWorkflowRun === undefined
             ? Effect.succeed(null)
             : project.api
-                .getWorkflowRunChecks({
+                .getWorkflowRun({
                   cwd: project.project.workspaceRoot,
                   host: project.host,
                   runId: input.runId,
                   ...(input.repository === undefined ? {} : { repository: project.repository }),
                 })
-                .pipe(Effect.mapError(toPullRequestError("workflowRunChecks"))),
+                .pipe(
+                  Effect.map((run) => ({ ...run, host: project.host })),
+                  Effect.mapError(toPullRequestError("workflowRun")),
+                ),
         ),
       );
     },
@@ -3613,9 +3626,9 @@ export const make = Effect.gen(function* () {
     refreshAfterTurn,
     detail: credentialCached(detail),
     checks: credentialCached((input) => Cache.get(checksCache, refCacheKey(input))),
-    workflowRunChecks: (input) =>
+    workflowRun: (input) =>
       Cache.get(
-        workflowRunChecksCache,
+        workflowRunCache,
         JSON.stringify({
           projectId: input.projectId,
           host: input.host?.toLowerCase(),
