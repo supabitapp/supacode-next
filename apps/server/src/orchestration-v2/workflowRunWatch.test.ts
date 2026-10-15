@@ -1,7 +1,7 @@
 import type { PullRequestCheckStatus } from "@supaterm/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { workflowRunWatchMessage, workflowRunWatchUnreadableMessage } from "./workflowRunWatch.ts";
+import { workflowRunWatchMessage, workflowRunWatchStoppedMessage } from "./workflowRunWatch.ts";
 
 const watch = {
   host: "github.com",
@@ -68,7 +68,7 @@ describe("workflowRunWatchMessage", () => {
   });
 
   it("names the run by repository and id when it has no URL", () => {
-    const message = workflowRunWatchUnreadableMessage({ ...watch, url: null }, "it could not");
+    const message = workflowRunWatchStoppedMessage({ ...watch, url: null }, "it could not");
     expect(message.text).toContain("Release run (acme/web run 42) because it could not.");
     expect(message.notification.outcome).toBe("failed");
   });

@@ -2507,19 +2507,18 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
       const run = { host: "github.com", repository: "supabitapp/supacode-next", runId: 42 };
       const url = "https://github.com/supabitapp/supacode-next/actions/runs/42";
       yield* orchestrator.dispatch({
-        type: "thread.workflow-run.watch",
+        type: "thread.workflow-run-watch.start",
         commandId: CommandId.make("run-watch-start"),
         threadId,
         ...run,
-        watching: true,
-        run: { name: "Release", url },
+        name: "Release",
+        url,
       });
       assert.deepEqual((yield* orchestrator.getThreadShell(threadId))?.pendingBackgroundTasks, [
         {
           taskId: "workflow-run-watch:github.com/supabitapp/supacode-next#42",
           description: "Watching Release run",
           kind: "monitor",
-          githubActionsRun: run,
         },
       ]);
 
@@ -2582,6 +2581,92 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
     }),
   );
 
+  it.effect("stops watching a run it cannot read, or that outlives six hours, and says so", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const threadId = ThreadId.make("runtime-workflow-run-watch-stops");
+      const projectId = ProjectId.make("run-watch-stops-project");
+      yield* seedProject({
+        projectId,
+        title: "Watch stops",
+        workspaceRoot: "/workspace/run-watch-stops",
+        defaultModelSelection: null,
+        createdAt: "2026-10-01T00:00:00.000Z",
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("run-watch-stops-create"),
+        threadId,
+        projectId,
+        title: "Watch stops",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+      });
+      const names = { 1: "Unreadable", 2: "Unsupported", 3: "Stuck" } as const;
+      for (const runId of [1, 2, 3] as const) {
+        yield* orchestrator.dispatch({
+          type: "thread.workflow-run-watch.start",
+          commandId: CommandId.make(`run-watch-stops-start-${runId}`),
+          threadId,
+          host: "github.com",
+          repository: "supabitapp/supacode-next",
+          runId,
+          name: names[runId],
+          url: null,
+        });
+      }
+      const reactor = yield* WorkflowRunWatchReactor.make.pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NodeServices.layer,
+            Layer.mock(PullRequestService.PullRequestService)({
+              workflowRun: (input) =>
+                input.runId === 1
+                  ? Effect.die("host unreachable")
+                  : Effect.succeed(
+                      input.runId === 2
+                        ? null
+                        : {
+                            host: "github.com",
+                            repository: "supabitapp/supacode-next",
+                            name: "Stuck",
+                            url: null,
+                            status: "pending" as const,
+                            checks: [],
+                          },
+                    ),
+            }),
+          ),
+        ),
+      );
+      const watched = Effect.map(orchestrator.getThreadProjection(threadId), (projection) =>
+        (projection.thread.workflowRunWatches ?? []).map((watch) => watch.runId),
+      );
+      const summaries = Effect.map(
+        orchestrator.getThreadRecords(threadId, ["messages"]),
+        ({ messages }) => messages.flatMap((message) => message.notification?.summary ?? []),
+      );
+
+      yield* reactor.sweep;
+      assert.deepEqual(yield* watched, [1, 3]);
+      for (let pass = 1; pass < 8; pass += 1) yield* reactor.sweep;
+      assert.deepEqual(yield* watched, [3]);
+      yield* TestClock.adjust("6 hours");
+      yield* reactor.sweep;
+      assert.deepEqual(yield* watched, []);
+      assert.deepEqual(yield* summaries, [
+        "Unsupported: stopped watching",
+        "Unreadable: stopped watching",
+        "Stuck: stopped watching",
+      ]);
+    }),
+  );
+
   it.effect("ends a workflow run watch on unwatch and settle, and ignores a late end", () =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
@@ -2602,14 +2687,23 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
       });
       const run = { host: "github.com", repository: "supabitapp/supacode-next", runId: 7 };
       const watching = (commandId: string, on: boolean) =>
-        orchestrator.dispatch({
-          type: "thread.workflow-run.watch",
-          commandId: CommandId.make(commandId),
-          threadId,
-          ...run,
-          watching: on,
-          ...(on ? { run: { name: "CI", url: null } } : {}),
-        });
+        orchestrator.dispatch(
+          on
+            ? {
+                type: "thread.workflow-run-watch.start",
+                commandId: CommandId.make(commandId),
+                threadId,
+                ...run,
+                name: "CI",
+                url: null,
+              }
+            : {
+                type: "thread.workflow-run.unwatch",
+                commandId: CommandId.make(commandId),
+                threadId,
+                ...run,
+              },
+        );
       const watches = Effect.map(
         orchestrator.getThreadProjection(threadId),
         (projection) => projection.thread.workflowRunWatches ?? [],

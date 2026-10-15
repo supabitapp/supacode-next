@@ -281,10 +281,10 @@ export function createPullRequestEnvironmentAtoms<R, E>(
     }),
     /** The jobs of a CI run that background work follows, read again while it is shown. */
     workflowRun: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:pull-requests:workflow-run-checks",
+      label: "environment-data:pull-requests:workflow-run",
       tag: WS_METHODS.pullRequestsWorkflowRun,
-      staleTimeMs: 20_000,
-      refreshIntervalMs: 20_000,
+      staleTimeMs: 30_000,
+      refreshIntervalMs: 30_000,
     }),
     activity,
     threadComments: createEnvironmentRpcCommand(runtime, {

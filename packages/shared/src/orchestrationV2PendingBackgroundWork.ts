@@ -296,7 +296,6 @@ function watchTasks(input: {
     taskId: `workflow-run-watch:${watch.host}/${watch.repository}#${watch.runId}`,
     description: `Watching ${watch.name} run`,
     kind: "monitor" as const,
-    githubActionsRun: { host: watch.host, repository: watch.repository, runId: watch.runId },
   }));
   return [...pullRequestWatchTasks(input.pullRequests), ...runWatches];
 }

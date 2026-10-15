@@ -335,8 +335,8 @@ export const WatchWorkflowRunResult = Schema.Struct({
 export type WatchWorkflowRunResult = typeof WatchWorkflowRunResult.Type;
 
 export const UnwatchWorkflowRunResult = Schema.Struct({
-  host: Schema.String,
-  repository: Schema.String,
+  host: Schema.NullOr(Schema.String),
+  repository: Schema.NullOr(Schema.String),
   runId: Schema.Int,
   watching: Schema.Boolean,
   wasWatching: Schema.Boolean.annotate({

@@ -9,7 +9,6 @@ import type {
   PullRequestCapabilities,
   PullRequestChecksState,
   PullRequestCheck,
-  PullRequestCheckStatus,
   PullRequestChecks,
   PullRequestComment,
   PullRequestFileViewed,
@@ -37,6 +36,7 @@ import type {
   PullRequestUpdateMethod,
   PullRequestViewerPermissions,
   SourceControlProviderKind,
+  PullRequestWorkflowRun,
 } from "@supaterm/contracts";
 import { SourceControlProviderKind as SourceControlProviderKindSchema } from "@supaterm/contracts";
 
@@ -311,15 +311,8 @@ export interface ProviderFileRevisions {
   readonly complete?: boolean;
 }
 
-export interface ProviderWorkflowRun {
-  /** The repository the run was read from, which a run named only by id resolves from `cwd`. */
-  readonly repository: string;
-  readonly name: string;
-  readonly url: string | null;
-  /** The run's own verdict: pending until it completes. */
-  readonly status: PullRequestCheckStatus;
-  readonly checks: ReadonlyArray<PullRequestCheck>;
-}
+/** A run as its host reads it; `repository` is resolved from `cwd` when the caller named none. */
+export type ProviderWorkflowRun = Omit<PullRequestWorkflowRun, "host">;
 
 export interface ProviderRepositoryRef {
   readonly cwd: string;

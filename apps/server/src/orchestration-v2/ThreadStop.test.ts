@@ -111,14 +111,14 @@ const watchRun = (threadId: ThreadId, runId: number) =>
   Effect.gen(function* () {
     const orchestrator = yield* Orchestrator.OrchestratorV2;
     yield* orchestrator.dispatch({
-      type: "thread.workflow-run.watch",
+      type: "thread.workflow-run-watch.start",
       commandId: CommandId.make(`watch-run:${threadId}:${runId}`),
       threadId,
       host: "github.com",
       repository: "supabitapp/supacode-next",
       runId,
-      watching: true,
-      run: { name: "CI", url: null },
+      name: "CI",
+      url: null,
     });
   });
 

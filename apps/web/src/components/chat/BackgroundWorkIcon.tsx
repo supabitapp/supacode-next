@@ -1,8 +1,8 @@
 import type {
   EnvironmentId,
-  OrchestrationV2GitHubActionsRun,
   ProjectId,
   ScopedThreadRef,
+  ThreadWorkflowRunKey,
 } from "@supaterm/contracts";
 
 import { cn } from "~/lib/utils";
@@ -27,7 +27,7 @@ export function BackgroundWorkIcon({
   threadRef,
 }: {
   waiting: boolean;
-  run: OrchestrationV2GitHubActionsRun | null;
+  run: ThreadWorkflowRunKey | null;
   environmentId: EnvironmentId;
   projectId: ProjectId;
   threadRef: ScopedThreadRef | null;
@@ -35,7 +35,10 @@ export function BackgroundWorkIcon({
   const { data: workflowRun } = useEnvironmentQuery(
     run === null
       ? null
-      : pullRequestEnvironment.workflowRun({ environmentId, input: { projectId, ...run } }),
+      : pullRequestEnvironment.workflowRun({
+          environmentId,
+          input: { projectId, host: run.host, repository: run.repository, runId: run.runId },
+        }),
   );
   const checksState = workflowRun ? pullRequestChecksState(workflowRun.checks) : null;
   // A dev server can run for hours after the agent is done, so only work

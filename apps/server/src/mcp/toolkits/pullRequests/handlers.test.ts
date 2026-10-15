@@ -330,15 +330,12 @@ describe("pull request toolkit handlers", () => {
       expect(result).toMatchObject({ repository: "acme/web", runId: 42, status: "pending" });
       expect(yield* Ref.get(harness.commands)).toMatchObject([
         {
-          type: "thread.workflow-run.watch",
+          type: "thread.workflow-run-watch.start",
           host: "github.com",
           repository: "acme/web",
           runId: 42,
-          watching: true,
-          run: {
-            name: "Release",
-            url: "https://github.com/supabitapp/supacode-next/actions/runs/42",
-          },
+          name: "Release",
+          url: "https://github.com/supabitapp/supacode-next/actions/runs/42",
         },
       ]);
     }),
@@ -388,7 +385,7 @@ describe("pull request toolkit handlers", () => {
         wasWatching: true,
       });
       expect(yield* Ref.get(harness.commands)).toMatchObject([
-        { type: "thread.workflow-run.watch", repository: "acme/web", runId: 42, watching: false },
+        { type: "thread.workflow-run.unwatch", repository: "acme/web", runId: 42 },
       ]);
     }),
   );

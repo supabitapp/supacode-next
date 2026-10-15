@@ -543,7 +543,6 @@ describe("presentPendingBackgroundWork", () => {
       title: "Waiting on subagent Luna Window Properties",
       items: [{ taskId: "luna", kind: "subagent", label: "Luna Window Properties", childThreadId }],
       waiting: true,
-      githubActionsRun: null,
     });
   });
 
@@ -572,22 +571,6 @@ describe("presentPendingBackgroundWork", () => {
       "Waiting on a monitor",
     );
     expect(presentPendingBackgroundWork([])).toBeNull();
-  });
-
-  it("names the CI run only when the work watches exactly one", () => {
-    const run = { host: "github.com", repository: "acme/web", runId: 42 };
-    expect(
-      presentPendingBackgroundWork([
-        { taskId: "dev", kind: "command", description: "vp run dev" },
-        { taskId: "watch", kind: "monitor", description: "Watching CI run", githubActionsRun: run },
-      ])?.githubActionsRun,
-    ).toEqual(run);
-    expect(
-      presentPendingBackgroundWork([
-        { taskId: "a", kind: "monitor", githubActionsRun: run },
-        { taskId: "b", kind: "monitor", githubActionsRun: { ...run, runId: 43 } },
-      ])?.githubActionsRun,
-    ).toBeNull();
   });
 
   // A command left running, such as a dev server, does not wake the agent.

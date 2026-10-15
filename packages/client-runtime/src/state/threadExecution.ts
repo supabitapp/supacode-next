@@ -8,7 +8,6 @@ import {
   isOrchestrationV2WorkActive,
   isProviderNativeSubagentThread,
   type ModelSelection,
-  type OrchestrationV2GitHubActionsRun,
   type OrchestrationV2NotificationSource,
   type OrchestrationV2PendingBackgroundTask,
   type OrchestrationV2ProviderGoal,
@@ -332,8 +331,6 @@ export interface PendingBackgroundWorkPresentation {
    * only commands remain, such as a dev server: the agent is done.
    */
   readonly waiting: boolean;
-  /** The CI run the work watches, when it watches exactly one. */
-  readonly githubActionsRun: OrchestrationV2GitHubActionsRun | null;
 }
 
 function joinWithAnd(parts: ReadonlyArray<string>): string {
@@ -347,8 +344,6 @@ export function presentPendingBackgroundWork(
 ): PendingBackgroundWorkPresentation | null {
   if (tasks.length === 0) return null;
   const waiting = backgroundWorkHoldsCompletion(tasks);
-  const runs = tasks.flatMap((task) => task.githubActionsRun ?? []);
-  const githubActionsRun = runs.length === 1 ? runs[0]! : null;
   const items = tasks
     .map((task): PendingBackgroundWorkItem => {
       const description = task.description?.trim();
@@ -382,7 +377,7 @@ export function presentPendingBackgroundWork(
       : named
         ? `Running: ${only.label}`
         : `Running a ${noun}`;
-    return { title, items, waiting, githubActionsRun };
+    return { title, items, waiting };
   }
   const counts = new Map<BackgroundWorkKind, number>();
   for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
@@ -390,12 +385,7 @@ export function presentPendingBackgroundWork(
     const { singular, plural } = BACKGROUND_WORK_KINDS[kind];
     return `${count} ${count === 1 ? singular : plural}`;
   });
-  return {
-    title: `${waiting ? "Waiting on" : "Running"} ${joinWithAnd(groups)}`,
-    items,
-    waiting,
-    githubActionsRun,
-  };
+  return { title: `${waiting ? "Waiting on" : "Running"} ${joinWithAnd(groups)}`, items, waiting };
 }
 
 export interface ProviderGoalPresentation {

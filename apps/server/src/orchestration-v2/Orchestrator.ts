@@ -31,7 +31,6 @@ import {
   type OrchestrationV2InternalCommand,
   type OrchestrationV2ServerCommand,
   type ThreadPullRequestLink,
-  type ThreadPullRequestWatch,
   type OrchestrationV2AppThread,
   type OrchestrationV2ContextHandoff,
   type OrchestrationV2ContextSourcePoint,
@@ -113,6 +112,7 @@ import {
   type ProjectionCheckpointContext,
   type ShellSnapshotOptions,
 } from "./ProjectionStore.ts";
+import { withPullRequestWatch, withoutWatches } from "./threadWatches.ts";
 import { sameWorkflowRun } from "./workflowRunWatch.ts";
 import { ProviderAdapterRegistryV2 } from "./ProviderAdapterRegistry.ts";
 import * as ProviderContinuationRequests from "@supaterm/provider-core/server/ProviderContinuationRequests";
@@ -464,7 +464,8 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.pull-request-link.sync":
     case "thread.pull-request.watch":
     case "thread.pull-request-watch.sync":
-    case "thread.workflow-run.watch":
+    case "thread.workflow-run.unwatch":
+    case "thread.workflow-run-watch.start":
     case "thread.workflow-run-watch.end":
     case "thread.pull-request.sync":
     case "thread.title.regeneration.complete":
@@ -552,22 +553,14 @@ function hasLiveRun(projection: Pick<OrchestrationV2ThreadProjection, "runs">): 
   );
 }
 
-/** The link with its watch replaced, or removed when `watch` is undefined. */
-function withPullRequestWatch(
-  link: ThreadPullRequestLink,
-  watch: ThreadPullRequestWatch | undefined,
-): ThreadPullRequestLink {
-  const { watch: _previous, ...rest } = link;
-  return watch === undefined ? rest : { ...rest, watch };
-}
-
-/** The thread with every watch ended, for a thread that takes no more wakes. */
-function withoutWatches(thread: OrchestrationV2AppThread): OrchestrationV2AppThread {
-  return {
-    ...thread,
-    pullRequests: thread.pullRequests?.map((link) => withPullRequestWatch(link, undefined)),
-    ...(thread.workflowRunWatches === undefined ? {} : { workflowRunWatches: [] }),
-  };
+/** Same rule as a direct message.dispatch: a provider-native subagent takes no messages. */
+function takesNoWakes(thread: OrchestrationV2AppThread): boolean {
+  return (
+    thread.archivedAt !== null ||
+    thread.settledOverride === "settled" ||
+    thread.settledAt !== null ||
+    isProviderNativeSubagentThread(thread)
+  );
 }
 
 /** A legacy single-PR link as a link entry. Re-linking a pull request keeps its watch. */
@@ -2369,114 +2362,55 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
 
   // Checked under the thread lock: the watch or the thread can change while the host is read.
   // The watch is recorded first so the wake's own thread events carry it.
-  const dispatchPullRequestWatchSync = Effect.fn("orchestrationV2.dispatch.pullRequestWatchSync")(
-    function* (
-      command: Extract<
-        OrchestrationV2ServerCommand,
-        { readonly type: "thread.pull-request-watch.sync" }
-      >,
-      events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
-      effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
-    ) {
-      const thread = yield* projectionStore
-        .getThread(command.threadId)
-        .pipe(
-          Effect.mapError(
-            (cause) => new OrchestratorProjectionError({ threadId: command.threadId, cause }),
-          ),
-        );
-      const key = normalizeThreadPullRequestKey(command);
-      const link = threadPullRequestsOf(thread).find(
-        (candidate) =>
-          candidate.source !== "stack-dismissed" && threadPullRequestKeysEqual(candidate, key),
+  const dispatchWatchUpdate = Effect.fn("orchestrationV2.dispatch.watchUpdate")(function* (
+    command: Extract<
+      OrchestrationV2ServerCommand,
+      { readonly type: "thread.pull-request-watch.sync" | "thread.workflow-run-watch.end" }
+    >,
+    events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
+    effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
+  ) {
+    const thread = yield* projectionStore
+      .getThread(command.threadId)
+      .pipe(
+        Effect.mapError(
+          (cause) => new OrchestratorProjectionError({ threadId: command.threadId, cause }),
+        ),
       );
-      // Same rule as a direct message.dispatch: a provider-native subagent takes no messages.
-      const inactive =
-        thread.archivedAt !== null ||
-        thread.settledOverride === "settled" ||
-        thread.settledAt !== null ||
-        isProviderNativeSubagentThread(thread);
-      if (link?.watch?.startedAt !== command.startedAt || (command.wake && inactive)) {
-        return yield* new OrchestratorDispatchError({
-          commandId: command.commandId,
-          commandType: command.type,
-          cause: "The pull request watch ended or its thread settled while it was read.",
-        });
-      }
-      yield* dispatchThreadMutation(command, events, effects);
-      if (command.wake === undefined) return;
-      yield* dispatchMessage(
-        {
-          type: "message.dispatch",
-          commandId: command.commandId,
-          threadId: command.threadId,
-          messageId: command.wake.messageId,
-          text: command.wake.text,
-          notification: command.wake.notification,
-          attachments: [],
-          dispatchMode: { type: "queue_after_active" },
-          createdBy: "agent",
-          creationSource: "server",
-        },
-        events,
-        effects,
-      );
-    },
-  );
-
-  // Checked under the thread lock, like a pull request watch's sync: the watch or the thread can
-  // change while the run is read. The watch ends first so the wake's thread events show it gone.
-  const dispatchWorkflowRunWatchEnd = Effect.fn("orchestrationV2.dispatch.workflowRunWatchEnd")(
-    function* (
-      command: Extract<
-        OrchestrationV2ServerCommand,
-        { readonly type: "thread.workflow-run-watch.end" }
-      >,
-      events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
-      effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
-    ) {
-      const thread = yield* projectionStore
-        .getThread(command.threadId)
-        .pipe(
-          Effect.mapError(
-            (cause) => new OrchestratorProjectionError({ threadId: command.threadId, cause }),
-          ),
-        );
-      const watch = thread.workflowRunWatches?.find((candidate) =>
-        sameWorkflowRun(candidate, command),
-      );
-      const inactive =
-        thread.archivedAt !== null ||
-        thread.settledOverride === "settled" ||
-        thread.settledAt !== null ||
-        isProviderNativeSubagentThread(thread);
-      if (watch?.startedAt !== command.startedAt || (command.wake && inactive)) {
-        return yield* new OrchestratorDispatchError({
-          commandId: command.commandId,
-          commandType: command.type,
-          cause: "The workflow run watch ended or its thread settled while it was read.",
-        });
-      }
-      yield* dispatchThreadMutation(command, events, effects);
-      if (command.wake === undefined) return;
-      yield* dispatchMessage(
-        {
-          type: "message.dispatch",
-          commandId: command.commandId,
-          threadId: command.threadId,
-          messageId: command.wake.messageId,
-          text: command.wake.text,
-          notification: command.wake.notification,
-          attachments: [],
-          dispatchMode: { type: "queue_after_active" },
-          createdBy: "agent",
-          creationSource: "server",
-        },
-        events,
-        effects,
-      );
-    },
-  );
+    const startedAt =
+      command.type === "thread.pull-request-watch.sync"
+        ? threadPullRequestsOf(thread).find(
+            (candidate) =>
+              candidate.source !== "stack-dismissed" &&
+              threadPullRequestKeysEqual(candidate, normalizeThreadPullRequestKey(command)),
+          )?.watch?.startedAt
+        : thread.workflowRunWatches?.find((watch) => sameWorkflowRun(watch, command))?.startedAt;
+    if (startedAt !== command.startedAt || (command.wake && takesNoWakes(thread))) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: "The watch ended or its thread settled while it was read.",
+      });
+    }
+    yield* dispatchThreadMutation(command, events, effects);
+    if (command.wake === undefined) return;
+    yield* dispatchMessage(
+      {
+        type: "message.dispatch",
+        commandId: command.commandId,
+        threadId: command.threadId,
+        messageId: command.wake.messageId,
+        text: command.wake.text,
+        notification: command.wake.notification,
+        attachments: [],
+        dispatchMode: { type: "queue_after_active" },
+        createdBy: "agent",
+        creationSource: "server",
+      },
+      events,
+      effects,
+    );
+  });
 
   const dispatchThreadMutation = Effect.fn("orchestrationV2.dispatch.threadMutation")(function* (
     command: Extract<
@@ -2501,7 +2435,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.pull-request-link.sync"
           | "thread.pull-request.watch"
           | "thread.pull-request-watch.sync"
-          | "thread.workflow-run.watch"
+          | "thread.workflow-run.unwatch"
+          | "thread.workflow-run-watch.start"
           | "thread.workflow-run-watch.end"
           | "thread.pull-request.sync"
           | "thread.title.regeneration.complete"
@@ -2531,9 +2466,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       });
     }
     const startsWatch =
-      (command.type === "thread.pull-request.watch" ||
-        command.type === "thread.workflow-run.watch") &&
-      command.watching;
+      (command.type === "thread.pull-request.watch" && command.watching) ||
+      command.type === "thread.workflow-run-watch.start";
     if (startsWatch && isProviderNativeSubagentThread(thread)) {
       return yield* new OrchestratorSubagentThreadReadOnlyError({
         commandId: command.commandId,
@@ -2561,13 +2495,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: `Thread ${command.threadId} is a subagent; its parent thread owns the watch.`,
       });
     }
-    if (command.type === "thread.workflow-run.watch" && command.watching && !command.run) {
-      return yield* new OrchestratorDispatchError({
-        commandId: command.commandId,
-        commandType: command.type,
-        cause: "A workflow run watch starts with the run as it was read.",
-      });
-    }
     // Only the agent's watch_pull_request links as "agent", and only agents watch runs. A call
     // that raced a Stop may land after its run ended, so the latest run that executed decides.
     // A user can still watch a pull request.
@@ -2575,7 +2502,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       (command.type === "thread.pull-request.watch" &&
         command.watching &&
         command.link?.source === "agent") ||
-      (command.type === "thread.workflow-run.watch" && command.watching)
+      command.type === "thread.workflow-run-watch.start"
     ) {
       const { runs } = yield* projectionStore
         .getThreadRecords(command.threadId, ["runs"])
@@ -3253,35 +3180,37 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             updatedAt: command.type === "thread.pull-request.watch" ? now : thread.updatedAt,
           };
         }
-        case "thread.workflow-run.watch":
+        case "thread.workflow-run-watch.start":
+        case "thread.workflow-run.unwatch":
         case "thread.workflow-run-watch.end": {
           const watches = thread.workflowRunWatches ?? [];
           const existing = watches.find((watch) => sameWorkflowRun(watch, command));
           const ended = { ...thread, workflowRunWatches: watches.filter((w) => w !== existing) };
-          if (command.type === "thread.workflow-run-watch.end") {
+          switch (command.type) {
             // A read that raced a stop or a newer watch of the run must not end that one.
             // Ending is recorded progress, not activity.
-            return existing?.startedAt === command.startedAt ? ended : thread;
+            case "thread.workflow-run-watch.end":
+              return existing?.startedAt === command.startedAt ? ended : thread;
+            case "thread.workflow-run.unwatch":
+              return existing === undefined ? thread : { ...ended, updatedAt: now };
+            case "thread.workflow-run-watch.start":
+              if (existing !== undefined) return thread;
+              return {
+                ...thread,
+                workflowRunWatches: [
+                  ...watches,
+                  {
+                    host: command.host,
+                    repository: command.repository,
+                    runId: command.runId,
+                    name: command.name,
+                    url: command.url,
+                    startedAt: DateTime.formatIso(now),
+                  },
+                ],
+                updatedAt: now,
+              };
           }
-          if (!command.watching) {
-            return existing === undefined ? thread : { ...ended, updatedAt: now };
-          }
-          if (existing !== undefined || command.run === undefined) return thread;
-          return {
-            ...thread,
-            workflowRunWatches: [
-              ...watches,
-              {
-                host: command.host,
-                repository: command.repository,
-                runId: command.runId,
-                name: command.run.name,
-                url: command.run.url,
-                startedAt: DateTime.formatIso(now),
-              },
-            ],
-            updatedAt: now,
-          };
         }
         case "thread.pull-request.sync":
           return {
@@ -3375,7 +3304,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         case "thread.pull-request-watch.sync":
         case "thread.pull-request.sync":
           return "thread.pull-request-synced" as const;
-        case "thread.workflow-run.watch":
+        case "thread.workflow-run.unwatch":
+        case "thread.workflow-run-watch.start":
         case "thread.workflow-run-watch.end":
           return "thread.workflow-run-watch-synced" as const;
         case "thread.runtime-mode.set":
@@ -8904,7 +8834,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
 
   /**
    * What Stop holds besides the run it interrupts: queued runs wait for the user, the
-   * thread's pull request watches end, and every wake its delegated tasks still owe is
+   * thread's pull request and workflow run watches end, and every wake its delegated tasks still owe is
    * dropped, since Stop stops those tasks too. Nothing automatic starts the thread again.
    * `cohortRunIds` are dropped even when they owe nothing, like a plain interrupt's.
    */
@@ -8953,14 +8883,15 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           },
         });
       }
-      // Carries the pull request watches' end too, as the later of the two events.
+      // Carries the pull request watches' end too, as the later of the two events. Stop is
+      // activity, and this event's payload sets the thread's update time.
       if ((thread.workflowRunWatches ?? []).length > 0) {
         yield* emitEvent({
           type: "thread.workflow-run-watch-synced",
           threadId: thread.id,
           providerInstanceId: thread.providerInstanceId,
           occurredAt: input.now,
-          payload: withoutWatches(thread),
+          payload: { ...withoutWatches(thread), updatedAt: input.now },
         });
       }
       const cohortRunIds = new Set(input.cohortRunIds);
@@ -10874,14 +10805,13 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "provider.switch":
         yield* dispatchThreadMutation(command, events, effects);
         break;
-      case "thread.pull-request-watch.sync":
-        yield* dispatchPullRequestWatchSync(command, events, effects);
-        break;
-      case "thread.workflow-run.watch":
+      case "thread.workflow-run.unwatch":
+      case "thread.workflow-run-watch.start":
         yield* dispatchThreadMutation(command, events, effects);
         break;
+      case "thread.pull-request-watch.sync":
       case "thread.workflow-run-watch.end":
-        yield* dispatchWorkflowRunWatchEnd(command, events, effects);
+        yield* dispatchWatchUpdate(command, events, effects);
         break;
       case "provider-session.detach":
         yield* dispatchProviderSessionDetach(command, events, effects);

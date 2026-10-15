@@ -13,14 +13,17 @@ import * as PullRequestService from "../pullRequest/PullRequestService.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
-import {
-  WORKFLOW_RUN_READ_FAILURE_LIMIT,
-  workflowRunWatchMessage,
-  workflowRunWatchUnreadableMessage,
-} from "./workflowRunWatch.ts";
+import { workflowRunWatchMessage, workflowRunWatchStoppedMessage } from "./workflowRunWatch.ts";
 
 /** Seconds between passes. A run takes minutes; a pass costs two reads per watched run. */
 const SWEEP_SECONDS = 60;
+/** Reads in a row that failed for a reason other than a rate limit before the watch ends. */
+const READ_FAILURE_LIMIT = 8;
+/**
+ * How long a watch lasts, GitHub's own default job timeout. A run waiting on an approval can
+ * stay pending for days, and would hold its thread in Working the whole time.
+ */
+const MAX_WATCH_MS = 6 * 60 * 60_000;
 
 type WatchTarget = {
   readonly thread: ProjectionStore.ProjectionThreadWorkflowRunWatches;
@@ -110,13 +113,13 @@ export const make = Effect.gen(function* () {
         if (PullRequestService.isRateLimited(read.cause)) return;
         const failures = (readFailures.get(key) ?? 0) + 1;
         readFailures.set(key, failures);
-        if (failures >= WORKFLOW_RUN_READ_FAILURE_LIMIT) {
+        if (failures >= READ_FAILURE_LIMIT) {
           yield* end(
             target,
             "unreadable",
-            workflowRunWatchUnreadableMessage(
+            workflowRunWatchStoppedMessage(
               watch,
-              `it failed to read it ${WORKFLOW_RUN_READ_FAILURE_LIMIT} times in a row`,
+              `it failed to read it ${READ_FAILURE_LIMIT} times in a row`,
             ),
           ).pipe(Effect.catch(() => end(target, "unreadable")));
           readFailures.delete(key);
@@ -129,11 +132,20 @@ export const make = Effect.gen(function* () {
         return yield* end(
           target,
           "unsupported",
-          workflowRunWatchUnreadableMessage(watch, "this project's host has no runs it can read"),
+          workflowRunWatchStoppedMessage(watch, "this project's host has no runs it can read"),
         );
       }
-      if (run.status === "pending") return;
-      yield* end(target, "completed", workflowRunWatchMessage(watch, run));
+      if (run.status !== "pending") {
+        return yield* end(target, "completed", workflowRunWatchMessage(watch, run));
+      }
+      const now = yield* Clock.currentTimeMillis;
+      if (now - Date.parse(watch.startedAt) >= MAX_WATCH_MS) {
+        yield* end(
+          target,
+          "expired",
+          workflowRunWatchStoppedMessage(watch, "it was still running after 6 hours"),
+        );
+      }
     });
 
   const sweep = Effect.gen(function* () {

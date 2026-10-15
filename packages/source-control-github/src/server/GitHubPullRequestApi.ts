@@ -22,7 +22,6 @@ import {
   type PullRequestAction,
   type PullRequestStackHead,
   type PullRequestActor,
-  type PullRequestCheck,
   type PullRequestComment,
   type PullRequestCommit,
   type PullRequestFileViewed,
@@ -41,6 +40,7 @@ import {
   type PullRequestThreadCommentsResult,
   type PullRequestUpdateMethod,
   type PullRequestPreview,
+  type PullRequestWorkflowRun,
 } from "@supaterm/contracts";
 
 import * as GitHubApi from "./GitHubApi.ts";
@@ -70,7 +70,6 @@ import {
   decodeWorkflowRunJson,
   pullRequestCoreGraphQlQuery,
   type GitHubPullRequestCore,
-  type GitHubWorkflowRunSummary,
   type GitHubPullRequestSummary,
   type GitHubPullRequestWatchFingerprint,
   decodePullRequestPreviewJson,
@@ -453,11 +452,8 @@ export interface GitHubPullRequestFilesViewed {
   readonly truncated: boolean;
 }
 
-export interface GitHubWorkflowRun extends GitHubWorkflowRunSummary {
-  /** `owner/name`, resolved from the checkout when the caller named no repository. */
-  readonly repository: string;
-  readonly checks: ReadonlyArray<PullRequestCheck>;
-}
+/** A run and its jobs; `repository` is resolved from the checkout when the caller named none. */
+export type GitHubWorkflowRun = Omit<PullRequestWorkflowRun, "host">;
 
 export class GitHubPullRequestApi extends Context.Service<
   GitHubPullRequestApi,
@@ -1757,24 +1753,32 @@ export const make = Effect.gen(function* () {
           ? yield* checkoutRepository(input.cwd, input.host)
           : parseRepositorySelector(input.repository);
       const runPath = `repos/${owner}/${name}/actions/runs/${input.runId}`;
-      const run = yield* restRead({
-        cwd: input.cwd,
-        host: input.host,
-        operation: "getWorkflowRun",
-        path: runPath,
-        decode: decodeWorkflowRunJson,
-      });
-      const checks: PullRequestCheck[] = [];
-      for (let page = 1; page <= workflowRunJobPages; page++) {
-        const read = yield* restRead({
+      const jobsPage = (page: number) =>
+        restRead({
           cwd: input.cwd,
           host: input.host,
           operation: "getWorkflowRun",
           path: `${runPath}/jobs?per_page=100&page=${page}`,
           decode: decodeWorkflowRunJobsJson,
         });
-        checks.push(...read.checks);
-        if (read.rawCount < 100) break;
+      const [run, firstPage] = yield* Effect.all(
+        [
+          restRead({
+            cwd: input.cwd,
+            host: input.host,
+            operation: "getWorkflowRun",
+            path: runPath,
+            decode: decodeWorkflowRunJson,
+          }),
+          jobsPage(1),
+        ],
+        { concurrency: 2 },
+      );
+      const checks = [...firstPage.checks];
+      let last = firstPage;
+      for (let page = 2; page <= workflowRunJobPages && last.rawCount === 100; page++) {
+        last = yield* jobsPage(page);
+        checks.push(...last.checks);
       }
       return { ...run, repository: `${owner}/${name}`, checks };
     });

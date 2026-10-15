@@ -1,25 +1,19 @@
 import type {
-  OrchestrationV2GitHubActionsRun,
   OrchestrationV2Notification,
   PullRequestCheckStatus,
   PullRequestWorkflowRun,
+  ThreadWorkflowRunKey,
   ThreadWorkflowRunWatch,
 } from "@supaterm/contracts";
 
 /** Whether two references name one run; hosts and repositories compare case-insensitively. */
-export function sameWorkflowRun(
-  left: OrchestrationV2GitHubActionsRun,
-  right: OrchestrationV2GitHubActionsRun,
-): boolean {
+export function sameWorkflowRun(left: ThreadWorkflowRunKey, right: ThreadWorkflowRunKey): boolean {
   return (
     left.runId === right.runId &&
     left.host.toLowerCase() === right.host.toLowerCase() &&
     left.repository.toLowerCase() === right.repository.toLowerCase()
   );
 }
-
-/** Reads in a row that failed for a reason other than a rate limit before the watch ends. */
-export const WORKFLOW_RUN_READ_FAILURE_LIMIT = 8;
 
 const VERDICTS: Record<PullRequestCheckStatus, string> = {
   success: "succeeded",
@@ -83,8 +77,8 @@ export function workflowRunWatchMessage(
   };
 }
 
-/** The wake for a watch that ended because the run could not be read. */
-export function workflowRunWatchUnreadableMessage(
+/** The wake for a watch that ended before its run completed. */
+export function workflowRunWatchStoppedMessage(
   watch: ThreadWorkflowRunWatch,
   reason: string,
 ): WorkflowRunWatchWake {
@@ -93,7 +87,7 @@ export function workflowRunWatchUnreadableMessage(
     notification: {
       source: { kind: "monitor" },
       outcome: "failed",
-      summary: `${watch.name}: stopped watching, could not read it`,
+      summary: `${watch.name}: stopped watching`,
     },
   };
 }

@@ -3095,7 +3095,6 @@ export default function ChatView(props: ChatViewProps) {
   });
   const pullRequestsCapabilityKnown = serverConfig !== null;
   const supportsPullRequests = serverConfig?.environment.capabilities.pullRequests === true;
-  const supportsWorkflowRuns = serverConfig?.environment.capabilities.workflowRuns === true;
   const attachmentEnvironmentConfig = environmentById.get(environmentId)?.serverConfig ?? null;
   const attachmentUploadsCapabilityKnown = attachmentEnvironmentConfig !== null;
   const supportsQuestionAttachments =
@@ -7720,7 +7719,9 @@ export default function ChatView(props: ChatViewProps) {
     if (presentation === null || !activeThread) {
       return null;
     }
-    const run = supportsWorkflowRuns ? presentation.githubActionsRun : null;
+    // One watched run colors the dot; with more, no one run speaks for the banner.
+    const watches = serverProjection?.thread.workflowRunWatches ?? [];
+    const run = watches.length === 1 ? watches[0]! : null;
     return {
       id: `background-work:${activeThread.id}`,
       variant: "default",
@@ -7778,7 +7779,7 @@ export default function ChatView(props: ChatViewProps) {
     handleStopBackgroundWork,
     isStoppingBackgroundWork,
     onOpenRelatedThread,
-    supportsWorkflowRuns,
+    serverProjection?.thread.workflowRunWatches,
   ]);
   // Settled, snoozed, and woke are thread state, not composer actions: each
   // gets one quiet line after the last message instead of a banner. A woken

@@ -324,8 +324,9 @@ const make = Effect.gen(function* () {
       return yield* new WorkflowRunWatchFromSubagentError();
     }
     const target = yield* workflowRunTarget(input);
+    // Read fresh: a run the agent just reran must not look completed from a cached read.
     const run = yield* pullRequestService
-      .workflowRun({ projectId: thread.projectId, ...target })
+      .workflowRun({ projectId: thread.projectId, ...target }, { fresh: true })
       .pipe(Effect.mapError((error) => new WorkflowRunUnreadableError({ detail: error.message })));
     if (run === null) {
       return yield* new WorkflowRunUnreadableError({
@@ -340,12 +341,12 @@ const make = Effect.gen(function* () {
     if (run.status !== "pending") return { ...result, watching: before, wasWatching: before };
     yield* engine
       .dispatch({
-        type: "thread.workflow-run.watch",
+        type: "thread.workflow-run-watch.start",
         commandId: yield* commandId("mcp-run-watch", thread.id),
         threadId: thread.id,
         ...identity,
-        watching: true,
-        run: { name: run.name, url: run.url },
+        name: run.name,
+        url: run.url,
       })
       .pipe(Effect.catchCause(dispatchFailure(WorkflowRunWatchFailedError)));
     return {
@@ -370,19 +371,18 @@ const make = Effect.gen(function* () {
     if (existing !== undefined) {
       yield* engine
         .dispatch({
-          type: "thread.workflow-run.watch",
+          type: "thread.workflow-run.unwatch",
           commandId: yield* commandId("mcp-run-unwatch", thread.id),
           threadId: thread.id,
           host: existing.host,
           repository: existing.repository,
           runId: existing.runId,
-          watching: false,
         })
         .pipe(Effect.catchCause(dispatchFailure(WorkflowRunWatchFailedError)));
     }
     return {
-      host: existing?.host ?? target.host ?? "",
-      repository: existing?.repository ?? target.repository ?? "",
+      host: existing?.host ?? target.host ?? null,
+      repository: existing?.repository ?? target.repository ?? null,
       runId: target.runId,
       watching: false,
       wasWatching: existing !== undefined,

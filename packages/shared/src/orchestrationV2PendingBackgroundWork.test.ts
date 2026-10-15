@@ -611,7 +611,6 @@ describe("derivePendingBackgroundWork kinds", () => {
           taskId: "workflow-run-watch:github.com/acme/app#42",
           description: "Watching Release run",
           kind: "monitor",
-          githubActionsRun: { host: "github.com", repository: "acme/app", runId: 42 },
         },
       ]);
       expect(backgroundWorkHoldsCompletion(tasks)).toBe(true);

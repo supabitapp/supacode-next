@@ -362,19 +362,19 @@ export const OrchestrationV2LimitRecoveryUpdate = Schema.Struct({
 export type OrchestrationV2LimitRecoveryUpdate = typeof OrchestrationV2LimitRecoveryUpdate.Type;
 
 /** A GitHub Actions run, by the repository it belongs to. */
-export const OrchestrationV2GitHubActionsRun = Schema.Struct({
+export const ThreadWorkflowRunKey = Schema.Struct({
   host: TrimmedNonEmptyString,
   repository: TrimmedNonEmptyString,
   runId: PositiveInt,
 });
-export type OrchestrationV2GitHubActionsRun = typeof OrchestrationV2GitHubActionsRun.Type;
+export type ThreadWorkflowRunKey = typeof ThreadWorkflowRunKey.Type;
 
 /**
  * A GitHub Actions run the server watches for the thread's agent, which it wakes once when the
  * run completes. Ends then, on unwatch, Stop, settle or archive, and after reads keep failing.
  */
 export const ThreadWorkflowRunWatch = Schema.Struct({
-  ...OrchestrationV2GitHubActionsRun.fields,
+  ...ThreadWorkflowRunKey.fields,
   name: TrimmedNonEmptyString,
   url: Schema.NullOr(TrimmedNonEmptyString),
   startedAt: IsoDateTime,
@@ -941,7 +941,6 @@ const PendingBackgroundTaskFields = {
   taskId: TrimmedNonEmptyString,
   /** The work's name: a subagent's title, a command's description, a monitor's. */
   description: Schema.optional(TrimmedNonEmptyString),
-  githubActionsRun: Schema.optional(OrchestrationV2GitHubActionsRun),
 };
 
 /**
@@ -964,10 +963,9 @@ export const OrchestrationV2PendingBackgroundTask = kindUnionWithFallback(
     Schema.Struct({ ...PendingBackgroundTaskFields, kind: Schema.Literal("background_task") }),
   ],
   (kind) => Schema.Struct({ ...PendingBackgroundTaskFields, kind }),
-  ({ taskId, description, githubActionsRun }) => ({
+  ({ taskId, description }) => ({
     taskId,
     ...(description === undefined ? {} : { description }),
-    ...(githubActionsRun === undefined ? {} : { githubActionsRun }),
     kind: "background_task",
   }),
 );
@@ -2918,17 +2916,12 @@ export const OrchestrationV2Command = Schema.Union([
       Schema.Struct({ url: TrimmedNonEmptyString, source: ThreadPullRequestLinkSource }),
     ),
   }),
-  /** Start or stop the server watching a GitHub Actions run for this thread's agent. */
+  /** Stop the server watching a GitHub Actions run for this thread's agent. */
   Schema.Struct({
-    type: Schema.Literal("thread.workflow-run.watch"),
+    type: Schema.Literal("thread.workflow-run.unwatch"),
     commandId: CommandId,
     threadId: ThreadId,
-    ...OrchestrationV2GitHubActionsRun.fields,
-    watching: Schema.Boolean,
-    /** The run as read when the watch starts; required to start one. */
-    run: Schema.optional(
-      Schema.Struct({ name: TrimmedNonEmptyString, url: Schema.NullOr(TrimmedNonEmptyString) }),
-    ),
+    ...ThreadWorkflowRunKey.fields,
   }),
   Schema.Struct({
     type: Schema.Literal("thread.pull-request.sync"),
@@ -3245,6 +3238,15 @@ const OrchestrationV2InternalCommand = Schema.Union([
       }),
     ),
   }),
+  /** Watch a GitHub Actions run for the thread's agent, which only agents start. */
+  Schema.Struct({
+    type: Schema.Literal("thread.workflow-run-watch.start"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    ...ThreadWorkflowRunKey.fields,
+    name: TrimmedNonEmptyString,
+    url: Schema.NullOr(TrimmedNonEmptyString),
+  }),
   /**
    * Ends the workflow run watch started at `startedAt`, waking the agent in the same transaction
    * when `wake` is set. Rejected once that watch has ended, and a wake is rejected on a settled
@@ -3254,7 +3256,7 @@ const OrchestrationV2InternalCommand = Schema.Union([
     type: Schema.Literal("thread.workflow-run-watch.end"),
     commandId: CommandId,
     threadId: ThreadId,
-    ...OrchestrationV2GitHubActionsRun.fields,
+    ...ThreadWorkflowRunKey.fields,
     startedAt: IsoDateTime,
     wake: Schema.optional(
       Schema.Struct({
@@ -3300,7 +3302,7 @@ const OrchestrationV2InternalCommand = Schema.Union([
   }),
   /**
    * Stop for one thread, whatever it is doing: interrupts its running turn, holds its queue,
-   * ends its pull request watches, and drops pending delegated-task wakes. Nothing to stop is
+   * ends its pull request and workflow run watches, and drops pending delegated-task wakes. Nothing to stop is
    * an accepted no-op. Delegated tasks under the thread get their own `thread.stop`.
    */
   Schema.Struct({

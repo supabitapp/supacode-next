@@ -31,6 +31,7 @@ import type {
   PullRequestLabelCandidateList,
   PullRequestState,
   PullRequestThreadComment,
+  PullRequestWorkflowRun,
 } from "@supaterm/contracts";
 import { quoteGitPatchPath } from "@supaterm/shared/gitPatchPath";
 import { decodeJsonResult } from "@supaterm/shared/schemaJson";
@@ -2386,12 +2387,8 @@ export function decodeWorkflowRunsJson(
   });
 }
 
-export interface GitHubWorkflowRunSummary {
-  readonly name: string;
-  readonly url: string | null;
-  /** The run's verdict, read the way a check run's is: pending until it completes. */
-  readonly status: PullRequestCheckStatus;
-}
+/** The run's verdict is read the way a check run's is: pending until it completes. */
+export type GitHubWorkflowRunSummary = Pick<PullRequestWorkflowRun, "name" | "url" | "status">;
 
 export function decodeWorkflowRunJson(
   raw: string,
