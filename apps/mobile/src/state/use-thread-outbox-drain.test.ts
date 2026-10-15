@@ -885,6 +885,46 @@ describe("thread outbox follow-ups behind a rejected creation", () => {
       removeSpy.mockRestore();
     }
   });
+  it("folds a follow-up queued while the restore runs", async () => {
+    const creation: QueuedThreadMessage = {
+      ...queuedMessage({ messageId: "rejected-creation-late", text: "Original prompt" }),
+      creation: {
+        projectId: ProjectId.make("project-1"),
+        workspaceMode: "local",
+        branch: null,
+        worktreePath: null,
+      },
+    };
+    const followUp = {
+      ...queuedMessage({ messageId: "follow-up-early", text: "Also cover the empty state" }),
+      createdAt: "2026-08-24T12:01:00.000Z",
+    };
+    const lateFollowUp = {
+      ...queuedMessage({ messageId: "follow-up-late", text: "And the error state" }),
+      createdAt: "2026-08-24T12:02:00.000Z",
+    };
+    await harness.manager.enqueue(creation);
+    await harness.manager.enqueue(followUp);
+    const remove = harness.manager.remove.bind(harness.manager);
+    const removeSpy = vi
+      .spyOn(harness.manager, "remove")
+      .mockImplementation(async (message, ...rest) => {
+        if (message.messageId === creation.messageId) await harness.manager.enqueue(lateFollowUp);
+        return remove(message, ...rest);
+      });
+
+    try {
+      await expect(restoreRejectedQueuedMessage(creation, "rejected by server")).resolves.toBe(
+        "restored",
+      );
+      expect(
+        composerDrafts.getComposerDraftSnapshot("new-task:restored-rejected-creation-late").text,
+      ).toBe("Original prompt\n\nAlso cover the empty state\n\nAnd the error state");
+      expect(remainingMessages()).toEqual([]);
+    } finally {
+      removeSpy.mockRestore();
+    }
+  });
 });
 
 describe("thread outbox recovery rollback", () => {

@@ -523,11 +523,7 @@ export async function restoreRejectedQueuedMessage(
     // Follow-ups queued behind a rejected task have no thread to reach. They
     // join its draft in this same merge, so a rollback takes them out with the
     // task and a retry cannot add them twice.
-    const followUps = queuedMessage.creation
-      ? (
-          appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? []
-        ).filter((followUp) => !followUp.creation)
-      : [];
+    const followUps = queuedMessage.creation ? queuedFollowUps(threadKey) : [];
     const editingQueuedMessageIds = appAtomRegistry.get(editingQueuedMessageIdsAtom);
     if (followUps.some((followUp) => editingQueuedMessageIds[followUp.messageId])) {
       withdrawError();
@@ -536,12 +532,7 @@ export async function restoreRejectedQueuedMessage(
     }
     for (const followUp of followUps) {
       try {
-        await mergeComposerDraftContent(draftKey, {
-          text: followUp.text,
-          context: followUp.context,
-          attachments: [],
-        });
-        appendComposerDraftAttachments(draftKey, followUp.attachments, { allowOverflow: true });
+        await mergeFollowUpIntoDraft(draftKey, followUp);
       } finally {
         rollback = { snapshot: originalDraft, merged: getComposerDraftSnapshot(draftKey) };
       }
@@ -585,12 +576,21 @@ export async function restoreRejectedQueuedMessage(
         message: queuedMessage,
         reason: message,
       });
-      for (const followUp of followUps) {
-        // The draft holds its content now. One left behind is dropped with
-        // the missing thread.
-        await removeThreadOutboxMessage(followUp).catch((error: unknown) => {
-          console.warn("[thread-outbox] failed to remove a follow-up of a rejected task", error);
-        });
+      // The outcome stops new sends into this thread, so this read also
+      // catches a follow-up queued while the restore ran.
+      const folded = new Set(followUps.map((followUp) => followUp.messageId));
+      for (const followUp of queuedFollowUps(threadKey)) {
+        try {
+          if (!folded.has(followUp.messageId)) {
+            await mergeFollowUpIntoDraft(draftKey, followUp);
+            await flushComposerDrafts();
+          }
+          // The draft holds its content now. One left behind is dropped with
+          // the missing thread.
+          await removeThreadOutboxMessage(followUp);
+        } catch (error) {
+          console.warn("[thread-outbox] failed to fold a follow-up of a rejected task", error);
+        }
       }
     }
     return "restored";
@@ -613,6 +613,21 @@ export async function restoreRejectedQueuedMessage(
     );
     return "retry";
   }
+}
+
+function queuedFollowUps(threadKey: string): ReadonlyArray<QueuedThreadMessage> {
+  return (
+    appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? []
+  ).filter((message) => !message.creation);
+}
+
+async function mergeFollowUpIntoDraft(draftKey: string, followUp: QueuedThreadMessage) {
+  await mergeComposerDraftContent(draftKey, {
+    text: followUp.text,
+    context: followUp.context,
+    attachments: [],
+  });
+  appendComposerDraftAttachments(draftKey, followUp.attachments, { allowOverflow: true });
 }
 
 /**
