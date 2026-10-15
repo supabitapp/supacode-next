@@ -36,7 +36,7 @@ import * as DesktopSnapShot from "../snapShot/DesktopSnapShot.ts";
 import * as DesktopWslBackend from "../wsl/DesktopWslBackend.ts";
 import * as HostProcess from "@supaterm/shared/HostProcess";
 
-const DEFAULT_DESKTOP_BACKEND_PORT = 7373;
+const DEFAULT_DESKTOP_BACKEND_PORT = 7007;
 const MAX_TCP_PORT = 65_535;
 const DESKTOP_BACKEND_PORT_PROBE_HOSTS = ["127.0.0.1", "0.0.0.0", "::"] as const;
 
