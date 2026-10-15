@@ -804,6 +804,42 @@ describe("thread outbox follow-ups behind a rejected creation", () => {
     expect(remainingMessages()).toEqual([]);
     expect(harness.removePersistedFile).not.toHaveBeenCalled();
   });
+
+  it("keeps the rejected task queued when a follow-up cannot be folded", async () => {
+    const creation: QueuedThreadMessage = {
+      ...queuedMessage({ messageId: "rejected-creation-retry", text: "Original prompt" }),
+      modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5.6-sol" },
+      creation: {
+        projectId: ProjectId.make("project-1"),
+        workspaceMode: "local",
+        branch: null,
+        worktreePath: null,
+      },
+    };
+    const followUp = {
+      ...queuedMessage({ messageId: "follow-up-retry", text: "Also cover the empty state" }),
+      createdAt: "2026-08-24T12:01:00.000Z",
+    };
+    await harness.manager.enqueue(creation);
+    await harness.manager.enqueue(followUp);
+    const removeSpy = vi
+      .spyOn(harness.manager, "remove")
+      .mockRejectedValueOnce(new Error("storage unavailable"));
+
+    try {
+      await expect(restoreRejectedQueuedMessage(creation, "rejected by server")).resolves.toBe(
+        "retry",
+      );
+
+      expect(remainingMessages().map((message) => message.messageId)).toEqual([
+        creation.messageId,
+        followUp.messageId,
+      ]);
+      expect(appAtomRegistry.get(pendingThreadCreationOutcomesAtom)).toEqual({});
+    } finally {
+      removeSpy.mockRestore();
+    }
+  });
 });
 
 describe("thread outbox recovery rollback", () => {

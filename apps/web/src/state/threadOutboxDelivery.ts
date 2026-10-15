@@ -230,16 +230,14 @@ export function createBrowserThreadOutbox<Payload>(options: {
     retarget: (payload: Payload) => Payload,
   ) {
     await load();
-    await reload();
     const head = getEntries().find((entry) => entry.id === id);
     if (!head) return false;
-    if (queuedBehind(head).length === 0) return edit(id, payload, scope);
     return (
       (await options.storage.withLock(head.scope, async () => {
-        await reload();
-        const behind = queuedBehind(head);
         if (!(await edit(id, payload, scope))) return false;
-        for (const entry of behind)
+        // The edit reloaded the queue: whatever is still queued for the old
+        // thread follows the task, including a follow-up sent while it moved.
+        for (const entry of getEntries().filter((candidate) => candidate.scope === head.scope))
           await mutate(entry.id, (live) => ({ ...live, scope, payload: retarget(live.payload) }));
         return true;
       })) ?? false

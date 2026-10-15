@@ -541,6 +541,14 @@ export async function restoreRejectedQueuedMessage(
       await undoComposerDraftMerge(draftKey, originalDraft, restoredDraft);
       return "deferred";
     }
+    // Follow-ups queued behind a rejected task have no thread to reach. They
+    // fold in while the task still heads their queue, so a failed fold
+    // retries with the task instead of leaving them to the missing-thread
+    // removal. The undo keeps whatever already folded.
+    if (queuedMessage.creation && !(await foldQueuedFollowUps(threadKey, draftKey))) {
+      await undoComposerDraftMerge(draftKey, originalDraft, restoredDraft);
+      return "retry";
+    }
     // Revision-checked: an edit that landed after the confirmation above
     // must not be deleted with the pre-edit payload this recovery restored.
     if (
@@ -568,14 +576,6 @@ export async function restoreRejectedQueuedMessage(
         message: queuedMessage,
         reason: message,
       });
-      // Follow-ups queued behind the task have no thread to reach. Folded in
-      // while the drain still waits on this recovery, before any of them can
-      // reach the missing-thread removal.
-      const followUps =
-        appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? [];
-      for (const followUp of followUps) {
-        if (!followUp.creation) await moveQueuedMessageToDraft(followUp, draftKey);
-      }
     }
     return "restored";
   } catch (error) {
@@ -597,6 +597,15 @@ export async function restoreRejectedQueuedMessage(
     );
     return "retry";
   }
+}
+
+async function foldQueuedFollowUps(threadKey: string, draftKey: string): Promise<boolean> {
+  const queue =
+    appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[threadKey] ?? [];
+  for (const followUp of queue) {
+    if (!followUp.creation && !(await moveQueuedMessageToDraft(followUp, draftKey))) return false;
+  }
+  return true;
 }
 
 /**
