@@ -14,7 +14,6 @@ import {
   isKnownThemePreference,
   resolveThemeAppearance,
   THEME_APPEARANCE_MODE_STORAGE_KEY,
-  THEME_FOLLOW_SYSTEM_STORAGE_KEY,
   toCanonicalThemeColor,
 } from "./themePalette";
 
@@ -116,18 +115,13 @@ function runtimeResolvedAppearance(
   try {
     const raw = storage[THEME_STORAGE_KEY] ?? null;
     const theme = raw !== null && isKnownThemePreference(raw) ? raw : "system";
-    const followRaw = storage[THEME_FOLLOW_SYSTEM_STORAGE_KEY] ?? null;
     const appearanceRaw = storage[THEME_APPEARANCE_MODE_STORAGE_KEY] ?? null;
     const appearanceMode =
       appearanceRaw === "light" || appearanceRaw === "dark" || appearanceRaw === "system"
         ? appearanceRaw
-        : followRaw === "true"
+        : theme === "system"
           ? "system"
-          : followRaw === "false"
-            ? null
-            : theme === "system"
-              ? "system"
-              : null;
+          : null;
     const followSystem = appearanceMode === "system";
     return resolveThemeAppearance(theme, prefersDark, followSystem, appearanceMode ?? undefined);
   } finally {
@@ -159,7 +153,7 @@ describe("index.html boot script", () => {
     { name: "no stored preference on a dark OS", storage: {}, prefersDark: true },
     {
       name: "a dark-only built-in stays dark on a light OS",
-      storage: { [THEME_STORAGE_KEY]: "dracula", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" },
+      storage: { [THEME_STORAGE_KEY]: "dracula", [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system" },
       prefersDark: false,
     },
     {
@@ -167,7 +161,6 @@ describe("index.html boot script", () => {
       storage: {
         [THEME_STORAGE_KEY]: "dracula",
         [THEME_APPEARANCE_MODE_STORAGE_KEY]: "light",
-        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "false",
       },
       prefersDark: false,
     },
@@ -175,20 +168,20 @@ describe("index.html boot script", () => {
       name: "a light-only built-in stays light on a dark OS",
       storage: {
         [THEME_STORAGE_KEY]: "catppuccin-latte",
-        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true",
+        [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
       },
       prefersDark: true,
     },
     {
       name: "a retired built-in falls back to system",
-      storage: { [THEME_STORAGE_KEY]: "grove", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" },
+      storage: { [THEME_STORAGE_KEY]: "grove", [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system" },
       prefersDark: true,
     },
     {
       name: "a dual-mode custom theme follows the OS",
       storage: {
         [THEME_STORAGE_KEY]: "aurora",
-        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true",
+        [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
         [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([AURORA_DUAL]),
       },
       prefersDark: true,
@@ -197,18 +190,10 @@ describe("index.html boot script", () => {
       name: "a dark-only custom theme stays dark on a light OS",
       storage: {
         [THEME_STORAGE_KEY]: "charcoal",
-        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true",
+        [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
         [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([CHARCOAL_DARK_ONLY]),
       },
       prefersDark: false,
-    },
-    {
-      name: "a legacy mode-suffixed preference is treated as unknown",
-      storage: {
-        [THEME_STORAGE_KEY]: "aurora:dark",
-        [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([AURORA_DUAL]),
-      },
-      prefersDark: true,
     },
     {
       name: "a removed custom theme falls back to system",
@@ -216,23 +201,18 @@ describe("index.html boot script", () => {
       prefersDark: true,
     },
     {
-      name: "a corrupted follow-system value falls back to inference",
-      storage: { [THEME_STORAGE_KEY]: "system", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "1" },
+      name: "a corrupted appearance mode falls back to inference",
+      storage: { [THEME_STORAGE_KEY]: "system", [THEME_APPEARANCE_MODE_STORAGE_KEY]: "1" },
       prefersDark: true,
     },
     {
-      name: "follow-system off keeps an explicit light preference on a dark OS",
-      storage: { [THEME_STORAGE_KEY]: "light", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "false" },
+      name: "an explicit light mode keeps a light preference on a dark OS",
+      storage: { [THEME_STORAGE_KEY]: "light", [THEME_APPEARANCE_MODE_STORAGE_KEY]: "light" },
       prefersDark: true,
     },
     {
       name: "a bare dark preference stays dark on a light OS",
       storage: { [THEME_STORAGE_KEY]: "dark" },
-      prefersDark: false,
-    },
-    {
-      name: "follow-system off keeps a bare dark preference on a light OS",
-      storage: { [THEME_STORAGE_KEY]: "dark", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "false" },
       prefersDark: false,
     },
   ];
@@ -253,33 +233,9 @@ describe("index.html boot script", () => {
     },
   );
 
-  it.each(["light", "dark"] as const)(
-    "preserves saved Graphite selections and %s mixes",
-    (appearance) => {
-      const colors =
-        appearance === "dark" ? SUPATERM_DARK_THEME_COLORS : SUPATERM_LIGHT_THEME_COLORS;
-      for (const storage of [
-        { [THEME_STORAGE_KEY]: "graphite" },
-        {
-          [THEME_STORAGE_KEY]: "aurora",
-          [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([AURORA_DUAL]),
-          "supaterm:theme-halves:v1": JSON.stringify({ [appearance]: "graphite" }),
-        },
-      ]) {
-        const preferences = { ...storage, [THEME_APPEARANCE_MODE_STORAGE_KEY]: appearance };
-        const boot = runBootScript({ storage: preferences, prefersDark: appearance === "dark" });
-        expect(boot.isDark).toBe(
-          runtimeResolvedAppearance(preferences, appearance === "dark") === "dark",
-        );
-        expect(boot.backgroundColor).toBe(colors.chrome);
-        expect(boot.bootVariables["--boot-background"]).toBe(colors.canvas);
-      }
-    },
-  );
-
   it("marks built-in and custom themes on the document element", () => {
     const dracula = runBootScript({
-      storage: { [THEME_STORAGE_KEY]: "dracula", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" },
+      storage: { [THEME_STORAGE_KEY]: "dracula", [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system" },
       prefersDark: true,
     });
     expect(dracula.themeId).toBe("dracula");
@@ -289,7 +245,7 @@ describe("index.html boot script", () => {
     const aurora = runBootScript({
       storage: {
         [THEME_STORAGE_KEY]: "aurora",
-        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true",
+        [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
         [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([AURORA_DUAL]),
       },
       prefersDark: true,
@@ -458,7 +414,7 @@ describe("index.html boot script", () => {
     const boot = runBootScript({
       storage: {
         [THEME_STORAGE_KEY]: "partial",
-        [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true",
+        [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
         [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([
           {
             id: "partial",

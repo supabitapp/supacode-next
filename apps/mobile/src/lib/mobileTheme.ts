@@ -54,13 +54,11 @@ export function normalizeMobileThemeMode(value: unknown): MobileThemeMode {
 }
 
 export function resolveMobileThemeIds(preferences: {
-  readonly themeId?: unknown;
   readonly lightThemeId?: unknown;
   readonly darkThemeId?: unknown;
 }): MobileThemeIds {
-  const legacyThemeId = normalizeMobileThemeId(preferences.themeId);
   const resolve = (appearance: MobileThemeAppearance, value: unknown) => {
-    const themeId = value === undefined ? legacyThemeId : normalizeMobileThemeId(value);
+    const themeId = normalizeMobileThemeId(value);
     return mobileThemeSupportsAppearance(themeId, appearance) ? themeId : DEFAULT_MOBILE_THEME_ID;
   };
   return {
@@ -71,41 +69,25 @@ export function resolveMobileThemeIds(preferences: {
 
 export function createMobileThemeSelectionPatch(
   themeIds: MobileThemeIds,
-  activeAppearance: MobileThemeAppearance,
   selectedAppearance: MobileThemeAppearance,
   value: MobileThemeId,
 ) {
-  const nextThemeIds: MobileThemeIds = {
-    light:
+  return {
+    lightThemeId:
       selectedAppearance === "light" && mobileThemeSupportsAppearance(value, "light")
         ? value
         : themeIds.light,
-    dark:
+    darkThemeId:
       selectedAppearance === "dark" && mobileThemeSupportsAppearance(value, "dark")
         ? value
         : themeIds.dark,
   };
-  return {
-    lightThemeId: nextThemeIds.light,
-    darkThemeId: nextThemeIds.dark,
-    // Keep older OTA bundles on the theme for the appearance currently in use.
-    themeId: nextThemeIds[activeAppearance],
-  };
 }
 
-export function createMobileThemePairPatch(
-  themeIds: MobileThemeIds,
-  activeAppearance: MobileThemeAppearance,
-  value: MobileThemeId,
-) {
-  const nextThemeIds: MobileThemeIds = {
-    light: mobileThemeSupportsAppearance(value, "light") ? value : themeIds.light,
-    dark: mobileThemeSupportsAppearance(value, "dark") ? value : themeIds.dark,
-  };
+export function createMobileThemePairPatch(themeIds: MobileThemeIds, value: MobileThemeId) {
   return {
-    lightThemeId: nextThemeIds.light,
-    darkThemeId: nextThemeIds.dark,
-    themeId: nextThemeIds[activeAppearance],
+    lightThemeId: mobileThemeSupportsAppearance(value, "light") ? value : themeIds.light,
+    darkThemeId: mobileThemeSupportsAppearance(value, "dark") ? value : themeIds.dark,
   };
 }
 

@@ -176,7 +176,6 @@ describe("theme files", () => {
       sidebar: "#18191c",
       messageSurface: "#2a2b31",
     });
-    expect(BUILT_IN_THEMES.some((theme) => theme.id === "graphite")).toBe(false);
   });
 
   it.each(["light", "dark"] as const)(
@@ -197,9 +196,6 @@ describe("theme files", () => {
       expect(variables.get("--app-theme-message-action")).toBe(
         getStandardThemeColors(appearance).messageAction,
       );
-      applyThemePalette("graphite", appearance);
-      expect(dataset.themeId).toBe("__default");
-      expect(variables.get("--app-theme-canvas")).toBe(getStandardThemeColors(appearance).canvas);
       vi.unstubAllGlobals();
     },
   );
@@ -602,10 +598,10 @@ describe("theme files", () => {
       [
         CUSTOM_THEMES_STORAGE_KEY,
         JSON.stringify([
-          { id: "graphite-custom", label: "Graphite Tweak", appearance: "dark", colors: {} },
+          { id: "dracula-custom", label: "Dracula Tweak", appearance: "dark", colors: {} },
           {
-            id: "graphite",
-            label: "My Graphite",
+            id: "dracula",
+            label: "My Dracula",
             appearance: "dark",
             colors: { canvas: "#1d1e22" },
           },
@@ -621,15 +617,15 @@ describe("theme files", () => {
 
     invalidateCustomThemes();
     expect(getCustomThemes().map((theme) => [theme.id, theme.label])).toEqual([
-      ["graphite-custom", "Graphite Tweak"],
-      ["graphite-custom-2", "My Graphite"],
+      ["dracula-custom", "Dracula Tweak"],
+      ["dracula-custom-2", "My Dracula"],
     ]);
-    expect(getThemeDefinition("graphite")?.label).toBe("Supaterm");
+    expect(getThemeDefinition("dracula")?.label).toBe("Dracula");
 
-    removeCustomTheme("graphite-custom-2");
+    removeCustomTheme("dracula-custom-2");
 
     expect(JSON.parse(stored.get(CUSTOM_THEMES_STORAGE_KEY)!)).toEqual([
-      { id: "graphite-custom", label: "Graphite Tweak", appearance: "dark", colors: {} },
+      { id: "dracula-custom", label: "Dracula Tweak", appearance: "dark", colors: {} },
     ]);
     invalidateCustomThemes();
     vi.unstubAllGlobals();

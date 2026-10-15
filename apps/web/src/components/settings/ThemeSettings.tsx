@@ -57,7 +57,7 @@ import {
 } from "./ThemePreviewCircles";
 import { ThemeWireframe } from "./ThemeWireframe";
 
-const DEFAULT_THEME_VALUE = "graphite";
+const DEFAULT_THEME_VALUE = "__default";
 
 function downloadThemeFile(filename: string, contents: string): void {
   const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
@@ -209,8 +209,6 @@ export function ThemeLibrary({
   const baseCardId = getThemeDefinition(theme)?.id ?? null;
   const lightThemeId = themeHalves?.light ?? baseCardId;
   const darkThemeId = themeHalves?.dark ?? baseCardId;
-  const lightOwner = lightThemeId === "graphite" ? null : lightThemeId;
-  const darkOwner = darkThemeId === "graphite" ? null : darkThemeId;
 
   const assignHalf = useCallback(
     (appearance: ThemeAppearance, cardId: string | null) => {
@@ -250,7 +248,7 @@ export function ThemeLibrary({
   // "Create theme" starts from whatever is on screen for the appearance being
   // edited, so tuning the theme you already use never means rebuilding it.
   const activeThemeForAppearance =
-    getThemeDefinition((initialAppearance === "light" ? lightOwner : darkOwner) ?? "") ?? null;
+    getThemeDefinition((initialAppearance === "light" ? lightThemeId : darkThemeId) ?? "") ?? null;
 
   const setMode = (mode: ThemeMode) => {
     if (!setAppearanceMode(mode)) notifyThemeSaveFailure();
@@ -260,7 +258,7 @@ export function ThemeLibrary({
     customThemes.some((customTheme) => customTheme.id === themeId);
 
   const ownerFor = (appearance: ThemeAppearance): ThemeDefinition | null => {
-    const owner = getThemeDefinition((appearance === "light" ? lightOwner : darkOwner) ?? "");
+    const owner = getThemeDefinition((appearance === "light" ? lightThemeId : darkThemeId) ?? "");
     return owner && getThemeModes(owner).includes(appearance) ? owner : null;
   };
 

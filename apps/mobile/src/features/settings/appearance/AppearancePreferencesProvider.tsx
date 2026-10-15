@@ -192,25 +192,20 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
 
   const setThemeIdForAppearance = useCallback(
     (appearance: MobileThemeAppearance, value: MobileThemeId) => {
-      const patch = createMobileThemeSelectionPatch(
-        selectedThemeIdsRef.current,
-        themeAppearance,
-        appearance,
-        value,
-      );
+      const patch = createMobileThemeSelectionPatch(selectedThemeIdsRef.current, appearance, value);
       selectedThemeIdsRef.current = resolveMobileThemeIds(patch);
       updateThemePreferences(patch);
     },
-    [themeAppearance, updateThemePreferences],
+    [updateThemePreferences],
   );
 
   const setThemeIdForBothAppearances = useCallback(
     (value: MobileThemeId) => {
-      const patch = createMobileThemePairPatch(selectedThemeIdsRef.current, themeAppearance, value);
+      const patch = createMobileThemePairPatch(selectedThemeIdsRef.current, value);
       selectedThemeIdsRef.current = resolveMobileThemeIds(patch);
       updateThemePreferences(patch);
     },
-    [themeAppearance, updateThemePreferences],
+    [updateThemePreferences],
   );
 
   const setThemeMode = useCallback(

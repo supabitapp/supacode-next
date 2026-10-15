@@ -325,7 +325,6 @@ describe("mobile themes", () => {
   });
 
   it("normalizes persisted theme preferences", () => {
-    expect(normalizeMobileThemeId("graphite")).toBe(DEFAULT_MOBILE_THEME_ID);
     expect(normalizeMobileThemeId("kanagawa-wave")).toBe("kanagawa-wave");
     expect(normalizeMobileThemeId("nord")).toBe("nord");
     expect(normalizeMobileThemeId("missing-theme")).toBe(DEFAULT_MOBILE_THEME_ID);
@@ -333,51 +332,40 @@ describe("mobile themes", () => {
     expect(normalizeMobileThemeMode("sepia")).toBe("system");
   });
 
-  it("migrates a single-appearance theme and preserves independent choices", () => {
-    expect(resolveMobileThemeIds({ themeId: "dracula" })).toEqual({
-      light: DEFAULT_MOBILE_THEME_ID,
-      dark: "dracula",
-    });
+  it("resolves independent appearance themes and falls back to the default", () => {
     expect(
-      resolveMobileThemeIds({
-        themeId: "dracula",
-        lightThemeId: "catppuccin-latte",
-        darkThemeId: "nord",
-      }),
-    ).toEqual({ light: "catppuccin-latte", dark: "nord" });
-    expect(resolveMobileThemeIds({ themeId: "dracula", lightThemeId: "missing" })).toEqual({
+      resolveMobileThemeIds({ lightThemeId: "catppuccin-latte", darkThemeId: "nord" }),
+    ).toEqual({
+      light: "catppuccin-latte",
+      dark: "nord",
+    });
+    expect(resolveMobileThemeIds({ lightThemeId: "missing" })).toEqual({
       light: DEFAULT_MOBILE_THEME_ID,
-      dark: "dracula",
+      dark: DEFAULT_MOBILE_THEME_ID,
     });
   });
 
-  it("changes either theme without switching the active appearance", () => {
+  it("changes one appearance theme and keeps the other", () => {
     const themeIds = { light: "one-light", dark: "dracula" } as const;
-    expect(createMobileThemeSelectionPatch(themeIds, "light", "dark", "nord")).toEqual({
+    expect(createMobileThemeSelectionPatch(themeIds, "dark", "nord")).toEqual({
       lightThemeId: "one-light",
       darkThemeId: "nord",
-      themeId: "one-light",
     });
-    expect(createMobileThemeSelectionPatch(themeIds, "light", "light", "catppuccin-latte")).toEqual(
-      {
-        lightThemeId: "catppuccin-latte",
-        darkThemeId: "dracula",
-        themeId: "catppuccin-latte",
-      },
-    );
+    expect(createMobileThemeSelectionPatch(themeIds, "light", "catppuccin-latte")).toEqual({
+      lightThemeId: "catppuccin-latte",
+      darkThemeId: "dracula",
+    });
   });
 
   it("changes only supported appearances from the card action", () => {
     const themeIds = { light: "one-light", dark: "dracula" } as const;
-    expect(createMobileThemePairPatch(themeIds, "light", "nord")).toEqual({
+    expect(createMobileThemePairPatch(themeIds, "nord")).toEqual({
       lightThemeId: "one-light",
       darkThemeId: "nord",
-      themeId: "one-light",
     });
-    expect(createMobileThemePairPatch(themeIds, "dark", "supaterm")).toEqual({
+    expect(createMobileThemePairPatch(themeIds, "supaterm")).toEqual({
       lightThemeId: "supaterm",
       darkThemeId: "supaterm",
-      themeId: "supaterm",
     });
   });
 
@@ -393,10 +381,9 @@ describe("mobile themes", () => {
 
   it("ignores a selection without a palette for that appearance", () => {
     const themeIds = { light: "one-light", dark: "nord" } as const;
-    expect(createMobileThemeSelectionPatch(themeIds, "light", "light", "dracula")).toEqual({
+    expect(createMobileThemeSelectionPatch(themeIds, "light", "dracula")).toEqual({
       lightThemeId: "one-light",
       darkThemeId: "nord",
-      themeId: "one-light",
     });
   });
 

@@ -20,7 +20,6 @@ export type { ThemeAppearance, ThemeColorRole, ThemeColors, ThemeDefinition, The
 
 export const THEME_FILE_VERSION = 1 as const;
 export const CUSTOM_THEMES_STORAGE_KEY = "supaterm:themes:v1";
-export const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "supaterm:theme-follow-system";
 export const THEME_APPEARANCE_MODE_STORAGE_KEY = "supaterm:theme-appearance-mode";
 export const THEME_HALVES_STORAGE_KEY = "supaterm:theme-halves:v1";
 
@@ -220,11 +219,7 @@ function releaseBuiltInThemeIds(storedThemes: ReadonlyArray<unknown>): ReadonlyA
   }
   return storedThemes.map((storedTheme) => {
     if (!isRecord(storedTheme) || typeof storedTheme.id !== "string") return storedTheme;
-    if (
-      storedTheme.id !== "graphite" &&
-      !BUILT_IN_THEMES.some((theme) => theme.id === storedTheme.id)
-    )
-      return storedTheme;
+    if (!BUILT_IN_THEMES.some((theme) => theme.id === storedTheme.id)) return storedTheme;
     const id = freeThemeId(storedTheme.id, takenIds);
     takenIds.add(id);
     return { ...storedTheme, id };
@@ -1071,17 +1066,7 @@ export function updateThemeColorFamily(
 
 const BUILT_IN_THEME_DEFINITIONS: ReadonlyArray<ThemeDefinition> = BUILT_IN_THEMES;
 
-// Resolve saved selections and appearance mixes without listing a second copy of Supaterm.
-const LEGACY_GRAPHITE_THEME: ThemeDefinition = {
-  id: "graphite",
-  label: "Supaterm",
-  appearance: "light",
-  colors: SUPATERM_LIGHT_THEME_COLORS,
-  variants: { dark: SUPATERM_DARK_THEME_COLORS },
-};
-
 export function getThemeDefinition(theme: ThemePreference): ThemeDefinition | null {
-  if (theme === "graphite") return LEGACY_GRAPHITE_THEME;
   return (
     BUILT_IN_THEME_DEFINITIONS.find((definition) => definition.id === theme) ??
     getCustomThemes().find((definition) => definition.id === theme) ??
@@ -1094,7 +1079,6 @@ export function getThemeDefinition(theme: ThemePreference): ThemeDefinition | nu
 
 /** Only reviewed built-ins opt into artwork for light palettes. */
 export function themeAllowsSidebarArtwork(theme: ThemePreference): boolean {
-  if (theme === "graphite") return true;
   return (
     BUILT_IN_THEME_DEFINITIONS.find((definition) => definition.id === theme)?.sidebarArtwork ===
     true
@@ -1534,7 +1518,7 @@ export function applyThemePalette(theme: ThemePreference, appearance?: ThemeAppe
   const palette = getThemeDefinition(theme);
 
   // The standard palette uses the same role mapping as installed themes.
-  root.dataset.themeId = palette && theme !== "graphite" ? palette.id : "__default";
+  root.dataset.themeId = palette ? palette.id : "__default";
   const mode = appearance ?? getThemePreferenceMode(theme) ?? "light";
   const colors = palette
     ? (getThemeColorsForMode(palette, mode) ?? palette.colors)

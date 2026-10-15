@@ -1,6 +1,5 @@
 import { ThreadDetailsControl } from "./chat/ThreadDetailsControl";
 import { ComposerContextLabel } from "./ComposerContextLabel";
-import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@supaterm/shared/threadPullRequests";
 import { useRightPanelStore } from "../rightPanelStore";
 import { scopeProjectRef, scopeThreadRef } from "@supaterm/client-runtime/environment";
@@ -90,7 +89,6 @@ interface BranchToolbarBranchSelectorProps {
   envLocked: boolean;
   effectiveEnvModeOverride?: "local" | "worktree";
   activeThreadBranchOverride?: string | null;
-  onActiveThreadBranchOverrideChange?: (refName: string | null) => void;
   startFromOrigin: boolean;
   onStartFromOriginChange: (startFromOrigin: boolean) => void;
   onCheckoutPullRequestRequest?: (reference: string) => void;
@@ -112,7 +110,6 @@ export function BranchToolbarBranchSelector({
   envLocked,
   effectiveEnvModeOverride,
   activeThreadBranchOverride,
-  onActiveThreadBranchOverrideChange,
   startFromOrigin,
   onStartFromOriginChange,
   onCheckoutPullRequestRequest,
@@ -214,9 +211,6 @@ export function BranchToolbarBranchSelector({
             worktreePath,
           },
         });
-      }
-      if (hasServerThread) {
-        onActiveThreadBranchOverrideChange?.(branch);
         return;
       }
       if (!isDraftOnCurrentProject()) return;
@@ -239,7 +233,6 @@ export function BranchToolbarBranchSelector({
       activeWorktreePath,
       hasServerThread,
       isDraftOnCurrentProject,
-      onActiveThreadBranchOverrideChange,
       setDraftThreadContext,
       draftId,
       threadRef,
@@ -588,20 +581,13 @@ export function BranchToolbarBranchSelector({
     branchPrBranch !== null && branchStatusQuery.data?.refName === branchPrBranch
       ? (branchStatusQuery.data.pr ?? null)
       : null;
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(environmentId);
   const linkedStatus = useLinkedThreadPullRequest(
     environmentId,
-    serverThread?.linkedPullRequest,
-    true,
     serverThread?.pullRequests,
     serverThread?.branchPullRequest,
   );
-  const currentLinkedPr = supportsMultiplePullRequests
-    ? resolveThreadCurrentPullRequestLink(serverThread?.pullRequests ?? [])
-    : null;
-  const prBadge = supportsMultiplePullRequests
-    ? resolveThreadPullRequestBadge(serverThread?.pullRequests)
-    : null;
+  const currentLinkedPr = resolveThreadCurrentPullRequestLink(serverThread?.pullRequests ?? []);
+  const prBadge = resolveThreadPullRequestBadge(serverThread?.pullRequests);
   const displayedPr = linkedStatus?.pr ?? (currentLinkedPr === null ? branchPr : null);
   const displayedPrStatus = prStatusIndicator(
     displayedPr,
