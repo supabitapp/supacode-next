@@ -53,7 +53,7 @@ export function selectGitHubBaseRepository(input: {
     : null;
 }
 
-export function resolveGitHubRepository(input: {
+function resolveGitHubRepository(input: {
   readonly remotes: string;
   readonly resolved: string;
 
