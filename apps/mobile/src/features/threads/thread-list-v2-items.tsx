@@ -680,9 +680,9 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const sidebarPane = props.pane === "sidebar";
   const selected = props.selected === true;
   const rowAppearance = getThreadListV2RowAppearance(theme, sidebarPane, selected);
+  const threadKey = scopedThreadKey(thread.environmentId, thread.id);
   // The selected thread shows its own composer in the detail pane.
-  const hasUnsentDraft =
-    useThreadHasUnsentDraft(scopedThreadKey(thread.environmentId, thread.id)) && !selected;
+  const hasUnsentDraft = useThreadHasUnsentDraft(threadKey) && !selected;
   const rowAccessibilityLabel = [
     thread.title,
     hasUnsentDraft ? "unsent draft" : null,
@@ -747,10 +747,9 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   // opened for one thread survives the thread's removal/reorder and its
   // submit snoozes whichever thread the cell was reassigned to. (ThreadSwipeable
   // enforces the same contract on the swipe layer with its resetKey.)
-  const rowIdentity = `${thread.environmentId}:${thread.id}`;
-  const [boundIdentity, setBoundIdentity] = useState(rowIdentity);
-  if (boundIdentity !== rowIdentity) {
-    setBoundIdentity(rowIdentity);
+  const [boundIdentity, setBoundIdentity] = useState(threadKey);
+  if (boundIdentity !== threadKey) {
+    setBoundIdentity(threadKey);
     setCustomSnoozeOpen(false);
   }
   const handleSnooze = useCallback(
@@ -1271,7 +1270,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const rowContent = (close: () => void) =>
     variant === "card" ? (
       <RowPressable
-        key={`${thread.environmentId}:${thread.id}`}
+        key={threadKey}
         interactionClassName={rowAppearance.interactionClassName}
         interactionOpacity={rowAppearance.interactionOpacity}
         className={rowAppearance.className}
@@ -1309,7 +1308,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       </RowPressable>
     ) : (
       <RowPressable
-        key={`${thread.environmentId}:${thread.id}`}
+        key={threadKey}
         interactionClassName={rowAppearance.interactionClassName}
         interactionOpacity={rowAppearance.interactionOpacity}
         accessibilityHint={swipeAccessibilityHint}
@@ -1394,7 +1393,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       )}
       <ThreadSwipeable
         dormant={dormant}
-        threadKey={`${thread.environmentId}:${thread.id}`}
+        threadKey={threadKey}
         backgroundColor={rowAppearance.swipeBackgroundColor}
         compactActions={variant === "slim"}
         containerStyle={rowAppearance.swipeContainerStyle}
@@ -1408,7 +1407,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         onSwipeableWillOpen={props.onSwipeableWillOpen}
         primaryAction={primaryAction}
         secondaryAction={secondaryAction}
-        resetKey={`${thread.environmentId}:${thread.id}:${variant}:${snoozedRow}:${thread.doneAt}:${thread.reopenedAt}:${thread.snoozedUntil}`}
+        resetKey={`${threadKey}:${variant}:${snoozedRow}:${thread.doneAt}:${thread.reopenedAt}:${thread.snoozedUntil}`}
         simultaneousWith={props.simultaneousSwipeGesture}
         threadTitle={thread.title}
       >
