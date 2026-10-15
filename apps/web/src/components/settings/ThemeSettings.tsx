@@ -145,7 +145,7 @@ function ThemeLibraryCard({
         render={
           <div
             className={cn(
-              "cursor-pointer overflow-hidden rounded-xl border border-border/70 bg-card/60 transition-colors hover:bg-accent/10",
+              "group/theme-card cursor-pointer overflow-hidden rounded-xl border border-border/70 bg-card/60 transition-colors hover:bg-accent/10",
               isActive && "bg-accent/30",
             )}
             data-theme-library-card={theme.id}
@@ -156,7 +156,7 @@ function ThemeLibraryCard({
               {variantNavigation ? (
                 <div
                   aria-label="Light and dark theme variants"
-                  className="relative h-20"
+                  className="flex h-20 justify-center gap-7"
                   role="group"
                   onBlurCapture={(event) => {
                     const nextTarget = event.relatedTarget;
@@ -174,12 +174,11 @@ function ThemeLibraryCard({
                 >
                   {radialModeGroups.map(({ mode, options, selected }) => {
                     if (!selected) return null;
-                    const rootOffsetX = mode === "light" ? -52 : 52;
                     const isOpen = radialModeOpen === mode;
                     const isActive = selected.option.activeModes.includes(mode);
                     const modeLabel = mode === "light" ? "Light" : "Dark";
                     return (
-                      <div className="contents" key={mode}>
+                      <div className="relative w-[68px]" key={mode}>
                         <ThemeVariantTooltip label={`${modeLabel}: ${selected.option.label}`}>
                           <button
                             aria-label={
@@ -188,10 +187,7 @@ function ThemeLibraryCard({
                                 : `Use ${mode} variant, currently ${selected.option.label}`
                             }
                             aria-pressed={isActive}
-                            className="absolute left-1/2 top-2 z-20 flex size-14 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                            style={{
-                              transform: `translateX(calc(-50% + ${rootOffsetX}px))`,
-                            }}
+                            className="absolute left-1/2 top-2 z-20 flex size-14 -translate-x-1/2 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring"
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
@@ -221,10 +217,7 @@ function ThemeLibraryCard({
                             ) : null}
                           </button>
                         </ThemeVariantTooltip>
-                        <span
-                          className="pointer-events-none absolute bottom-0 left-1/2 inline-flex max-w-24 -translate-x-1/2 items-center gap-1 text-2xs font-medium text-foreground"
-                          style={{ marginLeft: rootOffsetX }}
-                        >
+                        <span className="pointer-events-none absolute bottom-0 left-1/2 inline-flex max-w-22 -translate-x-1/2 items-center gap-1 text-2xs font-medium text-foreground">
                           <span className="truncate">{selected.option.label}</span>
                           {options.length > 1 ? (
                             <span className="shrink-0 rounded-full bg-muted px-1 text-3xs text-muted-foreground">
@@ -235,7 +228,7 @@ function ThemeLibraryCard({
                         {options.length > 1
                           ? options.map(({ option, preview }, optionIndex) => {
                               const progress = optionIndex / (options.length - 1) - 0.5;
-                              const childOffsetX = rootOffsetX + progress * 68;
+                              const childOffsetX = progress * 68;
                               const childOffsetY = Math.abs(progress) * 10;
                               const optionIsActive = option.activeModes.includes(mode);
                               return (
@@ -255,7 +248,7 @@ function ThemeLibraryCard({
                                     style={{
                                       opacity: isOpen ? 1 : 0,
                                       pointerEvents: isOpen ? "auto" : "none",
-                                      transform: `translate(calc(-50% + ${isOpen ? childOffsetX : rootOffsetX}px), ${isOpen ? childOffsetY : 28}px) scale(${isOpen ? 1 : 0.55})`,
+                                      transform: `translate(calc(-50% + ${isOpen ? childOffsetX : 0}px), ${isOpen ? childOffsetY : 28}px) scale(${isOpen ? 1 : 0.55})`,
                                       transitionDelay: isOpen ? `${optionIndex * 35}ms` : "0ms",
                                     }}
                                     type="button"
@@ -290,25 +283,23 @@ function ThemeLibraryCard({
                 />
               )}
             </div>
-            <div className="flex items-center gap-2 px-3 pb-3 pt-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    aria-label={`Use ${variantNavigation ? `${variantNavigation.collectionLabel}, ${theme.label} variant` : `${theme.label} theme`}${isActive ? ", currently active" : ""}`}
-                    aria-pressed={isActive}
-                    className="min-w-0 cursor-pointer truncate rounded-sm text-left text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onUse();
-                    }}
-                  >
-                    {variantNavigation?.collectionLabel ?? theme.label}
-                  </button>
-                </div>
+            <div className="flex items-center gap-2 px-3 pb-2.5 pt-1.5">
+              <div className="flex min-h-7 min-w-0 flex-1 items-center sm:min-h-6">
+                <button
+                  aria-label={`Use ${variantNavigation ? `${variantNavigation.collectionLabel}, ${theme.label} variant` : `${theme.label} theme`}${isActive ? ", currently active" : ""}`}
+                  aria-pressed={isActive}
+                  className="min-w-0 cursor-pointer truncate rounded-sm text-left text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onUse();
+                  }}
+                >
+                  {variantNavigation?.collectionLabel ?? theme.label}
+                </button>
               </div>
               {onEdit || onDuplicate || onDownload || onRemove || variantNavigation ? (
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="sr-only flex shrink-0 items-center gap-0.5 group-hover/theme-card:not-sr-only group-has-focus-visible/theme-card:not-sr-only pointer-coarse:not-sr-only">
                   {onDuplicate ? (
                     <Tooltip>
                       <TooltipTrigger
@@ -718,7 +709,7 @@ export function ThemeLibrary({
 
   const renderWireframe = (mode: ThemeMode) => (
     <ThemeWireframe
-      className="h-[8.75rem]"
+      className="h-24"
       panes={
         mode === "system"
           ? [
@@ -731,7 +722,7 @@ export function ThemeLibrary({
   );
 
   const renderModeTiles = () => (
-    <div aria-label="Appearance mode" className="grid w-full grid-cols-3 gap-3" role="group">
+    <div aria-label="Appearance mode" className="grid w-full grid-cols-3 gap-2" role="group">
       {(["system", "light", "dark"] as const).map((mode) => {
         const isActive = appearanceMode === mode;
         return (
@@ -786,7 +777,7 @@ export function ThemeLibrary({
     <TooltipProvider>
       <div
         className="grid w-full gap-2"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 16rem), 1fr))" }}
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr))" }}
       >
         {STANDARD_THEME_CARDS.map((standardTheme) => (
           <ThemeLibraryCard
@@ -897,38 +888,42 @@ export function ThemeLibrary({
   );
 
   return (
-    <div className="space-y-3">
-      <h3 className="px-3 text-sm font-normal text-foreground/70 sm:px-4">
-        {searchableSetting("color-scheme").title}
-      </h3>
-      {renderModeTiles()}
-      <div className="flex min-h-8 flex-wrap items-center justify-between gap-3 px-3 pt-2 sm:px-4">
-        <h3 className="text-sm font-normal text-foreground/70">
-          {searchableSetting("theme").title}
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h3 className="flex min-h-7 items-center px-3 text-sm font-normal text-foreground/70 sm:px-4">
+          {searchableSetting("color-scheme").title}
         </h3>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() =>
-              openThemeEditor({
-                editingThemeId: null,
-                seedThemeId: activeThemeForAppearance?.id ?? null,
-                seedName: null,
-                initialAppearance,
-              })
-            }
-          >
-            <PaintbrushIcon />
-            Create theme
-          </Button>
-          <Button size="xs" variant="outline" onClick={() => onImportOpenChange(true)}>
-            <PlusIcon />
-            Add theme
-          </Button>
-        </div>
+        {renderModeTiles()}
       </div>
-      {renderPairGrid()}
+      <div className="space-y-2">
+        <div className="flex min-h-7 flex-wrap items-center justify-between gap-3 px-3 sm:px-4">
+          <h3 className="text-sm font-normal text-foreground/70">
+            {searchableSetting("theme").title}
+          </h3>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() =>
+                openThemeEditor({
+                  editingThemeId: null,
+                  seedThemeId: activeThemeForAppearance?.id ?? null,
+                  seedName: null,
+                  initialAppearance,
+                })
+              }
+            >
+              <PaintbrushIcon />
+              Create theme
+            </Button>
+            <Button size="xs" variant="outline" onClick={() => onImportOpenChange(true)}>
+              <PlusIcon />
+              Add theme
+            </Button>
+          </div>
+        </div>
+        {renderPairGrid()}
+      </div>
       <ThemeImportDialog
         onImportedMany={(importedThemes, { updated }) => {
           // Re-apply after collection updates. The update may remove the

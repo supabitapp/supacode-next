@@ -175,7 +175,7 @@ export function ThemePreviewCircles({
   previews: ThemeCardDefinition["previews"];
 }) {
   return (
-    <div className="flex min-h-16 items-center justify-center gap-2.5 px-3 pt-3">
+    <div className="flex min-h-16 items-center justify-center gap-7 px-3 pt-3">
       {previews.map((preview) => {
         const mode = preview.mode;
         const isPicked = activeModes.includes(mode);
