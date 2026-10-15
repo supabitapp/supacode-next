@@ -8,7 +8,7 @@ import { ROUTE_CHECK_TIMEOUT_MS } from "./driver.ts";
 import type { ConnectionAttemptError } from "./model.ts";
 import { routeHttpBaseUrl } from "./routes.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
-import { resolveRelayOrigin } from "../relay/gateway.ts";
+import { leaseRelayOrigin } from "../relay/gateway.ts";
 
 export type ConnectionRouteLatency =
   | { readonly status: "reachable"; readonly latencyMs: number }
@@ -32,11 +32,11 @@ export const measureConnectionRouteLatency = Effect.fn("connection.measureRouteL
             Effect.as(true),
             Effect.orElseSucceed(() => false),
           )
-        : resolveRelayOrigin(
+        : leaseRelayOrigin(
             httpBaseUrl,
             profile?._tag === "BearerConnectionProfile" ? profile.relayUrl : undefined,
           ).pipe(
-            Effect.flatMap((origin) =>
+            Effect.flatMap(({ origin }) =>
               fetchRemoteEnvironmentDescriptor({
                 httpBaseUrl: origin,
                 timeoutMs: ROUTE_CHECK_TIMEOUT_MS,
@@ -50,6 +50,7 @@ export const measureConnectionRouteLatency = Effect.fn("connection.measureRouteL
               credentials: "omit",
             }),
             Effect.orElseSucceed(() => false),
+            Effect.scoped,
           );
     const [duration, answered] = yield* probe.pipe(
       Effect.timeoutOrElse({

@@ -245,10 +245,8 @@ it.effect.each([undefined, "wss://custom.example.test/relay"])(
             },
           };
         },
-        resolve: async (address, url) => {
-          expect(address).toBe(relayEndpoint);
-          relayUrls.push(url);
-          return "http://127.0.0.1:49000/";
+        resolve: () => {
+          throw new Error("Unexpected retained relay");
         },
         release: async () => {},
         fetch: globalThis.fetch,
@@ -273,7 +271,7 @@ it.effect.each([undefined, "wss://custom.example.test/relay"])(
       expect(origins).toEqual(
         Array(2).fill("http://127.0.0.1:49000/.well-known/supaterm/environment"),
       );
-      expect(closedLeases).toBe(1);
+      expect(closedLeases).toBe(2);
     }),
 );
 
