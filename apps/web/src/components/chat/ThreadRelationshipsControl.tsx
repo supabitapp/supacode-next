@@ -165,6 +165,25 @@ function ThreadLineageGroup(props: {
   );
 }
 
+const THREAD_LINEAGE_TITLE_PARTS = [
+  ["parent", "parent"],
+  ["fork", "forks"],
+  ["subagent", "subagents"],
+  ["transfer", "transfers"],
+] as const;
+
+/** Names the section after what it holds, e.g. "Subagents" or "Parent & subagents". */
+export function threadLineageTitle(
+  kinds: ReadonlySet<ThreadRelationshipEdge["kind"] | "parent">,
+): string {
+  const parts = THREAD_LINEAGE_TITLE_PARTS.flatMap(([kind, part]) =>
+    kinds.has(kind) ? [part] : [],
+  );
+  const last = parts.pop() ?? "";
+  const title = parts.length === 0 ? last : `${parts.join(", ")} & ${last}`;
+  return title.charAt(0).toUpperCase() + title.slice(1);
+}
+
 function relationshipLabel(edge: ThreadRelationshipEdge, currentThreadId: ThreadId) {
   if (edge.kind === "transfer") return "Context transfer";
   if (edge.kind === "subagent") {
@@ -328,14 +347,24 @@ export function ThreadRelationshipsPanel(props: {
     { id: "previous", label: "Previous agents", rows: previous, expanded: false },
   ];
   // Subagents without a child thread yet have no row, so count them separately.
-  const runningCount =
-    (projection?.subagents.filter(
+  const pendingRunningCount =
+    projection?.subagents.filter(
       (agent) => agent.childThreadId === null && agent.status === "running",
-    ).length ?? 0) + active.filter(({ edge }) => edge.status === "running").length;
+    ).length ?? 0;
+  const runningCount =
+    pendingRunningCount + active.filter(({ edge }) => edge.status === "running").length;
 
   if (relationshipRows.length === 0 && runningCount === 0) {
     return null;
   }
+
+  const kinds = new Set(
+    relationshipRows.map(({ edge }) =>
+      isParentThreadRelationship(edge, props.threadId) ? "parent" : edge.kind,
+    ),
+  );
+  if (pendingRunningCount > 0) kinds.add("subagent");
+  const title = threadLineageTitle(kinds);
 
   const openThread = (threadId: ThreadId) => {
     void navigate({
@@ -409,7 +438,7 @@ export function ThreadRelationshipsPanel(props: {
   return (
     <ThreadDetailsSection
       headingId="thread-details-lineage-heading"
-      title={runningCount > 0 ? `Lineage · ${runningCount} running` : "Lineage"}
+      title={runningCount > 0 ? `${title} · ${runningCount} running` : title}
       data-thread-relationships-panel
       actions={
         canDetach ? (
