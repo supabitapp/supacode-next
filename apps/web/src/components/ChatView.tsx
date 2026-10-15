@@ -9269,14 +9269,9 @@ export default function ChatView(props: ChatViewProps) {
       return;
     }
     const threadIdForSend = activeThread.id;
-    const isFirstMessage = !sendQueuesBehindSetup && (!isServerThread || activeMessageCount === 0);
-    const baseBranchForWorktree =
-      isFirstMessage && sendEnvMode === "worktree" && !activeThread.worktreePath
-        ? activeThreadBranch
-        : null;
-
     const shouldCreateWorktree =
-      isFirstMessage && sendEnvMode === "worktree" && !activeThread.worktreePath;
+      isLocalDraftThread && sendEnvMode === "worktree" && !activeThread.worktreePath;
+    const baseBranchForWorktree = shouldCreateWorktree ? activeThreadBranch : null;
     if (
       shouldRequireWorktreeBaseBranch({
         shouldCreateWorktree,
@@ -9421,35 +9416,29 @@ export default function ChatView(props: ChatViewProps) {
               }
             : undefined;
           const pendingWorktree = worktree && !activeThreadBranch ? worktree : undefined;
-          const bootstrap =
-            isLocalDraftThread || prepareWorktree
-              ? {
-                  ...(isLocalDraftThread
-                    ? {
-                        createThread: {
-                          projectId: activeProject.id,
-                          title,
-                          modelSelection: target.selection,
-                          runtimeMode,
-                          interactionMode: target.interactionMode,
-                          branch: activeThreadBranch,
-                          worktreePath:
-                            multipleModelSelections === null ? activeThread.worktreePath : null,
-                          createdAt: activeThread.createdAt,
-                        },
-                      }
-                    : {}),
-                  ...(worktree && activeThreadBranch
-                    ? {
-                        prepareWorktree: {
-                          ...worktree,
-                          baseBranch: activeThreadBranch,
-                        },
-                        runSetupScript: true,
-                      }
-                    : {}),
-                }
-              : undefined;
+          const bootstrap = isLocalDraftThread
+            ? {
+                createThread: {
+                  projectId: activeProject.id,
+                  title,
+                  modelSelection: target.selection,
+                  runtimeMode,
+                  interactionMode: target.interactionMode,
+                  branch: activeThreadBranch,
+                  worktreePath: multipleModelSelections === null ? activeThread.worktreePath : null,
+                  createdAt: activeThread.createdAt,
+                },
+                ...(worktree && activeThreadBranch
+                  ? {
+                      prepareWorktree: {
+                        ...worktree,
+                        baseBranch: activeThreadBranch,
+                      },
+                      runSetupScript: true,
+                    }
+                  : {}),
+              }
+            : undefined;
           return {
             environmentId,
             input: {
