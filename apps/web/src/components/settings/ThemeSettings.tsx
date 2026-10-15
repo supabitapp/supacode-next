@@ -17,6 +17,8 @@ import {
   getThemeDefinition,
   getThemeModes,
   removeCustomThemes,
+  resolveThemeAppearance,
+  resolveThemeHalf,
   serializeThemeFile,
   type ThemeAppearance,
   type ThemeDefinition,
@@ -207,8 +209,20 @@ export function ThemeLibrary({
   // The pair model: one theme owns light, one owns dark, and the global
   // appearance mode (light / dark / auto) decides which is showing.
   const baseCardId = getThemeDefinition(theme)?.id ?? null;
-  const lightThemeId = themeHalves?.light ?? baseCardId;
-  const darkThemeId = themeHalves?.dark ?? baseCardId;
+
+  const selectionFor = (appearance: ThemeAppearance) => {
+    const resolvedAppearance = resolveThemeAppearance(
+      theme,
+      appearance === "dark",
+      undefined,
+      appearance,
+      themeHalves,
+    );
+    return {
+      definition: getThemeDefinition(resolveThemeHalf(theme, themeHalves, resolvedAppearance)),
+      appearance: resolvedAppearance,
+    };
+  };
 
   const assignHalf = useCallback(
     (appearance: ThemeAppearance, cardId: string | null) => {
@@ -247,8 +261,7 @@ export function ThemeLibrary({
 
   // "Create theme" starts from whatever is on screen for the appearance being
   // edited, so tuning the theme you already use never means rebuilding it.
-  const activeThemeForAppearance =
-    getThemeDefinition((initialAppearance === "light" ? lightThemeId : darkThemeId) ?? "") ?? null;
+  const activeThemeForAppearance = selectionFor(initialAppearance).definition;
 
   const setMode = (mode: ThemeMode) => {
     if (!setAppearanceMode(mode)) notifyThemeSaveFailure();
@@ -257,14 +270,14 @@ export function ThemeLibrary({
   const isCustomTheme = (themeId: string) =>
     customThemes.some((customTheme) => customTheme.id === themeId);
 
-  const ownerFor = (appearance: ThemeAppearance): ThemeDefinition | null => {
-    const owner = getThemeDefinition((appearance === "light" ? lightThemeId : darkThemeId) ?? "");
-    return owner && getThemeModes(owner).includes(appearance) ? owner : null;
-  };
-
   const swatchColorsFor = (definition: ThemeDefinition | null, appearance: ThemeAppearance) => {
     const card = definition ? getThemeCardDefinition(definition) : STANDARD_THEME_CARDS[0]!;
     return previewColorsOf(card, appearance) ?? card.previews[0]!.colors;
+  };
+
+  const selectedColorsFor = (appearance: ThemeAppearance) => {
+    const selection = selectionFor(appearance);
+    return swatchColorsFor(selection.definition, selection.appearance);
   };
 
   const renderWireframe = (mode: ThemeMode) => (
@@ -273,10 +286,10 @@ export function ThemeLibrary({
       panes={
         mode === "system"
           ? [
-              { clip: "left", colors: swatchColorsFor(ownerFor("light"), "light") },
-              { clip: "right", colors: swatchColorsFor(ownerFor("dark"), "dark") },
+              { clip: "left", colors: selectedColorsFor("light") },
+              { clip: "right", colors: selectedColorsFor("dark") },
             ]
-          : [{ colors: swatchColorsFor(ownerFor(mode), mode) }]
+          : [{ colors: selectedColorsFor(mode) }]
       }
     />
   );
@@ -320,9 +333,10 @@ export function ThemeLibrary({
   );
 
   const renderThemePicker = (appearance: ThemeAppearance) => {
-    const selected = ownerFor(appearance);
+    const { definition: selected, appearance: resolvedAppearance } = selectionFor(appearance);
     const appearanceLabel = appearance === "light" ? "Light" : "Dark";
-    const fits = (definition: ThemeDefinition) => getThemeModes(definition).includes(appearance);
+    const fits = (definition: ThemeDefinition) =>
+      definition.id === selected?.id || getThemeModes(definition).includes(appearance);
     const groups = [
       { label: "Built-in", themes: BUILT_IN_THEMES.filter(fits) },
       { label: "Published", themes: publishedThemes.filter(fits) },
@@ -348,7 +362,7 @@ export function ThemeLibrary({
             className="w-full min-w-0"
             aria-label={`${appearanceLabel} theme`}
           >
-            <ThemeSwatch colors={swatchColorsFor(selected, appearance)} />
+            <ThemeSwatch colors={swatchColorsFor(selected, resolvedAppearance)} />
             <SelectValue>{selected?.label ?? STANDARD_THEME_CARDS[0]!.label}</SelectValue>
           </SelectTrigger>
           <SelectPopup align="end" alignItemWithTrigger={false}>
