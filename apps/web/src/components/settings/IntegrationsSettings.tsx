@@ -59,6 +59,7 @@ import { squashAtomCommandFailure } from "@supaterm/client-runtime/state/runtime
 import {
   AgentDeviceSetupStatus,
   DeviceHubSetupStatus,
+  deviceHubReadiness,
   PlatformStatus,
   platformSetupStatus,
   deviceHubDescription,
@@ -684,7 +685,7 @@ function DeviceIntegrationControls({
   const [pending, setPending] = useState<
     "hub" | "check" | "agent" | "update-hub" | "update-agent" | null
   >(null);
-  const busy = state.hostStatus === "installing" || state.hostStatus === "starting";
+  const { ready: hubReady, busy } = deviceHubReadiness(state);
   const localPlatformsUnavailable = state.hosts.some(
     (host) => host.kind === "local" && !host.platforms.some((platform) => platform.available),
   );
@@ -694,7 +695,7 @@ function DeviceIntegrationControls({
   if (
     enabled &&
     !platformsRevealed &&
-    (state.hostStatus === "ready" || localPlatformsUnavailable) &&
+    (hubReady || localPlatformsUnavailable) &&
     pending !== "hub"
   ) {
     setPlatformsRevealed(true);
