@@ -1,5 +1,4 @@
 import { WorkspaceHeaderActions } from "../workspace/WorkspaceHeaderActions";
-import { useThreadListFilterMenu } from "./useThreadListFilterMenu";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { use, useCallback, useEffect, useRef } from "react";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
@@ -58,10 +57,9 @@ export function HomeHeader(props: HomeHeaderProps) {
   }, [primaryColumn, panes.primarySidebarVisible, togglePrimarySidebar]);
   useHardwareKeyboardCommand("focusSearch", focusSearch);
   const filterMenu = buildHomeListFilterMenu(props);
-  const dockFilterMenu = useThreadListFilterMenu(props);
 
   if (props.usesWorkspaceToolbar) {
-    return <WorkspaceHeaderActions filterMenu={dockFilterMenu} />;
+    return <WorkspaceHeaderActions />;
   }
 
   return (

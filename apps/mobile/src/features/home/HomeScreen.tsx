@@ -82,6 +82,7 @@ import {
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
+import { ThreadListFilters } from "./ThreadListFilters";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -406,6 +407,10 @@ export function HomeScreen(props: HomeScreenProps) {
         projectGroupingMode: props.projectGroupingMode,
       }),
     [props.projectGroupingMode, props.projects, props.selectedEnvironmentId],
+  );
+  const projectFilterOptions = useMemo(
+    () => projectScopes.map((scope) => ({ key: scope.key, label: scope.title })),
+    [projectScopes],
   );
   const hasSearchQuery = props.searchQuery.trim().length > 0;
   const projectByKey = useMemo(() => {
@@ -947,7 +952,21 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
 
-  const v2ListHeader = <>{listHeader}</>;
+  const v2ListHeader = (
+    <>
+      {listHeader}
+      {Platform.OS === "ios" && workspace ? (
+        <ThreadListFilters
+          environments={props.environments}
+          projects={projectFilterOptions}
+          selectedEnvironmentId={props.selectedEnvironmentId}
+          selectedProjectKey={props.selectedProjectKey}
+          onEnvironmentChange={props.onEnvironmentChange}
+          onProjectChange={props.onProjectChange}
+        />
+      ) : null}
+    </>
+  );
 
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.
