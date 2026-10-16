@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import {
   ComposerContextId,
   COMPOSER_CONTEXT_TERMINAL_TEXT_MAX_CHARS,
@@ -7,7 +8,7 @@ import {
 import { formatComposerContextReference } from "@supaterm/shared/composerContextReferences";
 import { withOccurrenceKeys } from "@supaterm/shared/occurrenceKeys";
 import { useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { REVIEW_MONO_FONT_FAMILY } from "../review/reviewDiffRendering";
 import { AppText as Text } from "../../components/AppText";
@@ -51,7 +52,7 @@ export function TerminalContextSheet(props: {
         context: { version: 1, records: [record] },
       })
     ) {
-      Alert.alert("Too many context items", "Remove some context from the draft and try again.");
+      Dialog.alert("Too many context items", "Remove some context from the draft and try again.");
       return;
     }
     props.onAttach();

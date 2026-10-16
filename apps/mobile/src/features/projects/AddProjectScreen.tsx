@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { NavigationRow } from "../../components/NavigationRow";
 import { SettingsScreen } from "../settings/components/SettingsScreen";
@@ -53,7 +54,7 @@ import {
 import { CommonActions, StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Platform, Alert, Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Arr from "effect/Array";
 import * as Cause from "effect/Cause";
@@ -714,7 +715,7 @@ function useCreateProject(environment: EnvironmentOption | null) {
         !canCreateProjectInEnvironment(environment.connectionState) ||
         !readEnvironmentScope(environment.environmentId, AuthOrchestrationOperateScope)
       ) {
-        Alert.alert(
+        Dialog.alert(
           "Project not added",
           `This connection cannot add projects right now. Any existing files remain at ${workspaceRoot}.`,
         );
@@ -727,7 +728,7 @@ function useCreateProject(environment: EnvironmentOption | null) {
         path: workspaceRoot,
       });
       if (existing) {
-        Alert.alert("Project already exists", existing.title);
+        Dialog.alert("Project already exists", existing.title);
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
@@ -1088,7 +1089,7 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
       }
       const { projectId, workspaceRoot, commitError } = result.value;
       if (commitError !== undefined) {
-        Alert.alert("Created without a first commit", commitError);
+        Dialog.alert("Created without a first commit", commitError);
       }
       if (publishes && publishTarget !== null) {
         void publishRepository({
@@ -1101,7 +1102,7 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
           },
         }).then((publishResult) => {
           if (AsyncResult.isFailure(publishResult)) {
-            Alert.alert(
+            Dialog.alert(
               `Could not create the ${publishTarget.definition.label} repository`,
               errorMessage(Cause.squash(publishResult.cause)),
             );

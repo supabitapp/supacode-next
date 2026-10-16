@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import type {
   EnvironmentId,
   ProjectId,
@@ -13,7 +14,6 @@ import {
   COMPOSER_CONTEXT_MAX_RECORDS,
   PROVIDER_WORKSPACE_SNAPSHOT_TTL_MS,
 } from "@supaterm/contracts";
-import { Alert } from "react-native";
 import { formatComposerContextReference } from "@supaterm/shared/composerContextReferences";
 import { pullRequestComposerContext, threadComposerContext } from "../../lib/composerContext";
 import { uuidv4 } from "../../lib/uuid";
@@ -525,7 +525,7 @@ export function useComposerCommandMenu({
         const existing = getComposerDraftSnapshot(ownerKey).context?.records ?? [];
         const alreadyAttached = existing.some((entry) => entry.contextId === record.contextId);
         if (!alreadyAttached && existing.length >= COMPOSER_CONTEXT_MAX_RECORDS) {
-          Alert.alert(
+          Dialog.alert(
             "Too many context items",
             "Remove some context from the draft and try again.",
           );
@@ -560,7 +560,7 @@ export function useComposerCommandMenu({
           (getComposerDraftSnapshot(ownerKey).context?.records.length ?? 0) >=
           COMPOSER_CONTEXT_MAX_RECORDS
         ) {
-          Alert.alert(
+          Dialog.alert(
             "Too many context items",
             "Remove some context from the draft and try again.",
           );

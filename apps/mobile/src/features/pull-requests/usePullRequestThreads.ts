@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import { useNavigation, useNavigationState, useRoute } from "@react-navigation/native";
 import {
   AuthOrchestrationOperateScope,
@@ -10,7 +11,7 @@ import { formatComposerContextReference } from "@supaterm/shared/composerContext
 import { parseChangeRequestUrl } from "@supaterm/shared/changeRequestUrl";
 import { normalizeThreadPullRequestKey } from "@supaterm/shared/threadPullRequests";
 import { useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import { useAndroidWorkspaceSelection } from "../workspace/useAndroidWorkspaceSelection";
 import { pullRequestComposerContext } from "../../lib/composerContext";
 import { scopedThreadKey } from "../../lib/scopedEntities";
@@ -149,7 +150,7 @@ export function usePullRequestThreads(
           params: { draftId: draftKey, title: `Ask about #${pr.number}` },
         });
     } catch (cause) {
-      Alert.alert("Couldn't open a thread", cause instanceof Error ? cause.message : "Try again.");
+      Dialog.alert("Couldn't open a thread", cause instanceof Error ? cause.message : "Try again.");
     } finally {
       pending.current = false;
       setBusy(false);

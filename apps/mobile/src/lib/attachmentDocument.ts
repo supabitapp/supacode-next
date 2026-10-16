@@ -1,3 +1,4 @@
+import * as Dialog from "../components/Dialog";
 import { filePreviewDelimiter, parseDelimitedPreview } from "@supaterm/shared/delimitedPreview";
 import type { EnvironmentId } from "@supaterm/contracts";
 import { readFilePreviewResponse } from "@supaterm/client-runtime/file-preview";
@@ -5,7 +6,6 @@ import { filePreviewKind, FILE_TEXT_PREVIEW_MAX_BYTES } from "@supaterm/shared/f
 import { fetch } from "expo/fetch";
 import { File } from "expo-file-system";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
 
 import type { FileBackedComposerAttachment } from "./composerImages";
 import { loadLocalAttachmentPreview } from "./localAttachmentPreview";
@@ -204,7 +204,7 @@ export function useAttachmentDocument(input: {
       else await downloadAndShareAttachment({ ...request, url: (await refresh()) ?? uri });
     } catch (cause) {
       if (controller.signal.aborted) return;
-      Alert.alert(
+      Dialog.alert(
         "Could not share file",
         cause instanceof Error ? cause.message : "Please try again.",
       );
