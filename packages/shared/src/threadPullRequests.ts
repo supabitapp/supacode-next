@@ -1,4 +1,5 @@
 import type {
+  OrchestrationV2AppThread,
   ThreadLinkedPullRequest,
   ThreadPullRequestKey,
   ThreadPullRequestLink,
@@ -274,4 +275,17 @@ export function threadPullRequestsOf(thread: {
   readonly pullRequests?: ReadonlyArray<ThreadPullRequestLink> | undefined;
 }): ReadonlyArray<ThreadPullRequestLink> {
   return thread.pullRequests ?? [];
+}
+
+/** Apply a single-link sync without copying unrelated PRs into the event history. */
+export function applyThreadPullRequestLinkUpdate(
+  thread: OrchestrationV2AppThread,
+  updated: ThreadPullRequestLink,
+): OrchestrationV2AppThread {
+  return {
+    ...thread,
+    pullRequests: threadPullRequestsOf(thread).map((link) =>
+      threadPullRequestKeysEqual(link, updated) ? updated : link,
+    ),
+  };
 }
