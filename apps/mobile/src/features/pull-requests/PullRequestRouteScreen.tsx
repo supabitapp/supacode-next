@@ -1,4 +1,5 @@
 import { usePullRequestToolbarHeight } from "./usePullRequestToolbarHeight";
+import { Chip } from "../../components/Chip";
 import { pullRequestTabOffset } from "./pullRequestTabScroll";
 
 import { PullRequestGuideContent } from "./guide/PullRequestGuideScreen";
@@ -228,9 +229,7 @@ function PullRequestOverview(props: {
       {pr.labels.length ? (
         <Animated.View layout={PR_ROW_LAYOUT} className="flex-row flex-wrap gap-2">
           {pr.labels.map((label) => (
-            <View key={label.name} className="rounded-full bg-grouped-card px-3 py-1">
-              <Text className="text-2xs text-foreground-muted">{label.name}</Text>
-            </View>
+            <Chip key={label.name} label={label.name} size="small" />
           ))}
         </Animated.View>
       ) : null}

@@ -3,11 +3,11 @@ import * as Haptics from "expo-haptics";
 import { View } from "react-native";
 import type { ThemedSwitchProps } from "./MaterialSwitch.types";
 
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
+import { useControlTheme } from "./useControlTheme";
 
 /** Material's native switch, with the same palette and accessibility contract as our RN controls. */
 export function MaterialSwitch(props: ThemedSwitchProps) {
-  const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
+  const { colorScheme, colors } = useControlTheme();
   const change = (value: boolean) => {
     void Haptics.performAndroidHapticsAsync(
       value ? Haptics.AndroidHaptics.Toggle_On : Haptics.AndroidHaptics.Toggle_Off,
@@ -32,7 +32,7 @@ export function MaterialSwitch(props: ThemedSwitchProps) {
     >
       <View importantForAccessibility="no-hide-descendants">
         <Host
-          colorScheme={themeAppearance}
+          colorScheme={colorScheme}
           ignoreSafeAreaKeyboardInsets
           style={{ width: 52, height: 48 }}
         >
