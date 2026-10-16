@@ -65,13 +65,13 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const baseDir = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(fs.realPath));
       const prefix = `${baseDir}/node`;
-      const entry = `${prefix}/lib/node_modules/supaterm/bin/supaterm.js`;
+      const entry = `${prefix}/lib/node_modules/supaterm/bin/supaterm.mjs`;
       yield* fs.makeDirectory(`${prefix}/lib/node_modules/supaterm/bin`, { recursive: true });
       yield* fs.makeDirectory(`${prefix}/bin`, { recursive: true });
       yield* fs.writeFileString(entry, "");
       yield* fs.writeFileString(
         `${prefix}/lib/node_modules/supaterm/package.json`,
-        '{"name":"supaterm","version":"0.0.45","bin":{"supaterm":"./bin/supaterm.js"}}',
+        '{"name":"supaterm","version":"0.0.45","bin":{"supaterm":"./bin/supaterm.mjs"}}',
       );
       yield* fs.symlink(entry, `${prefix}/bin/supaterm`);
       const config = yield* makeServerConfig(baseDir);

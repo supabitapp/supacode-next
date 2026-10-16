@@ -272,6 +272,14 @@ export default defineConfig({
         rules: { "supaterm/no-global-process-runtime": "off" },
       },
       {
+        // The `supaterm` npm launcher is published as plain, dependency-free Node.
+        files: ["scripts/npm-launcher/**"],
+        rules: {
+          "supaterm/no-global-process-runtime": "off",
+          "supaterm/namespace-node-imports": "off",
+        },
+      },
+      {
         // The registration helpers that only accept handlers built by McpToolAccess.
         files: ["apps/server/src/mcp/McpHttpServer.ts"],
         rules: { "supaterm/no-raw-mcp-registration": "off" },
