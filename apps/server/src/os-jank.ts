@@ -5,6 +5,7 @@ import {
   readEnvironmentFromLoginShell,
   readPathFromLaunchctl,
   resolveWindowsEnvironment,
+  setWindowsPath,
 } from "@supaterm/shared/shell";
 import { resolveDefaultSupatermHome } from "@supaterm/shared/supatermHome";
 import * as Effect from "effect/Effect";
@@ -72,7 +73,10 @@ export const fixPath = Effect.fn("fixPath")(function* (options?: {
       ),
     );
     for (const [key, value] of Object.entries(repairedEnvironment)) {
-      if (value !== undefined) {
+      if (value === undefined) continue;
+      if (key === "PATH") {
+        setWindowsPath(env, value);
+      } else {
         env[key] = value;
       }
     }
