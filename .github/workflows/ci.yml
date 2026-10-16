@@ -46,6 +46,9 @@ jobs:
         background: true
         run: vp run knip:check
 
+      - name: Check generated GitHub GraphQL operations
+        run: vp run --filter @supaterm/source-control-github generate --check
+
       - name: Check
         run: vp check
 
