@@ -425,6 +425,19 @@ describe("automation permissions", () => {
     expect(textContent(renderer!)).toContain("No automations on Local");
   });
 
+  it("lists a single environment's automations and flags a link it does not have", async () => {
+    state.environments = [environment(remoteId, "Remote")];
+    state.tasks.set(remoteId, [task(remoteProjectId)]);
+    state.search = { environmentId: remoteId, taskId: ScheduledTaskId.make("missing") };
+    await act(async () => {
+      renderer = create(<AutomationsPage />);
+    });
+
+    expect(textContent(renderer!)).toContain("Read only automation");
+    expect(textContent(renderer!)).toContain("Automation unavailable");
+    expect(textContent(renderer!)).not.toContain("Edit automation");
+  });
+
   it("blocks retained row actions after the environment grant is revoked", async () => {
     state.tasks.set(remoteId, [task(remoteProjectId)]);
     await act(async () => {
