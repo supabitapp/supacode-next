@@ -27,7 +27,6 @@ export function WorkspaceRootScreen() {
     [workspace, bottomClearance],
   );
 
-  // Split lists live beside the navigator; Home remains an empty detail pane.
   if (layout.usesSplitView) {
     return workspace.state.selectedTab === "threads" ? (
       <HomeRouteScreen />

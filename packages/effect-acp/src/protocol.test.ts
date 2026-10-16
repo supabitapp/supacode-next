@@ -289,7 +289,6 @@ it.layer(NodeServices.layer)("effect-acp protocol", (it) => {
         method: "session/update",
         issueSummary: "update.used missing",
       });
-      // The repeated bad update is dropped again but warned about once.
       assert.lengthOf(
         events.filter(({ stage }) => stage === "decode_failed"),
         2,
@@ -354,7 +353,6 @@ it.layer(NodeServices.layer)("effect-acp protocol", (it) => {
         ),
       );
 
-      // Pending requests are failed through termination instead of hanging.
       const error = yield* TestClock.withLive(
         Deferred.await(termination).pipe(Effect.timeout("2 seconds")),
       );
@@ -442,8 +440,6 @@ it.layer(NodeServices.layer)("effect-acp protocol", (it) => {
         serverRequestMethods: new Set(),
       });
 
-      // Notifications encode through Schema, so the cause is the schema failure rather
-      // than the raw TypeError JSON.stringify throws. The ACP error shape is what callers see.
       const bigintError = yield* transport.notify("x/test", 1n).pipe(Effect.flip);
       assert.instanceOf(bigintError, AcpError.AcpProtocolParseError);
       assert.equal(bigintError.operation, "encode-message");
@@ -612,7 +608,6 @@ it.layer(NodeServices.layer)("effect-acp protocol", (it) => {
       yield* AcpProtocol.makeAcpPatchedProtocol({
         stdio,
         serverRequestMethods: new Set(),
-        // The typed failure must not hide the defect from its cleanup.
         onExtRequest: () =>
           Effect.fail(AcpError.AcpRequestError.invalidParams("bad params")).pipe(
             Effect.ensuring(Effect.die(new Error("cleanup bug"))),
@@ -1131,7 +1126,6 @@ it.layer(NodeServices.layer)("effect-acp protocol", (it) => {
       assert.isTrue(exitDetail.intentionalEnd);
       assert.equal(yield* Ref.get(terminations), 0);
 
-      // Tear down the forever input reader so the scoped test can finish.
       yield* Queue.end(input);
     }),
   );

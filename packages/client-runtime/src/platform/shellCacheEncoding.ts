@@ -16,8 +16,6 @@ const yieldToHostTimer = Effect.callback<void>((resume) => {
   return Effect.sync(() => clearTimeout(timer));
 });
 
-// Rows go through the canonical row codec in chunks. The envelope codec then
-// validates and encodes everything else, passing the encoded rows through as-is.
 const encodeThreadChunk = Schema.encodeEffect(Schema.Array(OrchestrationV2ThreadShellJson));
 const EncodedRows = Schema.Array(Schema.Unknown);
 const encodeEnvelope = Schema.encodeEffect(

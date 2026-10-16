@@ -205,7 +205,6 @@ function runFixtureProviderWithRegisteredHarness(input: {
         harness: AcpRegistryOrchestratorReplayHarness,
       }).pipe(Effect.mapError(normalizeTestError), Effect.scoped);
     case "opencode":
-      // One driver, two runtimes: the transcript's protocol says which one recorded it.
       return readTranscript(input.driver.transcriptFile).pipe(
         Effect.flatMap((transcript) =>
           transcript.protocol === OPENCODE2_HTTP_PROTOCOL
@@ -263,9 +262,6 @@ describe("orchestrator replay fixtures", () => {
     );
   }
 
-  // A later OpenCode may change an execution start's shape; the client then
-  // reads it as `unreadable.execution.started`. A subagent's turn and a
-  // background follow-up must still start from it.
   it.effect.each(
     (
       [
@@ -515,7 +511,6 @@ describe("orchestrator replay fixtures", () => {
   }
 });
 
-/** The same event with an envelope this build cannot decode, as a newer OpenCode may send. */
 function undecodableEvent(entry: ProviderReplayEntry): ProviderReplayEntry {
   if (entry.type !== "emit_inbound") return entry;
   const frame = entry.frame as { readonly event: Record<string, unknown> };

@@ -24,7 +24,6 @@ import { MobileStorageDecodeError, MobileStorageEncodeError } from "./mobile-sto
 const PREFERENCES_KEY = "supaterm.preferences";
 const PREFERENCES_FALLBACK_KEY = "supaterm.preferences.fallback";
 
-/** The pull request list's filters and sort for one environment scope. */
 export const PullRequestListControls = Schema.Struct({
   state: PullRequestListState,
   involvement: PullRequestInvolvement,
@@ -41,7 +40,6 @@ const ThreadListFilters = Schema.Struct({
 });
 export type ThreadListFilters = typeof ThreadListFilters.Type;
 
-/** Controls are keyed by environment id, with "" for all environments. */
 const PullRequestListPreferences = Schema.Struct({
   environmentId: Schema.NullOr(Schema.String),
   controls: Schema.Record(Schema.String, PullRequestListControls),
@@ -67,12 +65,7 @@ export interface Preferences {
   /** What the Return key does in the composer on a hardware keyboard. iOS only. */
   readonly composerEnterBehavior?: ComposerEnterBehavior;
   readonly showSkillsInSlashMenu?: boolean;
-  /**
-   * Device-local mirror of the web `followUpBehavior` client setting: whether a
-   * message sent during a running turn queues behind it or steers it.
-   */
   readonly followUpBehavior?: FollowUpBehavior;
-  /** Microphone kinds and remembered devices, most preferred first. iOS only. */
   readonly microphones?: ReadonlyArray<MicrophoneEntry>;
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
   readonly threadListPinnedShelfExpanded?: boolean;
@@ -80,7 +73,6 @@ export interface Preferences {
   readonly threadListDoneShelfExpanded?: boolean;
   readonly threadListSnoozedShelfExpanded?: boolean;
   readonly threadListWorkingShelfExpanded?: boolean;
-  /** Home list filters, restored on the next launch. */
   readonly threadListFilters?: ThreadListFilters;
   readonly pullRequestListFilters?: PullRequestListPreferences;
 }

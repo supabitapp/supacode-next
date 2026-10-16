@@ -33,8 +33,6 @@ SWtxwtr8RbC5xrm7TTYul3G9SPCvNS0=
 -----END CERTIFICATE-----
 `;
 
-// An h2-capable origin, like api.github.com, that answers with the HTTP
-// version the client negotiated.
 const server = NodeHttp2.createSecureServer(
   { allowHTTP1: true, key: TEST_KEY, cert: TEST_CERT },
   (request, response) => response.end(request.httpVersion),
@@ -60,7 +58,6 @@ afterAll(async () => {
 
 const versionViaGlobalDispatcher = async () => (await Undici.request(origin)).body.text();
 
-// Node's built-in fetch, the path the server's own requests take.
 const versionViaBuiltinFetch = () =>
   HttpClient.get(origin).pipe(
     Effect.flatMap((response) => response.text),
@@ -69,14 +66,12 @@ const versionViaBuiltinFetch = () =>
 
 describe("installHttp1FetchDispatcher", () => {
   it("makes the global dispatcher negotiate HTTP/1.1 and keeps the env proxy agent", async () => {
-    // undici 8's default agent, the one Node 26's fetch uses.
     Undici.setGlobalDispatcher(new Undici.Agent());
     expect(await versionViaGlobalDispatcher()).toBe("2.0");
 
     installHttp1FetchDispatcher();
     expect(await versionViaGlobalDispatcher()).toBe("1.1");
 
-    // Node installs this agent for --use-env-proxy; replacing it would drop the proxy.
     Undici.setGlobalDispatcher(new Undici.EnvHttpProxyAgent());
     installHttp1FetchDispatcher();
     expect(Undici.getGlobalDispatcher()).toBeInstanceOf(Undici.EnvHttpProxyAgent);

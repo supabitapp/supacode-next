@@ -36,7 +36,6 @@ import type * as ProviderAdapter from "@supaterm/provider-core/server/ProviderAd
 import * as ProviderSessionManager from "./ProviderSessionManager.ts";
 import * as RuntimePolicy from "./RuntimePolicy.ts";
 
-// A root that does not exist never overlaps, so other owners decide isolation.
 const unrelatedProject = Option.some({
   workspaceRoot: "/nonexistent/supaterm-rollback-project",
 } as never);
@@ -597,7 +596,6 @@ it.effect.each([
       },
       providerThreads: [providerThread],
       providerSessions: [],
-      // Turn 3 remains in the audit history after an earlier rollback.
       providerTurns: [
         ...(multipleTurns
           ? [

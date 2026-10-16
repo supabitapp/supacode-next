@@ -403,7 +403,6 @@ layer("ProviderEventIngestorV2", (it) => {
 
       assert.lengthOf(yield* ingestNode(node), 1);
       assert.isEmpty(yield* ingestNode({ ...node }));
-      // The server resolves the request, then the provider asks again with the same node.
       yield* eventSink.write({
         events: [
           {
@@ -2154,7 +2153,6 @@ layer("ProviderEventIngestorV2", (it) => {
           event,
         });
       yield* eventSink.write({ events: [rootEvent] });
-      // The subagent's thread starts on the parent's model and options.
       yield* ingest({
         type: "app_thread.created",
         driver: CODEX_DRIVER,
@@ -2220,7 +2218,6 @@ layer("ProviderEventIngestorV2", (it) => {
         model: "gpt-6.1-sol",
       });
 
-      // A selection the provider reports, effort included, replaces the thread's.
       const reportedSelection = {
         instanceId: modelSelection.instanceId,
         model: "gpt-6.1-sol",
@@ -2239,8 +2236,6 @@ layer("ProviderEventIngestorV2", (it) => {
         reportedSelection,
       );
 
-      // A subagent recovered after a restart reports its model but no
-      // selection; the same model keeps the effort the thread holds.
       const recovered = yield* ingest(subagentUpdated);
       assert.deepEqual(
         recovered.map((stored) => stored.event.type),

@@ -47,7 +47,6 @@ it.effect("reports the version the running server recorded, not the CLI's", () =
       yield* fs.makeTempDirectoryScoped({ prefix: "supaterm-triage-" }),
       "server-runtime.json",
     );
-    // The test process stands in for the server, so its pid is alive.
     const state = yield* makePersistedServerRuntimeState({
       config: { host: undefined, devUrl: undefined },
       port: 3773,

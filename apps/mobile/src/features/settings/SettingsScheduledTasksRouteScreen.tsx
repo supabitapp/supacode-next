@@ -454,7 +454,6 @@ function SettingsScheduledTaskEditorScreen({ title }: { readonly title: string }
   });
   useEffect(() => {
     if (!saved) return;
-    // Let the native removal guard turn off before popping the saved form.
     const frame = requestAnimationFrame(() => {
       if (navigation.isFocused()) navigation.goBack();
     });
@@ -654,7 +653,6 @@ function TaskForm({
       interactionMode: draft.task?.interactionMode ?? "default",
       creationSource: draft.task?.creationSource ?? "mobile",
     };
-    // Lock before React renders, and keep successful creates locked until the form closes.
     submissionPending.current = true;
     setSaving(true);
     const result = await upsert({ environmentId, input });

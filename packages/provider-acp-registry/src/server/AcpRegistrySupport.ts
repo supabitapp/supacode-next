@@ -314,12 +314,6 @@ function withPreferredPath(
   };
 }
 
-/**
- * Directories exposing installed ACP Registry commands. The integrated
- * terminal appends them to PATH so managed package commands and
- * managed binary agents are both available by name. Best effort: unreadable
- * directories resolve to no entries.
- */
 export const acpRegistryManagedBinaryDirectories = Effect.fn("acpRegistryManagedBinaryDirectories")(
   function* (input: {
     readonly cacheDir: string;
@@ -378,7 +372,6 @@ export const acpRegistryManagedBinaryDirectories = Effect.fn("acpRegistryManaged
         Effect.orElseSucceed((): ReadonlyArray<AcpRegistryAgent> => []),
       );
     const cachedAgentByInstall = new Map(
-      // Install directories are named by the URI-encoded version.
       cachedAgents.map(
         (agent) => [`${agent.id}\0${encodeURIComponent(agent.version)}`, agent] as const,
       ),
@@ -1719,7 +1712,6 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
           ? ({
               status: "ready",
               agentId,
-              // The catalog version does not describe an overridden executable.
               version: null,
               distribution: distribution.kind,
               ...(documentationUrl ? { documentationUrl } : {}),

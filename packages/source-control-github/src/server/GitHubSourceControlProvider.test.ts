@@ -685,7 +685,6 @@ describe("GitHubSourceControlProvider writes", () => {
         "code.example.test GET user",
         "code.example.test GET repos/me/notes",
       ]);
-      // Malformed names are still refused before any request.
       for (const repository of ["me/", "/notes", "a/b/c/d", "", "two words"]) {
         const error = yield* Effect.flip(gh.getRepositoryCloneUrls({ cwd: "/repo", repository }));
         assert.include(error.message, "Repositories are named owner/name.");

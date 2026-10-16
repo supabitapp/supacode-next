@@ -26,9 +26,7 @@ import { boltMask } from "./lib/icon-artwork.ts";
 const ICON_VARIANTS = ["dev", "nightly", "prod"] as const;
 type IconVariant = (typeof ICON_VARIANTS)[number];
 
-// 108dp at xxxhdpi. Expo's prebuild derives every launcher density bucket from this.
 const ADAPTIVE_CANVAS = 432;
-// 288dp at xxxhdpi: the full Android 12+ splash canvas, so the icon needs no upscaling.
 const SPLASH_CANVAS = 1152;
 // Bolt height as a fraction of the 108dp canvas, inside the 66dp safe zone.
 const MARK_FRACTION = 0.42;

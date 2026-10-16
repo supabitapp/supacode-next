@@ -96,12 +96,10 @@ interface EnvironmentOption {
   readonly platform: string;
   readonly machine: EnvironmentMachineKind;
   readonly baseDirectory: string | null;
-  /** Folder for projects started from just a name; null on servers without it. */
   readonly newProjectsRoot: string | null;
   readonly connectionState: EnvironmentConnectionPhase;
   readonly connectionError: string | null;
   readonly connectionErrorTraceId: string | null;
-  /** Server runs clones in the background and streams progress; older servers block. */
 }
 
 const environmentOptionOrder = Order.mapInput(
@@ -296,9 +294,6 @@ function ProjectPathInput(props: {
   );
 }
 
-// `pinnedDirectoryName` is the repository folder the clone destination keeps
-// appended to whatever folder the user browses to. The plain add-project flow
-// passes nothing, so it keeps proposing the browsed folder itself.
 function useBrowsePathInput(environment: EnvironmentOption | null, pinnedDirectoryName = "") {
   const environmentId = environment?.environmentId ?? null;
   const environmentBaseDirectory = environment?.baseDirectory ?? null;
@@ -691,7 +686,6 @@ function openNewTaskDraft(
   );
 }
 
-/** A new task draft in the project, holding a prompt link's prompt. */
 async function draftWithPrompt(
   environmentId: EnvironmentId,
   projectId: ProjectId,
@@ -917,8 +911,6 @@ function FolderBrowser(props: {
           input: browseInput,
         }),
   );
-  // A pinned repository folder does not exist yet, so filtering the listing by
-  // it would empty the folder picker. Anything the user typed still filters.
   const pinnedDirectoryName = props.pinnedDirectoryName ?? "";
   const pinnedDirectoryMatches = isWindowsPlatform(props.environment.platform)
     ? browsePath.filterQuery.toLowerCase() === pinnedDirectoryName.toLowerCase()
@@ -997,7 +989,6 @@ function FolderBrowser(props: {
  */
 export function AddProjectNewScreen(props: { readonly environmentId?: string | string[] }) {
   const navigation = useNavigation();
-  // Starts on the machine picked in Add project; the rows below switch it.
   const environmentOptions = useEnvironmentOptions().filter(
     (option) => option.newProjectsRoot !== null,
   );
@@ -1020,7 +1011,6 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
   const publishTargets = getNewProjectPublishTargets(discoveryState.data);
   const [name, setName] = useState("");
   const [publishes, setPublishes] = useState(false);
-  // Null takes the first ready host, GitHub when it is ready.
   const [publishKind, setPublishKind] = useState<SourceControlProviderKind | null>(null);
   const publishTarget = getNewProjectPublishTarget(publishTargets, publishKind);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1031,8 +1021,6 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
       ? getNewProjectPathPreview(environment.newProjectsRoot, trimmedName)
       : null;
 
-  // Shown when there is a choice, or when the selected machine went away and
-  // another one can take over.
   const showMachines =
     environmentOptions.length > 1 || (environment === null && environmentOptions.length > 0);
   const machineRows = showMachines ? (
@@ -1051,7 +1039,6 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
               />
             }
             selected={selected}
-            // The create in flight keeps the machine it started on.
             disabled={isSubmitting}
             isFirst={index === 0}
             right={
@@ -1116,7 +1103,6 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
         15_000,
       );
       if (project === null) {
-        // The project exists, so clearing the name keeps Create from making a `-2` copy.
         setName("");
         setError(
           "The project was created but has not reached this device yet. It will appear in the project list once the connection catches up.",
@@ -1236,8 +1222,6 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
                 />
               }
               isFirst
-              // New project opens from Add project, so going back shows the
-              // other sources. A deep link has nothing behind it.
               onPress={() =>
                 navigation.canGoBack()
                   ? navigation.goBack()
@@ -1341,10 +1325,6 @@ export function AddProjectDestinationScreen(props: {
   const remoteUrl = stringParam(props.remoteUrl);
   const repositoryTitle = stringParam(props.repositoryTitle);
   const prompt = stringParam(props.prompt);
-  // A lookup derives this from "owner/repo", a pasted clone URL from its own
-  // last segment. Older links without the param keep the browsed folder.
-  // Trim once here: the path input and the folder-list filter must compare the
-  // same value, or a deep link with a padded param empties the folder picker.
   const repositoryName = stringParam(props.repositoryName)?.trim() ?? "";
   const { isBrowseNavigating, navigateToBrowsePath, pathInput, setPathInput } = useBrowsePathInput(
     environment,
@@ -1376,8 +1356,6 @@ export function AddProjectDestinationScreen(props: {
     }
 
     setIsSubmitting(true);
-    // The server creates the project and clones in the background; the
-    // draft screen shows progress and holds Start until the files land.
     const projectId = ProjectId.make(uuidv4());
     const title = inferProjectTitleFromPath(resolved.path);
     const startResult = await startProjectClone({
@@ -1412,8 +1390,7 @@ export function AddProjectDestinationScreen(props: {
           title,
           cloning: "1",
           ...(prompt
-            ? // Without its prompt the draft still opens on the cloned project.
-              await draftWithPrompt(environment.environmentId, projectId, prompt).then(
+            ? await draftWithPrompt(environment.environmentId, projectId, prompt).then(
                 (draftId) => ({ draftId }),
                 () => ({}),
               )

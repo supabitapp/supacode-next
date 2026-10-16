@@ -20,7 +20,6 @@ export interface ProviderIcon {
     readonly d: string;
     readonly fillRule?: "evenodd" | "nonzero";
     readonly fill?: { readonly light: string; readonly dark: string };
-    /** A brand gradient, the same in both themes. Coordinates are in viewBox units. */
     readonly gradient?: ProviderIconGradient;
   }>;
 }

@@ -65,7 +65,6 @@ export function buildComposerSlashCommandItems(input: {
   readonly query: string;
   readonly hasThread: boolean;
   readonly hasCompactableConversation?: boolean;
-  /** Whether Supaterm itself offers /usage-limits for the selected provider. */
   readonly offersUsageLimits?: boolean;
   readonly selectedProviderStatus: Pick<ServerProvider, "driver" | "slashCommands"> | null;
 }): ComposerCommandItem[] {
@@ -84,8 +83,6 @@ export function buildComposerSlashCommandItems(input: {
   for (const command of input.selectedProviderStatus?.slashCommands ?? []) {
     if (!command.name.toLowerCase().includes(query)) continue;
     if (command.name === "compact" && !input.hasCompactableConversation) continue;
-    // Supaterm's own limits command is answered by the thread composer; New Task has
-    // nowhere to show it. A provider's same-named command is left alone.
     if (command.name === USAGE_LIMITS_COMMAND.name && input.offersUsageLimits && !input.hasThread) {
       continue;
     }
@@ -130,7 +127,6 @@ export function resolveComposerCommandSelection(input: {
   return replaceTextRange(draftMessage, trigger.rangeStart, trigger.rangeEnd, replacement);
 }
 
-/** Shared autocomplete for thread composers and unsent new-task drafts. */
 export function useComposerCommandMenu({
   draftMessage,
   ownerKey,
@@ -152,23 +148,18 @@ export function useComposerCommandMenu({
   readonly draftMessage: string;
   readonly ownerKey: string | null;
   readonly environmentId: EnvironmentId | null;
-  /** Candidates for `@` thread suggestions; the caller reads them from the entity store. */
   readonly threadShells?: ReadonlyArray<EnvironmentThreadShell>;
-  /** Left out of `@` thread suggestions: a thread is never context for itself. */
   readonly currentThreadId?: ThreadId | null;
   readonly projectCwd: string | null;
   readonly pullRequestProjectId?: ProjectId | null;
   readonly pullRequestRepository?: string | null;
-  /** The thread's linked pull requests, offered in `#` suggestions from any repository. */
   readonly threadPullRequests?: ReadonlyArray<ThreadPullRequestLink>;
   readonly selectedProviderStatus: ServerProvider | null;
   readonly hasThread: boolean;
   readonly hasCompactableConversation: boolean;
-  /** Whether Supaterm itself offers /usage-limits for the selected provider. */
   readonly offersUsageLimits?: boolean;
   readonly enabled?: boolean;
   readonly onChangeDraftMessage: (value: string) => void;
-  /** Picking /usage-limits is the action itself; the draft keeps nothing of it. */
   readonly onUsageLimits?: () => void;
 }) {
   const [selection, setSelection] = useState(
@@ -185,9 +176,6 @@ export function useComposerCommandMenu({
     if (selectionSource.ownerKey !== ownerKey) {
       setSelection(composerSelectionAtEnd(draftMessage));
     } else {
-      // An insert (attachment, terminal capture, review comment) rewrites the draft and records
-      // the caret that belongs after the new chip. Clamping alone would keep the old offset,
-      // which sits before it.
       const inserted = ownerKey ? readComposerDraftSelection(ownerKey, draftMessage) : null;
       if (inserted) {
         setSelection((current) =>

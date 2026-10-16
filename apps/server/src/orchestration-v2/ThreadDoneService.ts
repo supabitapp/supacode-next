@@ -78,10 +78,8 @@ function pullRequestMatchesProject(
 }
 
 /**
- * A recent user message stays queued until a run adopts its timestamp.
  * Absolute age bounds client clock skew in both directions and stops stale
- * pre-adoption data from blocking the thread forever. A failed run start
- * clears the block immediately (mirrors the v1 session "error" rule).
+ * pre-adoption data from blocking the thread forever.
  */
 export function threadHasQueuedTurnStart(
   thread: Pick<
@@ -135,7 +133,6 @@ function pullRequestMarksDone(
   return pullRequestAtMs >= userAnchorMs;
 }
 
-/** Cheap checks that run before any source control lookup. */
 export function isAutoMarkDoneCandidate(
   thread: Omit<ProjectionStore.ProjectionDoneCandidate, "latestUserAuthoredMessageAt">,
   nowMs: number,
@@ -144,8 +141,6 @@ export function isAutoMarkDoneCandidate(
   if (thread.pinnedAt != null || thread.autoMarkDoneDisabledAt != null) return false;
   // Blocked-on-you work must never park behind a done override.
   if (thread.pendingRuntimeRequest !== null) return false;
-  // A live run, or background work that will wake the agent, is not
-  // staleness. A dev server left running is: the agent is done.
   if (thread.activityRunStatus != null) return false;
   if (backgroundWorkHoldsCompletion(thread.pendingBackgroundTasks ?? [])) return false;
   if (threadHasQueuedTurnStart(thread, nowMs)) return false;
@@ -322,7 +317,6 @@ export const make = Effect.gen(function* () {
     if (!autoMarkDoneConfigured(settings)) {
       return;
     }
-    // A sweep for one thread reads only that thread's candidate row.
     const threads = yield* projections.getAutoMarkDoneCandidates(threadId);
     if (threads.length === 0) return;
     const projectShells = yield* projectStore.listShells();
@@ -373,8 +367,6 @@ export const make = Effect.gen(function* () {
         ),
     );
 
-    // Inactivity is entirely projection-backed. Complete those decisions before
-    // a source-control lookup can delay or fail an otherwise eligible thread.
     const lookupCandidates = (yield* Effect.forEach(
       candidates,
       (thread) => markThreadDone(thread, null),
@@ -382,7 +374,6 @@ export const make = Effect.gen(function* () {
     ))
       .filter((thread) => thread !== null)
       .filter((thread) => visibleThreadPullRequests(thread.pullRequests ?? []).length === 0);
-    // Use the same cwd as the sidebar so both paths share GitManager's PR cache.
     const lookupCwdByThreadId = new Map<string, string>();
     yield* Effect.forEach(
       lookupCandidates,
@@ -569,7 +560,6 @@ export const make = Effect.gen(function* () {
   // because other threads may still be working there.
   const cleanUpDoneThread = Effect.fn("ThreadDoneServiceV2.cleanUpDoneThread")(
     function* (threadId: ThreadId) {
-      // A thread re-engaged before this event ran keeps its shells.
       const done = yield* projections.getThread(threadId);
       if (done.doneOverride !== "done") return;
       yield* terminals.closeIdle({ threadId });
@@ -586,7 +576,6 @@ export const make = Effect.gen(function* () {
         projectId: thread.projectId,
         worktreePath,
         trigger: "done",
-        // A clean exit closes the script's shell so it does not hold the worktree.
         observeCompletion: {},
         // Terminal startup stays outside admission; only the final state check
         // and write must exclude a concurrent run command.
@@ -620,7 +609,6 @@ export const make = Effect.gen(function* () {
           ),
       });
       if (run.status === "skipped") return;
-      // Recorded after a successful start, so a failed start retries on the next event.
       doneActionRunAt.set(threadId, doneAtMs);
       if (run.status === "started" && run.completion) {
         yield* run.completion.pipe(Effect.forkDetach);

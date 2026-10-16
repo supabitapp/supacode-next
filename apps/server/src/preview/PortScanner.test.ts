@@ -75,7 +75,6 @@ const layerTestPortDiscovery = PortScanner.layer.pipe(
 
 const LSOF_TEST_PORT = 43_123;
 
-/** The scanner with `processIds` registered to a Supaterm terminal, so their listeners get probes. */
 const ownedScanner = (processIds: ReadonlyArray<number> = [1234]) =>
   Effect.tap(PortScanner.PortDiscovery, (scanner) =>
     scanner.registerTerminalProcesses({
@@ -729,7 +728,6 @@ effectIt.effect(
     return Effect.gen(function* () {
       const scanner = yield* ownedScanner([4242]);
       const first = yield* scanner.scan();
-      // Ports 22 and 3001 have no known owner, so they never receive probes.
       expect(first.map(({ port, pid, processName }) => ({ port, pid, processName }))).toEqual([
         { port: 8765, pid: 4242, processName: "python3" },
       ]);
@@ -805,7 +803,6 @@ effectIt.effect(
               spawnedArgs.push(input.args);
               const isIpv6 = input.args.includes("tcpv6");
               const isTasklist = input.command === "tasklist.exe";
-              // The first lookup fails, so it must not be cached as "no name".
               const failTasklist = isTasklist && tasklistCalls++ === 0;
               return Effect.succeed({
                 stdout: isTasklist
@@ -861,7 +858,6 @@ effectIt.effect(
         ["/FO", "CSV", "/NH", "/FI", "PID eq 1234"],
       ]);
 
-      // The failed lookup retries; the result is then cached, so later polls spawn only netstat.
       expect(summarize(yield* scanner.scan())).toEqual([
         { port: 5173, pid: 1234, processName: "node" },
         { port: 43123, pid: 1234, processName: "node" },
@@ -869,7 +865,6 @@ effectIt.effect(
       yield* scanner.scan();
       expect(tasklistCalls).toBe(2);
 
-      // Cached names expire, since Windows may hand the PID to another process.
       yield* TestClock.adjust(Duration.seconds(61));
       yield* scanner.scan();
       expect(tasklistCalls).toBe(3);

@@ -95,7 +95,6 @@ const realQueryRunner = layerQueryRunner.pipe(
   Layer.provide(NodeServices.layer),
 );
 
-/** Writes an executable stand-in for the Claude CLI into a fresh directory. */
 function fakeClaudeCli(script: string): string {
   const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "supaterm-claude-cli-"));
   const cli = NodePath.join(dir, "claude");
@@ -138,7 +137,6 @@ describe.skipIf(HostProcess.Platform.defaultValue() === "win32")("Claude CLI pro
       NodeChildProcess.execFileSync("mkfifo", [NodePath.join(dir, "alive")]);
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
-          // Only does anything when the test fails: do not leak its child.
           try {
             process.kill(Number(NodeFS.readFileSync(NodePath.join(dir, "leftover.pid"), "utf8")));
           } catch {}

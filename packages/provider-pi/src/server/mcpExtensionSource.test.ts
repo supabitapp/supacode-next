@@ -308,7 +308,6 @@ describe("Pi tool discovery permissions", () => {
         (await hook({ toolName: "mcp__supaterm__delegate_task", input: {} }, ctx))?.block,
         true,
       );
-      // task_status acknowledges result delivery, and is intentionally not read-only.
       assert.equal(
         (await hook({ toolName: "mcp__supaterm__task_status", input: {} }, ctx))?.block,
         true,

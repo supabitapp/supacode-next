@@ -95,7 +95,6 @@ describe("environmentToken", () => {
     expect(GitHubCredentials.environmentToken("acme.ghe.com", { GITHUB_TOKEN: "github" })).toBe(
       "github",
     );
-    // An enterprise token only goes to the host GH_HOST names, never to whatever a remote says.
     expect(GitHubCredentials.environmentToken("git.acme.internal", env)).toBeNull();
     expect(
       GitHubCredentials.environmentToken("git.acme.internal", {

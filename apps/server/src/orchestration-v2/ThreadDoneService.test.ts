@@ -53,8 +53,6 @@ function at(offsetMs: number): DateTime.Utc {
 type SettlementShell = OrchestrationV2ThreadShell &
   Pick<ProjectionStore.ProjectionDoneCandidate, "latestUserAuthoredMessageAt">;
 
-// A fixture's user message is one the user wrote unless the test sets
-// latestUserAuthoredMessageAt on its own.
 function shell(overrides: Partial<SettlementShell> = {}): SettlementShell {
   return {
     id: ThreadId.make("thread-1"),
@@ -191,7 +189,6 @@ describe("isAutoMarkDoneCandidate", () => {
         NOW_MS,
       ),
     ).toBe(false);
-    // Expired snooze is no longer a park.
     expect(
       ThreadDoneService.isAutoMarkDoneCandidate(
         shell({ ...snoozed, snoozedUntil: at(-1) }),
@@ -205,7 +202,6 @@ describe("threadHasQueuedTurnStart", () => {
   it("holds a fresh unadopted user message inside the grace window only", () => {
     const fresh = shell({ latestUserMessageAt: at(-1_000) });
     expect(ThreadDoneService.threadHasQueuedTurnStart(fresh, NOW_MS)).toBe(true);
-    // Adoption stamps the run with the message time, clearing the hold.
     expect(
       ThreadDoneService.threadHasQueuedTurnStart(
         shell({
@@ -216,21 +212,18 @@ describe("threadHasQueuedTurnStart", () => {
         NOW_MS,
       ),
     ).toBe(false);
-    // Outside the grace window the stale message no longer blocks.
     expect(
       ThreadDoneService.threadHasQueuedTurnStart(
         shell({ latestUserMessageAt: at(-ThreadDoneService.QUEUED_TURN_START_GRACE_MS - 1) }),
         NOW_MS,
       ),
     ).toBe(false);
-    // Client clocks ahead of the server must not extend the hold.
     expect(
       ThreadDoneService.threadHasQueuedTurnStart(
         shell({ latestUserMessageAt: at(ThreadDoneService.QUEUED_TURN_START_GRACE_MS + 1) }),
         NOW_MS,
       ),
     ).toBe(false);
-    // A failed start clears the hold immediately.
     expect(
       ThreadDoneService.threadHasQueuedTurnStart(
         shell({ latestUserMessageAt: at(-1_000), status: "failed" }),
@@ -367,7 +360,6 @@ describe("resolveAutoMarkDoneAt", () => {
         pullRequest: { state: "merged", mergedAt: DateTime.formatIso(at(-3 * 60 * 60 * 1_000)) },
       }),
     ).toBeNull();
-    // A thread without messages still has a stable timestamp when its PR closes.
     expect(
       ThreadDoneService.resolveAutoMarkDoneAt({
         ...input,
@@ -379,8 +371,6 @@ describe("resolveAutoMarkDoneAt", () => {
   });
 
   it("marks done on merge after agent-started runs, but not after the user writes again", () => {
-    // A background command stopped after the merge and its notification
-    // started a run. Only the user's own messages hold a merged thread open.
     const woken = shell({
       latestUserMessageAt: at(-30 * 60 * 1_000),
       latestUserAuthoredMessageAt: at(-2 * 60 * 60 * 1_000),
@@ -607,7 +597,6 @@ interface HarnessOptions {
   readonly onScriptRunnerReturn?: (
     input: ProjectSetupScriptRunner.ProjectSetupScriptRunnerInput,
   ) => Effect.Effect<void>;
-  /** Runs inside each `closeIdle` call. */
   readonly onCloseIdle?: () => Effect.Effect<void>;
   /** Threads `getThread` returns when a `thread.marked-done` event is handled. */
   readonly currentThreads?: ReadonlyArray<OrchestrationV2AppThread>;
@@ -1283,8 +1272,6 @@ describe("ThreadDoneServiceV2 terminals", () => {
           const service = yield* ThreadDoneService.ThreadDoneServiceV2;
           yield* startHarness(service, fixture.activation, fixture.snapshotReads);
           yield* fixture.publishEvent(doneEvent(done));
-          // Events run in order, so the first close belongs to the later
-          // event only if the re-engaged thread was skipped.
           yield* fixture.publishEvent(doneEvent(marker));
           assert.deepStrictEqual(yield* Queue.take(fixture.closedIdle), { threadId: marker.id });
         }).pipe(Effect.provide(fixture.layer));
@@ -1307,8 +1294,6 @@ describe("ThreadDoneServiceV2 terminals", () => {
         yield* Effect.gen(function* () {
           const service = yield* ThreadDoneService.ThreadDoneServiceV2;
           yield* startHarness(service, fixture.activation, fixture.snapshotReads);
-          // Events run in order, so the first run belongs to the last event
-          // only if the shared checkout and the removed worktree were skipped.
           yield* fixture.publishEvent(doneEvent(shared));
           yield* fixture.publishEvent(doneEvent(missing));
           yield* fixture.publishEvent(doneEvent(worktree));
@@ -1331,7 +1316,6 @@ describe("ThreadDoneServiceV2 terminals", () => {
           snapshot: makeSnapshot([]),
           currentThreads,
           existingWorktreePaths: ["/worktrees/reengaging", "/worktrees/marker"],
-          // The user sends a message while the first close checks processes.
           onCloseIdle: () =>
             Effect.sync(() => {
               currentThreads[0] = { ...done, doneOverride: "active" };

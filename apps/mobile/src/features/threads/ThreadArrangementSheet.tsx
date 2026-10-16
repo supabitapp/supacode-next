@@ -118,7 +118,6 @@ function useDragHandlePan(latest: RefObject<DragHandleProps>, disabled: boolean)
   return useMemo(() => createDragHandlePan(latest, disabled), [disabled, latest]);
 }
 
-/** Native pan recognition wins over list scrolling only inside the handle. */
 function DragHandle(props: DragHandleProps) {
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -496,7 +495,6 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
                             if (frame.current !== null) cancelAnimationFrame(frame.current);
                             frame.current = null;
                             drag.current = null;
-                            // Retain the gap until the saved order arrives, avoiding a flash back.
                             void moveThread(current.thread, current.destination).finally(stop);
                           }}
                         />

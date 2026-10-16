@@ -200,7 +200,6 @@ const ThreadReadTool = Tool.make("supaterm_thread_read", {
   dependencies,
 })
   .annotate(Tool.Title, "Read a Supaterm thread")
-  // Strict so a misspelled paging param fails instead of silently reading from position 0.
   .annotate(Tool.Strict, true)
   .annotate(Tool.Readonly, false)
   .annotate(Tool.Destructive, false)

@@ -394,15 +394,12 @@ export interface ProviderAdapterV2OpenSessionInput {
   readonly modelSelection: ModelSelection;
   readonly runtimePolicy: ProviderAdapterV2RuntimePolicy;
   readonly resumeFromSession?: OrchestrationV2ProviderSession;
-  /** Native thread to activate while an eager adapter opens its provider process. */
   readonly initialNativeThreadId?: string;
-  /** Preserves provider item identity across eager activation of a persisted thread. */
   readonly initialProviderItemIdentityVersion?: 2;
 }
 
 export interface ProviderAdapterV2EnsureThreadInput {
   readonly threadId: ThreadId;
-  /** The app thread's title, for providers that name their native sessions. */
   readonly title?: string;
   readonly modelSelection: ModelSelection;
   readonly runtimePolicy: ProviderAdapterV2RuntimePolicy;
@@ -415,7 +412,6 @@ export interface ProviderAdapterV2TurnInput {
   readonly threadId: ThreadId;
   readonly runId: RunId;
   readonly runOrdinal: number;
-  /** Whether the current native session has an accepted turn; omitted when unknown. */
   readonly nativeThreadHasTurns?: boolean;
   readonly providerTurnOrdinal: number;
   readonly restartContinuationOfRunId?: RunId;
@@ -440,7 +436,6 @@ export interface ProviderAdapterV2SteerInput {
 export interface ProviderAdapterV2InterruptInput {
   readonly providerThread: OrchestrationV2ProviderThread;
   readonly providerTurnId: ProviderTurnId;
-  /** When true, the next `startTurn` may respawn the provider runtime (Grok Stop recovery). */
   readonly requestRuntimeRestart?: boolean;
 }
 
@@ -536,7 +531,6 @@ export interface ProviderAdapterV2McpApps {
   }) => Effect.Effect<{ readonly contents: ReadonlyArray<unknown> }, ProviderAdapterV2Error>;
 }
 
-/** A terminal task outcome observed by the provider, not inferred from a stop timeout. */
 export type ProviderAdapterV2SubagentOutcome = {
   readonly status: "completed" | "failed" | "cancelled";
   readonly completedAt: NonNullable<OrchestrationV2Subagent["completedAt"]>;
@@ -555,17 +549,11 @@ export interface ProviderAdapterV2SessionRuntime {
    * Adapter runtimes may omit this and expose only their single-consumer event stream.
    */
   readonly subscribeEvents?: Effect.Effect<ProviderAdapterV2EventSubscription>;
-  /**
-   * Adapters whose native runtime can hold pending work outside an active
-   * turn (for example Claude background tasks and their wake turns) report it
-   * here so the session manager defers idle release while it is pending.
-   */
   readonly hasPendingBackgroundWork?: Effect.Effect<boolean>;
   /**
-   * Per-provider-thread pending work for root-run ingestion stop gates. When
-   * present, RunExecutionService uses only this probe (never the session-wide
-   * hasPendingBackgroundWork) so sibling native threads cannot pin an
-   * unrelated root subscription open.
+   * When present, RunExecutionService uses only this probe (never the
+   * session-wide hasPendingBackgroundWork) so sibling native threads cannot pin
+   * an unrelated root subscription open.
    */
   readonly hasPendingBackgroundWorkForThread?: (
     providerThread: OrchestrationV2ProviderThread,
@@ -578,18 +566,10 @@ export interface ProviderAdapterV2SessionRuntime {
    * server, so its thread keeps showing Waiting.
    */
   readonly backgroundTasksEndWithProcess?: true;
-  /**
-   * Capacity for the requested model/options, independent of native thread usage.
-   * `cwd` is the thread's working directory, for providers whose project config
-   * can change a model's limits.
-   */
   readonly getModelContextWindow?: (
     modelSelection: ModelSelection,
     cwd?: string | null,
   ) => number | undefined;
-  /** Whether an option-only change preserves measured native usage and capacity.
-   * Compaction thresholds are still discarded. Unknown transitions invalidate usage.
-   */
   readonly canReuseContextUsage?: (previous: ModelSelection, next: ModelSelection) => boolean;
   readonly ensureThread: (
     input: ProviderAdapterV2EnsureThreadInput,
@@ -622,18 +602,12 @@ export interface ProviderAdapterV2SessionRuntime {
   readonly interruptTurn: (
     input: ProviderAdapterV2InterruptInput,
   ) => Effect.Effect<void, ProviderAdapterV2Error>;
-  /** Stops one native child through its owning runtime; the owner keeps running. */
   readonly stopSubagent?: (input: {
     readonly providerThread: OrchestrationV2ProviderThread;
     readonly nativeTaskId: string;
     /** A delayed Stop must not interrupt a task resumed after this request. */
     readonly requestedAt?: NonNullable<OrchestrationV2Subagent["startedAt"]>;
   }) => Effect.Effect<void | ProviderAdapterV2SubagentOutcome, ProviderAdapterV2Error>;
-  /**
-   * Lets a runtime shared by several app threads unload one provider thread's
-   * native state (and its MCP servers) when that app thread detaches, while
-   * the runtime keeps serving the others. A later resume reloads it.
-   */
   readonly unloadThread?: (input: {
     readonly providerThread: OrchestrationV2ProviderThread;
   }) => Effect.Effect<void, ProviderAdapterV2Error>;
@@ -643,10 +617,6 @@ export interface ProviderAdapterV2SessionRuntime {
   readonly readThreadSnapshot: (
     input: ProviderAdapterV2ReadThreadSnapshotInput,
   ) => Effect.Effect<ProviderAdapterV2ThreadSnapshot, ProviderAdapterV2Error>;
-  /**
-   * Providers that accept product feedback for a thread (#7949, Codex → OpenAI)
-   * expose it here; absent means the driver has no feedback channel.
-   */
   readonly uploadFeedback?: (input: {
     readonly providerThread: OrchestrationV2ProviderThread;
     readonly reason?: string;

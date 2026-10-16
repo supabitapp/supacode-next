@@ -30,7 +30,6 @@ function useDragPan(latest: RefObject<SettingsDragHandleProps>) {
   return useMemo(() => createDragPan(latest), [latest]);
 }
 
-/** Pan recognition wins over the settings scroll view only inside the handle. */
 export function SettingsDragHandle(props: SettingsDragHandleProps) {
   const latest = useRef(props);
   useLayoutEffect(() => {

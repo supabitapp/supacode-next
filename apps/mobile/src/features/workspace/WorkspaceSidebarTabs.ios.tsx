@@ -3,7 +3,6 @@ import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { useWorkspaceTabSelection } from "./useWorkspaceTabSelection";
 
-/** Wide iPad navigation belongs to the sidebar, leaving the detail's header unobstructed. */
 export function WorkspaceSidebarTabs() {
   const workspace = useWorkspaceTabs()!;
   const selectTab = useWorkspaceTabSelection();

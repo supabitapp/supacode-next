@@ -259,7 +259,6 @@ describe("ChatMarkdown favicon privacy", () => {
         renderer!.update(markdown("https://example.com"));
       });
       expect(renderer!.root.findAllByType("img")).toHaveLength(1);
-      // GitHub links draw the brand mark in currentColor instead of fetching a favicon.
       await act(async () => {
         renderer!.update(markdown("https://github.com/supabitapp/supacode-next/pull/1"));
       });

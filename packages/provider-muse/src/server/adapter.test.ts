@@ -1192,7 +1192,6 @@ describe("MuseAdapterV2", () => {
           result: { summary: "All done" },
         },
       });
-      // The revision without a role keeps the title the child thread opened with.
       const completed = yield* harness.takeEvent(
         "subagent.updated",
         (event) => event.subagent.status === "completed",
