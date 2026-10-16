@@ -28,7 +28,6 @@ import Animated, {
   cancelAnimation,
   Easing,
   Extrapolation,
-  ReduceMotion,
   interpolate,
   runOnJS,
   runOnUI,
@@ -42,7 +41,7 @@ import Animated, {
 import { AppText as Text } from "../../components/ui/AppText";
 import { SwipeRowActivationContext, type SwipeRowActivation } from "./swipe-row-activation";
 import { registerThreadDismissal } from "./thread-dismissal";
-import { useReducedMotionPreference } from "../../lib/useReducedMotionPreference";
+import { useReduceMotion } from "../../lib/useReducedMotionPreference";
 
 const ACTION_ITEM_WIDTH = 58;
 const ACTION_CIRCLE_SIZE = 36;
@@ -274,7 +273,7 @@ export function ThreadSwipeable(props: ThreadSwipeableProps) {
 }
 
 function ThreadSwipeableRow(props: ThreadSwipeableProps) {
-  const reducedMotion = useReducedMotionPreference();
+  const reduceMotion = useReduceMotion();
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const fullSwipeArmedRef = useRef(false);
   const hasSecondaryAction = props.secondaryAction !== null;
@@ -335,7 +334,7 @@ function ThreadSwipeableRow(props: ThreadSwipeableProps) {
       const timing = {
         duration: 220,
         easing: Easing.out(Easing.cubic),
-        reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.Never,
+        reduceMotion,
       };
       actionOpacity.set(withTiming(0, timing));
       translation.set(withTiming(Math.min(translation.value, -rowWidth.value), timing));
@@ -345,7 +344,7 @@ function ThreadSwipeableRow(props: ThreadSwipeableProps) {
         }),
       );
     },
-    [actionOpacity, collapse, dismissing, finishDismiss, reducedMotion, rowWidth],
+    [actionOpacity, collapse, dismissing, finishDismiss, reduceMotion, rowWidth],
   );
   useLayoutEffect(
     () =>

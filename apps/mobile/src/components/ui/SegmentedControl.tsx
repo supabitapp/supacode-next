@@ -1,9 +1,9 @@
 import * as Haptics from "expo-haptics";
 import { useState } from "react";
 import { I18nManager, Platform, Pressable, View } from "react-native";
-import Animated, { ReduceMotion, useAnimatedStyle, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
 
-import { useReducedMotionPreference } from "../../lib/useReducedMotionPreference";
+import { useReduceMotion } from "../../lib/useReducedMotionPreference";
 import { AppText } from "./AppText";
 import { useControlTheme } from "./useControlTheme";
 import type { SegmentedControlProps } from "./SegmentedControl.types";
@@ -17,20 +17,13 @@ export function SegmentedControl<Value extends string | number>(
   const { colorScheme, colors } = useControlTheme();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const { width } = layout;
-  const reduceMotion = useReducedMotionPreference();
+  const reduceMotion = useReduceMotion();
   const selectedIndex = props.options.findIndex((option) => option.value === props.selected);
   const segmentWidth = props.options.length ? Math.max(0, width - 6) / props.options.length : 0;
   const selectionOffset = selectedIndex * segmentWidth * (I18nManager.isRTL ? -1 : 1);
   const selectionStyle = useAnimatedStyle(() => ({
     width: segmentWidth,
-    transform: [
-      {
-        translateX: withTiming(selectionOffset, {
-          duration: reduceMotion ? 0 : 160,
-          reduceMotion: ReduceMotion.Never,
-        }),
-      },
-    ],
+    transform: [{ translateX: withTiming(selectionOffset, { duration: 160, reduceMotion }) }],
   }));
   const dark = colorScheme === "dark";
   const minHeight = props.size === "compact" ? 32 : Platform.OS === "android" ? 40 : 36;
