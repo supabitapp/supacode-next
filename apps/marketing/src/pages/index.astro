@@ -39,7 +39,7 @@ const screenshot = await getImage({
         <Image src={appIcon} alt="" width={380} height={380} densities={[1, 2]} format="webp" quality={90} loading="eager" />
       </div>
       <h1 class="hero-title display">
-        <span data-rise>The open-source</span><br /><span data-rise style="--d:90ms">control plane</span><br /><span data-rise style="--d:180ms">for coding agents.</span>
+        <span data-rise>Your Lumon</span><br /><span data-rise style="--d:90ms">Terminal Pro<sup class="hero-title-mark"><a href="#lumon-note">*</a></sup></span><br /><span data-rise style="--d:180ms">for coding agents.</span>
       </h1>
 
       <p class="hero-sub" data-rise style="--d:300ms">
@@ -97,6 +97,10 @@ const screenshot = await getImage({
           </figure>
         </div>
       </div>
+
+      <p id="lumon-note" class="hero-note">
+        *Lumon Terminal Pro is the fictional computer from Severance. Supaterm is not affiliated with or endorsed by Apple.
+      </p>
     </div>
   </section>
 
@@ -302,6 +306,31 @@ const screenshot = await getImage({
   /* Inline boxes ignore transforms, so each rising line needs its own block. */
   .hero-title span { display: inline-block; }
 
+  .hero-title-mark {
+    position: absolute;
+    font-size: 0.45em;
+    line-height: 1;
+    margin-left: 0.06em;
+  }
+
+  .hero-title-mark a {
+    color: var(--fg-dim);
+    transition: color 0.18s ease;
+  }
+
+  .hero-title-mark a:hover {
+    color: var(--fg);
+  }
+
+  .hero-note {
+    max-width: 640px;
+    margin: 40px auto 0;
+    color: var(--fg-dim);
+    font-size: 12px;
+    line-height: 1.6;
+    text-wrap: balance;
+  }
+
   .hero-sub {
     color: var(--fg-muted);
     font-size: clamp(16px, 1.4vw, 19px);
@@ -455,6 +484,10 @@ const screenshot = await getImage({
 
     .hero-actions {
       margin-bottom: 96px;
+    }
+
+    .hero-note {
+      margin-top: 0;
     }
 
     /* Four above the headline, two beside the CTA. Keeps the copy clear. */
