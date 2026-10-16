@@ -8,6 +8,7 @@ import type { WorktreeSetupCardProps } from "./worktree-setup-card";
 import type { ComposerTextPaste } from "../../native/SupatermComposerEditor.types";
 import { type EnvironmentConnectionPhase } from "@supaterm/client-runtime/connection";
 import type { EnvironmentThreadShell } from "@supaterm/client-runtime/state/shell";
+import type { HandoffEndpoints } from "@supaterm/client-runtime/handoff";
 import type {
   CodexFeedbackSubmission,
   EnvironmentThreadStatus,
@@ -165,6 +166,7 @@ export interface ThreadDetailScreenProps {
   readonly feedbackSubmissions: ReadonlyArray<CodexFeedbackSubmission>;
   readonly onDismissFeedback: (id: MessageId) => void;
   readonly selectedThreadFeed: ReadonlyArray<ThreadFeedEntry>;
+  readonly pendingHandoff?: HandoffEndpoints | null;
   readonly activityRun: ThreadFeedLatestRun | null;
   readonly activeWorkStartedAt: string | null;
   /** The live work is a provider-native subagent's runless root turn. */
@@ -1253,6 +1255,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
               threadId={props.selectedThread.id}
               workspaceRoot={props.threadCwd}
               feed={props.selectedThreadFeed}
+              pendingHandoff={props.pendingHandoff}
               worktreeSetup={props.worktreeSetup}
               setupWorkingStartedAt={props.setupWorkingStartedAt}
               queuedMessages={props.queuedMessages}
