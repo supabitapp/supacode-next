@@ -1,3 +1,7 @@
+import { useAtomValue } from "@effect/atom-react";
+import { connectionStatusTitle } from "@supaterm/client-runtime/connection";
+import * as Option from "effect/Option";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { CircleAlertIcon, Clock3Icon, PlusIcon } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
@@ -13,7 +17,7 @@ import {
   type EnvironmentPresentation,
 } from "../../state/environments";
 import { readEnvironmentScope, useEnvironmentsWithScope } from "../../state/session";
-import { useEnvironmentQuery } from "../../state/query";
+import { formatEnvironmentQueryError, useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { WorkspaceBreadcrumb, WorkspaceBreadcrumbItem } from "../WorkspaceBreadcrumb";
@@ -23,10 +27,15 @@ import { ScopeSentence } from "../settings/ScopeSentence";
 import { selectScopedSettingsEnvironments } from "../settings/scopedSettings";
 import { resolveSettingsScope, type ResolvedSettingsScope } from "../settings/settingsScope";
 import { SettingsGroup } from "../settings/SettingsGroup";
+import {
+  settingsScopeEnvironmentLabel,
+  settingsScopeEnvironmentLabels,
+} from "../settings/settingsScopeAxis";
 import { useSettingsProjectGroups } from "../settings/useSettingsProjectGroups";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { AutomationEditorDialog } from "./AutomationEditorDialog";
 import { AutomationRow } from "./AutomationRow";
 import { automationsScopeSearch, matchesAutomationScope } from "./automations.logic";
@@ -51,7 +60,10 @@ export function AutomationsPage() {
     environments,
     connectedEnvironments,
     environment: defaultEnvironment,
-  } = selectScopedSettingsEnvironments(scope, availableEnvironments, primaryEnvironmentId);
+  } = useMemo(
+    () => selectScopedSettingsEnvironments(scope, availableEnvironments, primaryEnvironmentId),
+    [availableEnvironments, primaryEnvironmentId, scope],
+  );
   const writableEnvironmentIds = useEnvironmentsWithScope(
     connectedEnvironments,
     AuthOrchestrationOperateScope,
@@ -134,13 +146,24 @@ export function AutomationsPage() {
                   <EmptyDescription>Connect an environment to manage automations.</EmptyDescription>
                 </EmptyHeader>
               </Empty>
+            ) : environments.length > 1 ? (
+              <AutomationEnvironmentList
+                key={`${linkEnvironmentId ?? ""}:${search.taskId ?? ""}`}
+                environments={environments}
+                scope={scope}
+                projectNameByKey={projectNameByKey}
+                linkEnvironmentId={linkEnvironmentId}
+                taskId={search.taskId}
+                creationEnvironment={creationEnvironment}
+                onCreate={openForCreate}
+                onEdit={openForEdit}
+              />
             ) : (
               environments.map((entry) => (
                 <AutomationEnvironmentSection
                   key={`${entry.environmentId}:${search.taskId ?? ""}`}
                   environment={entry}
                   scope={scope}
-                  showEnvironmentHeading={environments.length > 1}
                   projectNameByKey={projectNameByKey}
                   taskId={linkEnvironmentId === entry.environmentId ? search.taskId : undefined}
                   canCreate={writableEnvironmentIds.has(entry.environmentId)}
@@ -166,10 +189,187 @@ export function AutomationsPage() {
   );
 }
 
+/**
+ * With several environments, only those with automations get a section; the
+ * rest fold into one status line each for empty, loading, failed, and
+ * disconnected environments.
+ */
+function AutomationEnvironmentList({
+  environments,
+  scope,
+  projectNameByKey,
+  linkEnvironmentId,
+  taskId,
+  creationEnvironment,
+  onCreate,
+  onEdit,
+}: {
+  readonly environments: readonly EnvironmentPresentation[];
+  readonly scope: ResolvedSettingsScope;
+  readonly projectNameByKey: ReadonlyMap<string, string>;
+  readonly linkEnvironmentId: EnvironmentId | undefined;
+  readonly taskId: ScheduledTaskId | undefined;
+  readonly creationEnvironment: EnvironmentPresentation | undefined;
+  readonly onCreate: (environmentId: EnvironmentId) => void;
+  readonly onEdit: (environmentId: EnvironmentId, task: ScheduledTask) => void;
+}) {
+  const states = useAtomValue(
+    useMemo(
+      () =>
+        Atom.make((get) =>
+          environments.map((environment) => {
+            const connected =
+              environment.connection.phase === "connected" && environment.serverConfig !== null;
+            const query = connected
+              ? get(
+                  serverEnvironment.scheduledTasksLive({
+                    environmentId: environment.environmentId,
+                    input: {},
+                  }),
+                )
+              : null;
+            const data = query === null ? null : Option.getOrNull(AsyncResult.value(query));
+            return {
+              environment,
+              connected,
+              tasks: data?.tasks.filter((task) =>
+                matchesAutomationScope(scope, environment.environmentId, task.projectId),
+              ),
+              error: query?._tag === "Failure" ? formatEnvironmentQueryError(query.cause) : null,
+            };
+          }),
+        ),
+      [environments, scope],
+    ),
+  );
+  const linkedState = states.find((state) => state.environment.environmentId === linkEnvironmentId);
+  const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
+  const openedLink = useRef(false);
+  useEffect(() => {
+    if (!openedLink.current && linkEnvironmentId && linkedTask) {
+      openedLink.current = true;
+      onEdit(linkEnvironmentId, linkedTask);
+    }
+  }, [linkEnvironmentId, linkedTask, onEdit]);
+  const now = useNowMinuteMs();
+
+  const loaded = states.filter((state) => state.connected && state.error === null && state.tasks);
+  const populated = loaded.filter((state) => state.tasks && state.tasks.length > 0);
+  const summaries: Record<string, string[]> = {
+    "Not connected:": [],
+    "Loading automations on": [],
+    "Could not load automations:": [],
+    "No automations on": [],
+  };
+  for (const { environment, connected, tasks, error } of states) {
+    const label = settingsScopeEnvironmentLabel(environment, environments);
+    if (!connected) {
+      summaries["Not connected:"]!.push(
+        `${label} (${connectionStatusTitle(environment.connection)})`,
+      );
+    } else if (error !== null) {
+      summaries["Could not load automations:"]!.push(`${label}: ${error}`);
+    } else if (!tasks) {
+      summaries["Loading automations on"]!.push(label);
+    } else if (tasks.length === 0 && populated.length > 0) {
+      summaries["No automations on"]!.push(label);
+    }
+  }
+
+  return (
+    <>
+      {populated.map(({ environment, tasks }) => {
+        const { primary, secondary } = settingsScopeEnvironmentLabels(environment, environments);
+        return (
+          <section
+            key={environment.environmentId}
+            className="flex min-w-0 flex-col gap-3"
+            aria-label={primary}
+          >
+            <div className="flex items-center justify-between gap-3 px-1">
+              <h2 className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                <EnvironmentMachineIcon
+                  aria-hidden
+                  kind={resolveEnvironmentMachineKind(environment.serverConfig)}
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+                <span className="truncate">{primary}</span>
+                {secondary ? (
+                  <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">
+                    {secondary}
+                  </span>
+                ) : null}
+              </h2>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {tasks?.length} {tasks?.length === 1 ? "automation" : "automations"}
+              </span>
+            </div>
+            <SettingsGroup>
+              {tasks?.map((task) => (
+                <AutomationRow
+                  key={task.id}
+                  environmentId={environment.environmentId}
+                  task={task}
+                  projectName={
+                    projectNameByKey.get(`${environment.environmentId}:${task.projectId}`) ?? null
+                  }
+                  now={now}
+                  onEdit={() => onEdit(environment.environmentId, task)}
+                />
+              ))}
+            </SettingsGroup>
+          </section>
+        );
+      })}
+      {taskId && linkedState?.tasks && linkedState.error === null && !linkedTask ? (
+        <SettingsGroup>
+          <AutomationNotice
+            title="Automation unavailable"
+            description="This automation no longer exists or is outside the selected project."
+          />
+        </SettingsGroup>
+      ) : null}
+      {populated.length === 0 && loaded.length > 0 ? (
+        <SettingsGroup>
+          <AutomationNotice
+            title="No automations yet"
+            description="Schedule a prompt to keep work moving."
+            action={
+              creationEnvironment ? (
+                <Button
+                  variant="outline"
+                  aria-label={`Create automation on ${creationEnvironment.label}`}
+                  onClick={() => onCreate(creationEnvironment.environmentId)}
+                >
+                  <PlusIcon />
+                  Create automation
+                </Button>
+              ) : null
+            }
+          />
+        </SettingsGroup>
+      ) : null}
+      {Object.entries(summaries).map(([label, entries]) => {
+        if (entries.length === 0) return null;
+        const summary = `${label} ${entries.join(", ")}`;
+        return (
+          <Tooltip key={label}>
+            <TooltipTrigger
+              render={<p className="truncate px-1 text-xs text-muted-foreground" role="status" />}
+            >
+              {summary}
+            </TooltipTrigger>
+            <TooltipPopup>{summary}</TooltipPopup>
+          </Tooltip>
+        );
+      })}
+    </>
+  );
+}
+
 function AutomationEnvironmentSection({
   environment,
   scope,
-  showEnvironmentHeading,
   projectNameByKey,
   taskId,
   canCreate,
@@ -178,7 +378,6 @@ function AutomationEnvironmentSection({
 }: {
   readonly environment: EnvironmentPresentation;
   readonly scope: ResolvedSettingsScope;
-  readonly showEnvironmentHeading: boolean;
   readonly projectNameByKey: ReadonlyMap<string, string>;
   readonly taskId?: ScheduledTaskId | undefined;
   readonly canCreate: boolean;
@@ -209,25 +408,7 @@ function AutomationEnvironmentSection({
   const now = useNowMinuteMs();
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-label={environment.label}>
-      {showEnvironmentHeading ? (
-        <div className="flex items-center justify-between gap-3 px-1">
-          <h2 className="flex min-w-0 items-center gap-2 text-sm font-medium">
-            <EnvironmentMachineIcon
-              aria-hidden
-              kind={resolveEnvironmentMachineKind(environment.serverConfig)}
-              className="size-3.5 shrink-0 text-muted-foreground"
-            />
-            <span className="truncate">{environment.label}</span>
-          </h2>
-          {connected && !tasksQuery.error && tasks ? (
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-              {tasks.length} {tasks.length === 1 ? "automation" : "automations"}
-            </span>
-          ) : null}
-        </div>
-      ) : (
-        <h2 className="sr-only">{environment.label}</h2>
-      )}
+      <h2 className="sr-only">{environment.label}</h2>
       <SettingsGroup>
         {!connected ? (
           <AutomationNotice
