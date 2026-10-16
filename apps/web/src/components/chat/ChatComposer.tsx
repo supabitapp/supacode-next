@@ -204,7 +204,10 @@ import {
   type TerminalContextSelection,
 } from "../../lib/terminalContext";
 import { useComposerPathSearch } from "../../lib/composerPathSearchState";
-import { replaceComposerContextReferences } from "@supaterm/shared/composerContextReferences";
+import {
+  replaceComposerContextReferences,
+  toKindScopedComposerContextId,
+} from "@supaterm/shared/composerContextReferences";
 import {
   getRestingComposerImagePreviewCounts,
   resolveRestingComposerControlsLayout,
@@ -233,7 +236,6 @@ import {
   formatInlineContextReference,
   insertInlineContextReference,
   inlineContextReferenceReplacement,
-  toKindScopedComposerContextId,
 } from "~/lib/composerContextReferences";
 import {
   asKnownContextRecord,

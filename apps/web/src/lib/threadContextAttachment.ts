@@ -1,8 +1,7 @@
 import type { EnvironmentId, OrchestrationV2ThreadTranscript } from "@supaterm/contracts";
+import { toKindScopedComposerContextId } from "@supaterm/shared/composerContextReferences";
 import { threadTranscriptHeader } from "@supaterm/shared/threadTranscript";
 import * as DateTime from "effect/DateTime";
-
-import { toKindScopedComposerContextId } from "./composerContextReferences";
 
 export function threadContextAttachment(
   environmentId: EnvironmentId,

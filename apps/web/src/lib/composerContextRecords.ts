@@ -24,12 +24,12 @@ import { encodeComposerContextFragment } from "@supaterm/shared/composerContextC
 import {
   collectComposerContextReferences,
   sanitizeComposerContextLabel,
+  toKindScopedComposerContextId,
 } from "@supaterm/shared/composerContextReferences";
 
 import {
   type ComposerContextReference,
   producerIdFromComposerContextId,
-  toKindScopedComposerContextId,
 } from "./composerContextReferences";
 import type { ComposerFileAttachment, ComposerImageAttachment } from "~/composerDraftStore";
 import type { AttachmentUploadState } from "./attachmentUploadState";
