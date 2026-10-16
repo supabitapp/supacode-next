@@ -1,3 +1,4 @@
+import { doctorCommand } from "./cli/doctor.ts";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
@@ -60,6 +61,7 @@ export const makeCli = () =>
       servicePreflightCommand,
       themeCommand,
       traceCommand,
+      doctorCommand,
       triageCommand,
       relayClientCommand,
       settingsCommand,
