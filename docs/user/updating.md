@@ -23,10 +23,9 @@ restart from the update button when you are ready. A server still restarting
 finishes on its own, and the button keeps showing it after the desktop app
 restarts.
 
-Server updates appear only after that version is published to npm. Remote
-desktop apps do not wait for npm. The confirmation lists each machine it skips
-and why, such as a machine that is offline or needs a manual update. Use the
-notice or **Settings → Connections** for those.
+The confirmation lists each machine it skips and why, such as a machine that is
+offline or needs a manual update. Use the notice or **Settings → Connections**
+for those.
 
 If a desktop app restarts on its old version, Supaterm tells you the update did
 not apply. It does not install that version again on its own, even when another

@@ -214,9 +214,9 @@ The workflow enforces this ordering:
    `build_web` stages static assets as a GitHub artifact without exposing the new client. Cloudflare receives those assets only in `deploy_web`.
 
 Desktop auto-update reads the GitHub Release directly, so a desktop client can see the new version
-a few minutes before `supaterm@<version>` is on npm. Until `publish_cli` finishes, **Update everything**
-leaves out servers that are not desktop-managed (it waits for npm, `apps/web/src/state/npmRelease.ts`),
-and the copied manual command for npm-run servers does not resolve yet.
+a few minutes before `supaterm@<version>` is on npm. **Update everything** does not wait for npm:
+boot-service and desktop-managed servers update from the GitHub Release. Until `publish_cli`
+finishes, only the copied manual command for npm-run servers does not resolve yet.
 
 Preserve these dependencies when changing the release graph. Publishing a client first would leave
 the **Update server** action targeting a package version that does not exist yet.
