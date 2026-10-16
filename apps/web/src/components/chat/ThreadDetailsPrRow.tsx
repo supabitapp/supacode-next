@@ -398,6 +398,7 @@ export function ThreadDetailsPrRow({
                   part="link-primary"
                   aria-label={openAriaLabel}
                   onClick={onOpen}
+                  onAuxClick={onOpen}
                 />
               }
             >
@@ -454,6 +455,7 @@ export function ThreadDetailsPrRow({
                   part="link-primary"
                   aria-label={openAriaLabel}
                   onClick={onOpen}
+                  onAuxClick={onOpen}
                 />
               }
             >
@@ -474,6 +476,7 @@ export function ThreadDetailsPrRow({
                 part="row"
                 aria-label={openAriaLabel}
                 onClick={onOpen}
+                onAuxClick={onOpen}
               />
             }
           >

@@ -111,6 +111,14 @@ export function findProjectOnChangeRequestHost(
   });
 }
 
+/** Cmd/Ctrl-click and middle-click send a pull request to the browser instead of the panel. */
+export function shouldOpenPullRequestExternally(
+  event: Pick<MouseEvent<HTMLElement>, "metaKey" | "ctrlKey"> &
+    Partial<Pick<MouseEvent<HTMLElement>, "button">>,
+): boolean {
+  return event.metaKey || event.ctrlKey || event.button === 1;
+}
+
 /**
  * Opens a change request link on the page, and says whether it did. Anything else — another
  * organisation's repository, a host nothing here is checked out from, a link that merely looks
@@ -127,12 +135,6 @@ export function findProjectOnChangeRequestHost(
  *
  * With "Open pull requests in Supaterm" turned off, every link is left alone.
  */
-export function shouldOpenPullRequestExternally(
-  event: Pick<MouseEvent<HTMLElement>, "metaKey" | "ctrlKey">,
-): boolean {
-  return event.metaKey || event.ctrlKey;
-}
-
 export function useOpenChangeRequestLink(
   threadRef?: ScopedThreadRef,
   panelRef?: ScopedThreadRef,
@@ -248,6 +250,8 @@ export function useOpenPrLink(threadRef?: ScopedThreadRef) {
   const openLink = useOpenLink(threadRef);
   return useCallback(
     (event: MouseEvent<HTMLElement>, prUrl: string, targetThreadRef?: ScopedThreadRef) => {
+      // Buttons also pass this to onAuxClick for middle-click; a right-click is not an open.
+      if (event.button > 1) return false;
       event.stopPropagation();
       const openInBrowser = shouldOpenPullRequestExternally(event);
       const isAnchor =
