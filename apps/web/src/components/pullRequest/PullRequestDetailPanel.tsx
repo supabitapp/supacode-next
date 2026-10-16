@@ -2278,9 +2278,11 @@ export function PullRequestDetailPanel({
                             />
                           )}
                           <span className="max-w-full truncate text-xs text-muted-foreground">
-                            {environmentConnected
-                              ? detail.headBranch
-                              : "Reconnect to delete this branch"}
+                            {!environmentConnected
+                              ? "Reconnect to delete this branch"
+                              : confirm.armed === "delete-branch"
+                                ? "Local branches and worktrees are not changed"
+                                : `${detail.headBranch} in ${detail.headRepositoryNameWithOwner ?? detail.repository}`}
                           </span>
                         </span>
                       </MenuItem>
