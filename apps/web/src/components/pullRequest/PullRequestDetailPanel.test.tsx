@@ -63,6 +63,7 @@ vi.mock("~/state/pullRequests", async (importOriginal) => ({
   useSharedPullRequestSummary: () => null,
 }));
 vi.mock("~/state/vcs", () => ({ vcsEnvironment: { listRefs: () => null } }));
+vi.mock("~/state/threads", () => ({ environmentThreadShells: { threadShellsAtom: {} } }));
 vi.mock("~/state/query", () => ({
   useEnvironmentQuery: (query: string) => ({
     data: query === "detail" ? detail : null,
