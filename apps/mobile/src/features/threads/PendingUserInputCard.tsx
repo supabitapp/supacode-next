@@ -3,7 +3,15 @@ import { QuestionAttachments } from "./QuestionAttachments";
 import * as Haptics from "expo-haptics";
 import type { RuntimeRequestId } from "@supaterm/contracts";
 import type { ThreadUserInputQuestion } from "@supaterm/client-runtime/state/thread-requests";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   AccessibilityInfo,
   Keyboard,
@@ -39,6 +47,10 @@ import { AppText as Text } from "../../components/AppText";
 import { ControlPill } from "../../components/ControlPill";
 import { cn } from "../../lib/cn";
 import { playDecisionHaptic } from "../../lib/decisionHaptic";
+import { useFontFamily } from "../../lib/useFontFamily";
+import { SelectableMarkdownText } from "../../native/SelectableMarkdownText";
+import { useOpenPullRequest } from "../../native/useOpenPullRequest";
+import { useMarkdownPreviewStyles } from "../files/FileMarkdownPreview";
 import {
   isPendingUserInputOptionSelected,
   isPendingUserInputQuestionAnswered,
@@ -179,6 +191,24 @@ function QuestionPage(props: {
         {props.children}
       </Animated.View>
     </LayoutAnimationConfig>
+  );
+}
+
+/** Renders question text as markdown so agent-provided links open on tap. */
+function QuestionText(props: { readonly markdown: string }) {
+  const styles = useMarkdownPreviewStyles();
+  const mediumFontFamily = useFontFamily("medium");
+  const openLink = useOpenPullRequest();
+  const textStyle = useMemo(
+    () => ({ ...styles.nativeTextStyle, fontFamily: mediumFontFamily }),
+    [styles.nativeTextStyle, mediumFontFamily],
+  );
+  return (
+    <SelectableMarkdownText
+      markdown={props.markdown}
+      textStyle={textStyle}
+      onLinkPress={(href) => void openLink(href)}
+    />
   );
 }
 
@@ -478,9 +508,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
           ) : null}
           {question ? (
             <>
-              <Text className="font-supaterm-medium text-base leading-snug text-foreground">
-                {question.question}
-              </Text>
+              <QuestionText markdown={question.question} />
               {question.multiSelect ? (
                 <Text className="font-sans text-xs text-foreground-muted">
                   Select one or more options.

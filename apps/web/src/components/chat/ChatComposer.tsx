@@ -6813,6 +6813,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 <ComposerPendingUserInputPanel
                   disabled={!canOperateThread}
                   pendingUserInputs={pendingUserInputs}
+                  cwd={gitCwd ?? undefined}
+                  threadRef={routeThreadRef}
                   respondingRequestIds={
                     activePendingIsResponding && activePendingUserInput
                       ? [...respondingRequestIds, activePendingUserInput.requestId]
@@ -6829,6 +6831,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 <div data-chat-composer-collapsed-controls="true">
                   <ComposerPendingUserInputPanel
                     pendingUserInputs={pendingUserInputs}
+                    cwd={gitCwd ?? undefined}
+                    threadRef={routeThreadRef}
                     disabled={!canOperateThread}
                     respondingRequestIds={
                       activePendingIsResponding && activePendingUserInput
