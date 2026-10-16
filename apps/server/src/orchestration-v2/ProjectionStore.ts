@@ -316,17 +316,17 @@ export interface ProjectionRecordFilter {
   readonly runIds?: ReadonlyArray<RunId>;
   readonly turnItemTypes?: ReadonlyArray<OrchestrationV2TurnItem["type"]>;
   readonly turnItemStatuses?: ReadonlyArray<OrchestrationV2TurnItem["status"]>;
-  readonly omitFinishedLeafNodes?: boolean;
+  readonly omitSettledLeafNodes?: boolean;
 }
 
 type ProjectionNode = OrchestrationV2ThreadProjection["nodes"][number];
 type ProjectionRun = OrchestrationV2ThreadProjection["runs"][number];
-const finishedLeafNodeKinds: ReadonlySet<ProjectionNode["kind"]> = new Set([
+const settledLeafNodeKinds: ReadonlySet<ProjectionNode["kind"]> = new Set([
   "tool_call",
   "assistant_message",
   "reasoning",
 ]);
-const finishedNodeStatuses: ReadonlySet<ProjectionNode["status"]> = new Set([
+const settledNodeStatuses: ReadonlySet<ProjectionNode["status"]> = new Set([
   "completed",
   "interrupted",
   "failed",
@@ -341,10 +341,10 @@ const activeRunStatuses: ReadonlySet<ProjectionRun["status"]> = new Set([
   "waiting",
 ]);
 
-// In-memory twin of the omitFinishedLeafNodes SQL clause in readCanonicalProjection.
-const isFinishedLeafNode = (node: ProjectionNode, runs: ReadonlyArray<ProjectionRun>) =>
-  finishedLeafNodeKinds.has(node.kind) &&
-  finishedNodeStatuses.has(node.status) &&
+// In-memory twin of the omitSettledLeafNodes SQL clause in readCanonicalProjection.
+const isSettledLeafNode = (node: ProjectionNode, runs: ReadonlyArray<ProjectionRun>) =>
+  settledLeafNodeKinds.has(node.kind) &&
+  settledNodeStatuses.has(node.status) &&
   node.runId !== null &&
   !runs.some((run) => run.id === node.runId && activeRunStatuses.has(run.status));
 export type ProjectionRecordField = Exclude<
@@ -3034,7 +3034,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             FROM orchestration_v2_projection_nodes AS node
             WHERE node.thread_id = ${threadId}
               ${
-                filter?.omitFinishedLeafNodes === true
+                filter?.omitSettledLeafNodes === true
                   ? sql`AND NOT (
                       node.kind IN ('tool_call', 'assistant_message', 'reasoning')
                       AND node.status IN ('completed', 'interrupted', 'failed', 'cancelled', 'rolled_back')
@@ -6456,8 +6456,8 @@ export const layerMemory: Layer.Layer<ProjectionStoreV2> = Layer.effect(
                 (filter?.turnItemRunId === undefined || filter.turnItemRunId === row.runId),
             ),
             nodes:
-              filter?.omitFinishedLeafNodes === true
-                ? projection.nodes.filter((node) => !isFinishedLeafNode(node, projection.runs))
+              filter?.omitSettledLeafNodes === true
+                ? projection.nodes.filter((node) => !isSettledLeafNode(node, projection.runs))
                 : projection.nodes,
           };
           return Object.fromEntries([

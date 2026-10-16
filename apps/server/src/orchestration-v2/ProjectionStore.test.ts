@@ -379,7 +379,7 @@ const threadWorktreePathsReadActiveThreads = Effect.gen(function* () {
   ]);
 });
 
-const commandReadsSkipFinishedLeafNodes = Effect.gen(function* () {
+const commandReadsSkipSettledLeafNodes = Effect.gen(function* () {
   const store = yield* ProjectionStore.ProjectionStoreV2;
   const now = yield* DateTime.now;
   const threadId = yield* addRolledBackRecoveryCandidate("finished-leaf-nodes");
@@ -449,7 +449,7 @@ const commandReadsSkipFinishedLeafNodes = Effect.gen(function* () {
       .toSorted();
 
   assert.deepEqual(
-    nodeNames(yield* store.getThreadRecords(threadId, ["nodes"], { omitFinishedLeafNodes: true })),
+    nodeNames(yield* store.getThreadRecords(threadId, ["nodes"], { omitSettledLeafNodes: true })),
     ["active-run-done-tool", "finished-root", "finished-run-live-tool", "finished-subagent"],
   );
   assert.deepEqual(
@@ -459,7 +459,7 @@ const commandReadsSkipFinishedLeafNodes = Effect.gen(function* () {
 });
 
 it.effect("memory command reads skip finished leaf nodes of finished runs", () =>
-  commandReadsSkipFinishedLeafNodes.pipe(Effect.provide(ProjectionStore.layerMemory)),
+  commandReadsSkipSettledLeafNodes.pipe(Effect.provide(ProjectionStore.layerMemory)),
 );
 
 it.effect("memory worktree path lookup reads only active threads", () =>
@@ -735,7 +735,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
   );
   it.effect(
     "command reads skip finished leaf nodes of finished runs",
-    () => commandReadsSkipFinishedLeafNodes,
+    () => commandReadsSkipSettledLeafNodes,
   );
   it.effect("limits turn-start history to the requested runs, including an empty selection", () =>
     Effect.gen(function* () {
