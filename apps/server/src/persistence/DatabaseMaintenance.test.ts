@@ -6,6 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as SqlClient from "effect/sql/SqlClient";
+import * as Statement from "effect/sql/Statement";
 
 import * as DatabaseMaintenance from "./DatabaseMaintenance.ts";
 import * as Sqlite from "./Sqlite.ts";
@@ -72,7 +73,18 @@ it.layer(DatabaseMaintenance.layer.pipe(Layer.provideMerge(NodeServices.layer)))
         assert.equal(refused._tag, "DatabaseInUseError");
         assert.equal((yield* fs.stat(dbPath)).size, sizeBefore);
 
-        const result = yield* maintenance.compact(dbPath);
+        const statements: Array<string> = [];
+        const record: Statement.Transformer = (statement) =>
+          Effect.sync(() => {
+            statements.push(statement.compile()[0]);
+            return statement;
+          });
+        const result = yield* maintenance
+          .compact(dbPath)
+          .pipe(Effect.provideService(Statement.CurrentTransformer, record));
+        const fullFsync = statements.indexOf("PRAGMA checkpoint_fullfsync = ON");
+        assert.isAtLeast(fullFsync, 0);
+        assert.isBelow(fullFsync, statements.indexOf("VACUUM"));
         // The 4 MiB of free pages are returned to the filesystem.
         assert.isBelow(result.afterBytes, result.beforeBytes - 3 * 1024 * 1024);
         yield* Effect.gen(function* () {

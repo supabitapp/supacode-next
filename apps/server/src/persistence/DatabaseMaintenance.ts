@@ -135,6 +135,9 @@ const make = Effect.gen(function* () {
         // is refused while any other connection has the file open, even an idle
         // one, which is how a running server or desktop app is detected.
         yield* sql`PRAGMA busy_timeout = 0`;
+        // VACUUM and the truncating checkpoint sync through checkpoints, which
+        // need F_FULLFSYNC on macOS to reach the disk.
+        yield* sql`PRAGMA checkpoint_fullfsync = ON`;
         yield* sql`PRAGMA locking_mode = EXCLUSIVE`;
         yield* sql`BEGIN EXCLUSIVE`.pipe(
           Effect.mapError((cause) =>
