@@ -157,6 +157,7 @@ describe("scoped settings writes", () => {
           mode: "custom",
           rules: {
             worktreeAfterDays: 12,
+            worktreeDoneAfterDays: null,
             worktreeOnDelete: true,
             worktreeOnMerge: true,
             worktreeUnchanged: false,
@@ -181,6 +182,7 @@ describe("scoped settings writes", () => {
     expect(policies).toEqual([
       {
         worktreeAfterDays: 12,
+        worktreeDoneAfterDays: null,
         worktreeOnDelete: false,
         worktreeOnMerge: true,
         worktreeUnchanged: false,
@@ -188,6 +190,7 @@ describe("scoped settings writes", () => {
       },
       {
         worktreeAfterDays: null,
+        worktreeDoneAfterDays: null,
         worktreeOnDelete: false,
         worktreeOnMerge: false,
         worktreeUnchanged: false,
@@ -408,6 +411,7 @@ describe("scoped settings writes", () => {
               mode: "custom",
               rules: {
                 worktreeAfterDays: 8,
+                worktreeDoneAfterDays: null,
                 worktreeOnDelete: false,
                 worktreeOnMerge: true,
                 worktreeUnchanged: false,
@@ -421,6 +425,15 @@ describe("scoped settings writes", () => {
     const plan = planScopedSettingsPatch(project, [machine, customized], {
       worktreeCleanup: { mode: "custom", rules: { worktreeOnDelete: true } },
     });
+    const donePlan = planScopedSettingsPatch(project, [machine, customized], {
+      worktreeCleanup: { mode: "custom", rules: { worktreeDoneAfterDays: 0 } },
+    });
+    expect(
+      donePlan.serverWrites.map((write) => write.patch.projectSettingsOverrides),
+    ).toMatchObject([
+      { [projectId]: { worktreeCleanup: { rules: { worktreeDoneAfterDays: 0 } } } },
+      { [laptopProjectId]: { worktreeCleanup: { rules: { worktreeDoneAfterDays: 0 } } } },
+    ]);
     expect(plan.serverWrites.map((write) => write.patch.projectSettingsOverrides)).toEqual([
       {
         [projectId]: {
@@ -429,6 +442,7 @@ describe("scoped settings writes", () => {
             mode: "custom",
             rules: {
               worktreeAfterDays: 8,
+              worktreeDoneAfterDays: null,
               worktreeOnDelete: true,
               worktreeOnMerge: true,
               worktreeUnchanged: false,
@@ -443,6 +457,7 @@ describe("scoped settings writes", () => {
             mode: "custom",
             rules: {
               worktreeAfterDays: 30,
+              worktreeDoneAfterDays: null,
               worktreeOnDelete: true,
               worktreeOnMerge: true,
               worktreeUnchanged: true,

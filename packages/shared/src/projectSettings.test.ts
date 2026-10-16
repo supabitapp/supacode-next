@@ -403,9 +403,19 @@ describe("projectSettingsOverrides patches", () => {
 describe("resolveWorktreeCleanup", () => {
   it("inherits machine rules, disables one project and keeps custom rules isolated", () => {
     const machine = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      storageCleanup: { worktreeAfterDays: 8, worktreeOnDelete: true, logsAfterDays: 3 },
+      storageCleanup: {
+        worktreeAfterDays: 8,
+        worktreeDoneAfterDays: 2,
+        worktreeKeepWhen: "any-local-files",
+        worktreeOnDelete: true,
+        logsAfterDays: 3,
+      },
     });
     const inherited = resolveWorktreeCleanup(machine, projectId);
+    expect(inherited).toMatchObject({
+      worktreeDoneAfterDays: 2,
+      worktreeKeepWhen: "any-local-files",
+    });
     const off = applyServerSettingsPatch(machine, {
       projectSettingsOverrides: {
         [projectId]: { worktreeCleanup: { mode: "off" } },
@@ -413,20 +423,26 @@ describe("resolveWorktreeCleanup", () => {
     });
     expect(resolveWorktreeCleanup(off, projectId)).toEqual({
       worktreeAfterDays: null,
+      worktreeDoneAfterDays: null,
       worktreeOnDelete: false,
       worktreeOnMerge: false,
       worktreeUnchanged: false,
-      worktreeKeepWhen: "uncommitted-changes",
+      worktreeKeepWhen: "any-local-files",
     });
     expect(resolveWorktreeCleanup(off, otherProjectId)).toEqual(inherited);
     const custom = applyServerSettingsPatch(off, {
       projectSettingsOverrides: {
         [projectId]: {
-          worktreeCleanup: { mode: "custom", rules: { ...inherited, worktreeAfterDays: 15 } },
+          worktreeCleanup: {
+            mode: "custom",
+            rules: { ...inherited, worktreeAfterDays: 15, worktreeDoneAfterDays: 0 },
+          },
         },
       },
     });
     expect(resolveWorktreeCleanup(custom, projectId).worktreeAfterDays).toBe(15);
+    expect(resolveWorktreeCleanup(custom, projectId).worktreeDoneAfterDays).toBe(0);
+    expect(resolveWorktreeCleanup(custom, otherProjectId)).toEqual(inherited);
     expect(custom.storageCleanup.logsAfterDays).toBe(3);
     const reset = applyServerSettingsPatch(custom, {
       projectSettingsOverrides: {
@@ -437,7 +453,7 @@ describe("resolveWorktreeCleanup", () => {
   });
   it("completes partial machine custom rules and preserves them across edits", () => {
     const initial = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      storageCleanup: { worktreeAfterDays: 8, worktreeOnDelete: true },
+      storageCleanup: { worktreeAfterDays: 8, worktreeDoneAfterDays: 0, worktreeOnDelete: true },
     });
     const custom = applyServerSettingsPatch(initial, {
       worktreeCleanup: { mode: "custom", rules: { worktreeOnMerge: true } },
@@ -447,6 +463,7 @@ describe("resolveWorktreeCleanup", () => {
     });
     expect(resolveWorktreeCleanup(edited, null)).toEqual({
       worktreeAfterDays: 15,
+      worktreeDoneAfterDays: 0,
       worktreeOnDelete: true,
       worktreeOnMerge: true,
       worktreeUnchanged: true,

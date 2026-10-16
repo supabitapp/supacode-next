@@ -38,6 +38,7 @@ import * as GitManager from "./git/GitManager.ts";
 import * as ProjectStore from "./orchestration-v2/ProjectStore.ts";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
 import * as ProjectionStore from "./orchestration-v2/ProjectionStore.ts";
+import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManager.ts";
 import { threadHasQueuedTurnStart } from "./orchestration-v2/ThreadDoneService.ts";
 import { forkParked } from "./serverActivation.ts";
 import * as Settings from "./serverSettings.ts";
@@ -56,6 +57,9 @@ const decodeCleanupSession = Schema.decodeUnknownEffect(
 );
 
 const DAY_MS = 86_400_000;
+// After a thread is marked done, the project's done script needs time to open
+// its terminal, which then protects the worktree.
+const DONE_SCRIPT_GRACE_MS = 60_000;
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const REPORT_ENTRY_LIMIT = 200;
@@ -69,6 +73,7 @@ function cleanupFailureReason(error: { readonly message: string }) {
 
 const worktreeCleanupEnabled = (rules: WorktreeCleanupRules) =>
   rules.worktreeAfterDays !== null ||
+  rules.worktreeDoneAfterDays !== null ||
   rules.worktreeOnMerge ||
   rules.worktreeOnDelete ||
   rules.worktreeUnchanged;
@@ -167,6 +172,7 @@ const make = Effect.gen(function* () {
   const projectStore = yield* ProjectStore.ProjectStoreV2;
   const engine = yield* Orchestrator.OrchestratorV2;
   const projections = yield* ProjectionStore.ProjectionStoreV2;
+  const providerSessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
   const sql = yield* SqlClient.SqlClient;
   const git = yield* GitVcsDriver.GitVcsDriver;
   const gitManager = yield* GitManager.GitManager;
@@ -478,15 +484,33 @@ const make = Effect.gen(function* () {
           return keep("repository or branch changed");
         const changes = yield* localChangesReason(worktreePath, settings);
         if (changes !== null) return keep(changes);
+        // The project's done script starts in the worktree right after the
+        // thread is marked done. Marking done stamps updatedAt now, even when
+        // automatic marking backdates doneAt to the thread's last activity.
+        if (
+          !deleted &&
+          thread.doneAt !== null &&
+          now - DateTime.toEpochMillis(thread.updatedAt) < DONE_SCRIPT_GRACE_MS
+        )
+          return keep("marked done moments ago");
         const head = yield* git.resolveCommit({ cwd: worktreePath, revision: "HEAD" });
         const old =
           !deleted &&
           settings.worktreeAfterDays !== null &&
           storageCleanupActivityAt(thread) < now - settings.worktreeAfterDays * DAY_MS;
-        let eligible = deleted || old;
+        const doneFor =
+          deleted || thread.doneAt === null ? null : now - DateTime.toEpochMillis(thread.doneAt);
+        const doneDays = doneFor === null ? null : Math.floor(doneFor / DAY_MS);
+        const doneLongEnough =
+          doneFor !== null &&
+          settings.worktreeDoneAfterDays !== null &&
+          doneFor >= settings.worktreeDoneAfterDays * DAY_MS;
+        let eligible = deleted || old || doneLongEnough;
         let removalReason = deleted
           ? "thread was deleted"
-          : `inactive for ${Math.floor((now - storageCleanupActivityAt(thread)) / DAY_MS)} days`;
+          : old
+            ? `inactive for ${Math.floor((now - storageCleanupActivityAt(thread)) / DAY_MS)} days`
+            : `done for ${doneDays} days`;
         if (!eligible && (settings.worktreeUnchanged || settings.worktreeOnMerge)) {
           const repositoryCwd = path.resolve(project.workspaceRoot);
           const remote = yield* git.resolvePrimaryRemoteName(repositoryCwd);
@@ -534,9 +558,13 @@ const make = Effect.gen(function* () {
           return keep(
             !deleted && settings.worktreeAfterDays !== null
               ? `inactive for ${Math.floor((now - storageCleanupActivityAt(thread)) / DAY_MS)} of ${settings.worktreeAfterDays} days`
-              : settings.worktreeOnMerge
-                ? "not merged"
-                : "has commits beyond the default branch",
+              : settings.worktreeDoneAfterDays !== null
+                ? doneFor === null
+                  ? "not done"
+                  : `done for ${doneDays} of ${settings.worktreeDoneAfterDays} days`
+                : settings.worktreeOnMerge
+                  ? "not merged"
+                  : "has commits beyond the default branch",
           );
         // Threads, queued deletion work and provider sessions as they are now, so a
         // queued turn, resumed session or new thread sharing this path cancels
@@ -572,7 +600,8 @@ const make = Effect.gen(function* () {
             if (
               latestShell === null ||
               !storageCleanupThreadIdle(latestShell, now) ||
-              storageCleanupActivityAt(latestShell) !== storageCleanupActivityAt(thread)
+              storageCleanupActivityAt(latestShell) !== storageCleanupActivityAt(thread) ||
+              !Equal.equals(latestShell.doneAt, thread.doneAt)
             )
               return "thread activity or shared worktree changed since check";
           }
@@ -584,13 +613,16 @@ const make = Effect.gen(function* () {
           const sessions = yield* Effect.forEach(sessionRows, (row) =>
             decodeCleanupSession(row.payload_json),
           );
-          if (
-            sessions.some((session) => {
-              const cwd = path.resolve(session.cwd);
-              return cwd === worktreePath || inside(worktreePath, cwd);
-            })
-          )
-            return "provider session is still open";
+          // A stored session can stay ready after its runtime was released,
+          // for example once every thread detached; only a live one holds it.
+          for (const session of sessions) {
+            const cwd = path.resolve(session.cwd);
+            if (
+              (cwd === worktreePath || inside(worktreePath, cwd)) &&
+              (yield* providerSessions.isLive(session.id))
+            )
+              return "provider session is still open";
+          }
           return null;
         });
         // Most cancelled removals are caught here, before the worktree is walked.

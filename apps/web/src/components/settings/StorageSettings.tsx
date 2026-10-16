@@ -92,15 +92,17 @@ function RetentionControl({
   label,
   value,
   onChange,
+  minimum = 1,
 }: {
   label: string;
   value: number | null;
   onChange: (value: number | null) => void;
+  minimum?: number;
 }) {
   return (
     <>
       {value !== null ? (
-        <DaysField label={label} value={value} min={1} max={3650} onCommit={onChange} />
+        <DaysField label={label} value={value} min={minimum} max={3650} onCommit={onChange} />
       ) : null}
       <Switch
         aria-label={label}
@@ -216,6 +218,7 @@ function CleanupSection() {
     if (!settings) return false;
     const enabled = (rules: WorktreeCleanupRules) =>
       rules.worktreeAfterDays !== null ||
+      rules.worktreeDoneAfterDays !== null ||
       rules.worktreeOnMerge ||
       rules.worktreeOnDelete ||
       rules.worktreeUnchanged;
@@ -471,6 +474,20 @@ export function StorageSettingsPanel() {
                   label="Delete inactive worktrees"
                   value={settings.worktreeAfterDays}
                   onChange={(worktreeAfterDays) => updateWorktree({ worktreeAfterDays })}
+                />
+              }
+            />
+            <SettingsRow
+              title="Delete done worktrees"
+              status={ruleStatus("worktreeDoneAfterDays")}
+              description="Remove worktrees this many days after their thread is marked done. Set 0 days to remove them at the next cleanup. Branches and thread history are kept."
+              serverScoped={!isProjectScope}
+              control={
+                <RetentionControl
+                  label="Delete done worktrees"
+                  value={settings.worktreeDoneAfterDays}
+                  minimum={0}
+                  onChange={(worktreeDoneAfterDays) => updateWorktree({ worktreeDoneAfterDays })}
                 />
               }
             />
