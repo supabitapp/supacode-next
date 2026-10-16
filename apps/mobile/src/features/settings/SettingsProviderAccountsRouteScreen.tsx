@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { AppText as Text } from "../../components/AppText";
-import { MaterialButton } from "../../components/MaterialButton";
+import { Button } from "../../components/Button";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import { ScreenScrollView } from "../../components/ScreenScrollView";
 import { cn } from "../../lib/cn";
@@ -241,7 +241,7 @@ function ProviderAccount({
             {provider.displayName ?? provider.driver}
           </Text>
           {showSignIn ? (
-            <MaterialButton
+            <Button
               label={signInLabel()}
               disabled={disabled}
               loading={pending}
@@ -257,7 +257,7 @@ function ProviderAccount({
               {provider.enabled ? "Not installed" : "Disabled"}
             </Text>
           ) : !active && auth.error ? (
-            <MaterialButton label="Retry" onPress={auth.refresh} />
+            <Button label="Retry" onPress={auth.refresh} />
           ) : null}
         </View>
         <Text accessibilityLiveRegion="polite" className="text-sm text-foreground-muted">

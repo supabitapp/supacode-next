@@ -16,7 +16,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { MaterialButton } from "../../components/MaterialButton";
+import { Button } from "../../components/Button";
 import { AppText as Text } from "../../components/AppText";
 import { SymbolView } from "../../components/AppSymbol";
 import { scopedThreadKey } from "../../lib/scopedEntities";
@@ -395,7 +395,7 @@ export function ThreadQueueSheet({ route }: StaticScreenProps<QueueTarget>) {
             style={{ paddingBottom: Math.max(insets.bottom, 16) + 12 }}
           >
             <Text className="text-center text-sm text-foreground-muted">Paused after restart</Text>
-            <MaterialButton
+            <Button
               label={resuming ? "Resuming…" : "Resume queue"}
               tone="primary"
               fullWidth
