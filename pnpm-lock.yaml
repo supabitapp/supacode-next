@@ -286,6 +286,7 @@ patchedDependencies:
   '@effect/vitest@4.0.5': 2731c9c3761c595f25ddc625a7d61ca376b389d5b3049ecb837c8940f21cfa02
   '@expo/fingerprint@0.21.2': 2db5c6908c5b0fb5d07b358ad12a0e1fd23acf1740e545589504d8cb79688601
   '@expo/metro-config@58.0.6': 90fa980e8b6480631fb2fbb04559834e3c612db40c550cd828f11be297d8d760
+  '@expo/ui@58.0.11': d1efeb3611dec747fce7a526860697187e82ba87b5b75993d115f73e2ef0e1f7
   '@ff-labs/fff-node@0.11.0': 921980ae26fa7d5c70f0415e333eb1f05991f75d6f4beafdfd3f319af81f0112
   '@legendapp/list@3.3.5': 1414adb25f1e998d23e488a8cc1b7e0692c9243eb3e8afd721a7c1c12b044119
   '@pierre/diffs@1.5.2': 298e94372dbd51846a4e26ece2ecc3e22eb1f94b0450b1f1a9c6fec127809be7
@@ -445,8 +446,8 @@ importers:
         specifier: ~58.0.10
         version: 58.0.10(@expo/log-box@58.0.8)(@types/react@19.3.0)(expo@58.0.2)(react-dom@19.3.0(react@19.3.0))(react-native@0.88.0-rc.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)
       '@expo/ui':
-        specifier: ~58.0.11
-        version: 58.0.11(bfa3fa63c129f5f792eea82c47481095)
+        specifier: 58.0.11
+        version: 58.0.11(patch_hash=d1efeb3611dec747fce7a526860697187e82ba87b5b75993d115f73e2ef0e1f7)(bfa3fa63c129f5f792eea82c47481095)
       '@legendapp/list':
         specifier: 'catalog:'
         version: 3.3.5(patch_hash=1414adb25f1e998d23e488a8cc1b7e0692c9243eb3e8afd721a7c1c12b044119)(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-native@0.88.0-rc.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)
@@ -12980,7 +12981,7 @@ snapshots:
 
   '@expo/sudo-prompt@9.3.2': {}
 
-  '@expo/ui@58.0.11(bfa3fa63c129f5f792eea82c47481095)':
+  '@expo/ui@58.0.11(patch_hash=d1efeb3611dec747fce7a526860697187e82ba87b5b75993d115f73e2ef0e1f7)(bfa3fa63c129f5f792eea82c47481095)':
     dependencies:
       '@types/react': 19.3.0
       expo: 58.0.2(4bae3e0750b0c18855882f72f7726979)
@@ -17283,7 +17284,7 @@ snapshots:
     dependencies:
       '@expo/plist': 0.10.1
       '@expo/spawn-async': 1.8.0
-      '@expo/ui': 58.0.11(bfa3fa63c129f5f792eea82c47481095)
+      '@expo/ui': 58.0.11(patch_hash=d1efeb3611dec747fce7a526860697187e82ba87b5b75993d115f73e2ef0e1f7)(bfa3fa63c129f5f792eea82c47481095)
       '@types/react': 19.3.0
       expo: 58.0.2(4bae3e0750b0c18855882f72f7726979)
       react: 19.3.0
