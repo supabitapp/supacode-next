@@ -337,11 +337,14 @@ function ConnectionStep({
                     {environment.label}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {environment.connection.phase === "connected"
-                      ? "Connected"
-                      : environment.connection.phase === "connecting"
-                        ? "Connecting"
-                        : "Not connected"}
+                    {/* Same rule as Settings: a switched-off computer reads Off, not Not connected. */}
+                    {!environment.entry.enabled && environment.connection.phase !== "unsupported"
+                      ? "Off"
+                      : environment.connection.phase === "connected"
+                        ? "Connected"
+                        : environment.connection.phase === "connecting"
+                          ? "Connecting"
+                          : "Not connected"}
                   </span>
                 </span>
                 {environment.displayUrl ? (
