@@ -533,6 +533,10 @@ export function useSettingsRestore(onRestored?: () => void) {
       DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneAfterDays
         ? ["Automatically mark inactive threads as Done"]
         : []),
+      ...(settings.sidebarAutoMarkDoneKeepPullRequests !==
+      DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneKeepPullRequests
+        ? ["Keep threads with an open PR"]
+        : []),
       ...(settings.sidebarAutoMarkDoneOnMerge !==
       DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneOnMerge
         ? ["Automatically mark merged threads as Done"]
@@ -701,6 +705,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
       sidebarProjectSortOrder: DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder,
       sidebarAutoMarkDoneAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneAfterDays,
+      sidebarAutoMarkDoneKeepPullRequests:
+        DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneKeepPullRequests,
       sidebarAutoMarkDoneOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneOnMerge,
       autoResumeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.autoResumeLimitedThreads,
       snoozeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.snoozeLimitedThreads,
@@ -2073,6 +2079,38 @@ export function GeneralSettingsPanel() {
                 </>
               }
             />
+            {settings.sidebarAutoMarkDoneAfterDays !== null ? (
+              <SettingsRow
+                serverScoped
+                settingKeys={["sidebarAutoMarkDoneKeepPullRequests"]}
+                title="Keep threads with an open PR"
+                description="Inactivity does not mark threads with an open pull request as Done."
+                resetAction={
+                  settings.sidebarAutoMarkDoneKeepPullRequests !==
+                  DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneKeepPullRequests ? (
+                    <SettingResetButton
+                      label="keep threads with an open PR"
+                      onClick={() =>
+                        updateSettings({
+                          sidebarAutoMarkDoneKeepPullRequests:
+                            DEFAULT_UNIFIED_SETTINGS.sidebarAutoMarkDoneKeepPullRequests,
+                        })
+                      }
+                    />
+                  ) : null
+                }
+                control={
+                  <ScopedSwitch
+                    settingKeys={["sidebarAutoMarkDoneKeepPullRequests"]}
+                    checked={settings.sidebarAutoMarkDoneKeepPullRequests}
+                    onCheckedChange={(checked) =>
+                      updateSettings({ sidebarAutoMarkDoneKeepPullRequests: Boolean(checked) })
+                    }
+                    aria-label="Keep threads with an open PR"
+                  />
+                }
+              />
+            ) : null}
           </>
         ) : null}
         <SettingsRow

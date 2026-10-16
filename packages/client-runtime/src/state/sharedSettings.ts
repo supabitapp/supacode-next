@@ -20,6 +20,7 @@ const SHARED_SERVER_SETTING_KEYS = [
   "continueThreadsAfterServerUpdate",
   "sidebarAutoMarkDoneAfterDays",
   "sidebarAutoMarkDoneOnMerge",
+  "sidebarAutoMarkDoneKeepPullRequests",
   "autoResumeLimitedThreads",
   "snoozeLimitedThreads",
   "newWorktreesStartFromOrigin",

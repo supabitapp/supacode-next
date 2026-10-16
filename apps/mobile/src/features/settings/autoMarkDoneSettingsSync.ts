@@ -2,7 +2,9 @@ import type { EnvironmentId, ProjectId, ServerSettings } from "@supaterm/contrac
 
 export type AutoMarkDoneSettings = Pick<
   ServerSettings,
-  "sidebarAutoMarkDoneAfterDays" | "sidebarAutoMarkDoneOnMerge"
+  | "sidebarAutoMarkDoneAfterDays"
+  | "sidebarAutoMarkDoneOnMerge"
+  | "sidebarAutoMarkDoneKeepPullRequests"
 >;
 
 interface AutoMarkDoneSyncTarget {
@@ -24,6 +26,7 @@ export function planAutoMarkDoneSettingsSync(
   const patch: AutoMarkDoneSettings = {
     sidebarAutoMarkDoneAfterDays: reference.settings.sidebarAutoMarkDoneAfterDays,
     sidebarAutoMarkDoneOnMerge: reference.settings.sidebarAutoMarkDoneOnMerge,
+    sidebarAutoMarkDoneKeepPullRequests: reference.settings.sidebarAutoMarkDoneKeepPullRequests,
   };
   const mismatches = targets.filter(
     (target) =>
@@ -31,7 +34,9 @@ export function planAutoMarkDoneSettingsSync(
         target.projectId !== reference.projectId) &&
       target.settings !== null &&
       (target.settings.sidebarAutoMarkDoneAfterDays !== patch.sidebarAutoMarkDoneAfterDays ||
-        target.settings.sidebarAutoMarkDoneOnMerge !== patch.sidebarAutoMarkDoneOnMerge),
+        target.settings.sidebarAutoMarkDoneOnMerge !== patch.sidebarAutoMarkDoneOnMerge ||
+        target.settings.sidebarAutoMarkDoneKeepPullRequests !==
+          patch.sidebarAutoMarkDoneKeepPullRequests),
   );
   return { patch, mismatches };
 }

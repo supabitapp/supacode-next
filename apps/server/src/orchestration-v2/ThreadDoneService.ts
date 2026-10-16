@@ -193,6 +193,7 @@ export function resolveAutoMarkDoneAt(input: {
   readonly nowMs: number;
   readonly autoMarkDoneAfterDays: number | null;
   readonly autoMarkDoneOnMerge: boolean;
+  readonly autoMarkDoneKeepPullRequests?: boolean;
 }): DateTime.Utc | null {
   const { thread } = input;
   let pullRequest = input.pullRequest;
@@ -230,6 +231,11 @@ export function resolveAutoMarkDoneAt(input: {
   ) {
     return activityAtMs === null ? thread.createdAt : DateTime.makeUnsafe(activityAtMs);
   }
+  const hasOpenPullRequest =
+    pullRequest === null
+      ? thread.linkedPullRequest != null || thread.branchPullRequest != null
+      : pullRequest.state === "open";
+  if (input.autoMarkDoneKeepPullRequests === true && hasOpenPullRequest) return null;
   if (input.autoMarkDoneAfterDays === null || activityAtMs === null) return null;
   // A passed wake timer restarts inactivity. An earlier wake can only delay completion.
   const snoozedUntilMs = toMillis(thread.snoozedUntil);
@@ -270,6 +276,7 @@ export function autoMarkDoneSettingsKey(
   return JSON.stringify([
     settings.sidebarAutoMarkDoneOnMerge,
     settings.sidebarAutoMarkDoneAfterDays,
+    settings.sidebarAutoMarkDoneKeepPullRequests,
     // Only entries that touch completion, in a stable order, so a project
     // override on an unrelated key does not queue a sweep. JSON drops
     // undefined, so inherit (absent) and never (null) need distinct marks.
@@ -277,7 +284,8 @@ export function autoMarkDoneSettingsKey(
       .filter(
         ([, entry]) =>
           entry.sidebarAutoMarkDoneOnMerge !== undefined ||
-          entry.sidebarAutoMarkDoneAfterDays !== undefined,
+          entry.sidebarAutoMarkDoneAfterDays !== undefined ||
+          entry.sidebarAutoMarkDoneKeepPullRequests !== undefined,
       )
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([projectId, entry]) => [
@@ -286,6 +294,7 @@ export function autoMarkDoneSettingsKey(
         entry.sidebarAutoMarkDoneAfterDays === undefined
           ? "inherit"
           : entry.sidebarAutoMarkDoneAfterDays,
+        entry.sidebarAutoMarkDoneKeepPullRequests ?? "inherit",
       ]),
   ]);
 }
@@ -338,6 +347,7 @@ export const make = Effect.gen(function* () {
           nowMs: DateTime.toEpochMillis(decisionNow),
           autoMarkDoneAfterDays: currentSettings.sidebarAutoMarkDoneAfterDays,
           autoMarkDoneOnMerge: currentSettings.sidebarAutoMarkDoneOnMerge,
+          autoMarkDoneKeepPullRequests: currentSettings.sidebarAutoMarkDoneKeepPullRequests,
         });
         if (doneAt === null) return thread;
         const uuid = yield* crypto.randomUUIDv4();
@@ -440,6 +450,7 @@ export const make = Effect.gen(function* () {
             nowMs: DateTime.toEpochMillis(decisionNow),
             autoMarkDoneAfterDays: settings.sidebarAutoMarkDoneAfterDays,
             autoMarkDoneOnMerge: settings.sidebarAutoMarkDoneOnMerge,
+            autoMarkDoneKeepPullRequests: settings.sidebarAutoMarkDoneKeepPullRequests,
           }) !== null
         );
       });

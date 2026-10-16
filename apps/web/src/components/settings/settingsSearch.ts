@@ -309,6 +309,15 @@ export const SETTINGS_SEARCH_ITEMS = [
     scope: "project-defaults",
   },
   {
+    id: "auto-mark-done-keep-pull-requests",
+    title: "Keep threads with an open PR",
+    to: "/settings/general",
+    targetId: "auto-mark-done-inactive-threads",
+    searchTerms: ["auto-mark-done", "pull request review inactivity sidebar"],
+    requiresThreadAutoMarkDone: true,
+    scope: "project-defaults",
+  },
+  {
     id: "days-before-auto-mark-done",
     title: "Days of inactivity before marking Done",
     to: "/settings/general",

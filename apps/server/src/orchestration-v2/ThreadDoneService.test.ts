@@ -241,6 +241,63 @@ describe("threadHasQueuedTurnStart", () => {
 });
 
 describe("resolveAutoMarkDoneAt", () => {
+  const pullRequestReference = {
+    projectId: ProjectId.make("project-1"),
+    repository: "owner/repo",
+    number: 1,
+    url: "https://example.test/owner/repo/pull/1",
+  };
+  const afterLastMessage = DateTime.formatIso(at(-3 * DAY_MS));
+  it.each([
+    ["an open linked PR", "linkedPullRequest", { state: "open" as const }, null],
+    ["a linked PR with no known state", "linkedPullRequest", null, null],
+    ["a branch PR with no known state", "branchPullRequest", null, null],
+    [
+      "a merged PR",
+      "linkedPullRequest",
+      { state: "merged" as const, mergedAt: afterLastMessage },
+      at(-4 * DAY_MS),
+    ],
+    [
+      "a closed PR",
+      "linkedPullRequest",
+      { state: "closed" as const, closedAt: afterLastMessage },
+      at(-4 * DAY_MS),
+    ],
+  ] as const)(
+    "keeps a thread with %s from inactivity only when asked",
+    (_, referenceKey, pullRequest, expected) => {
+      const input = {
+        thread: shell({
+          latestUserMessageAt: at(-4 * DAY_MS),
+          [referenceKey]: pullRequestReference,
+        }),
+        pullRequest,
+        nowMs: NOW_MS,
+        autoMarkDoneAfterDays: 2,
+        autoMarkDoneOnMerge: false,
+        autoMarkDoneKeepPullRequests: true,
+      };
+      expect(ThreadDoneService.resolveAutoMarkDoneAt(input)).toEqual(expected);
+      expect(
+        ThreadDoneService.resolveAutoMarkDoneAt({ ...input, autoMarkDoneKeepPullRequests: false }),
+      ).toEqual(at(-4 * DAY_MS));
+    },
+  );
+
+  it("does not keep a thread without a pull request", () => {
+    expect(
+      ThreadDoneService.resolveAutoMarkDoneAt({
+        thread: shell({ latestUserMessageAt: at(-4 * DAY_MS) }),
+        pullRequest: null,
+        nowMs: NOW_MS,
+        autoMarkDoneAfterDays: 2,
+        autoMarkDoneOnMerge: false,
+        autoMarkDoneKeepPullRequests: true,
+      }),
+    ).toEqual(at(-4 * DAY_MS));
+  });
+
   it("uses the latest activity time when the inactivity window elapses", () => {
     const idle = shell({
       latestUserMessageAt: at(-4 * DAY_MS),
@@ -399,6 +456,24 @@ describe("autoMarkDoneSettingsKey", () => {
       },
     });
     assert.strictEqual(base, unrelated);
+  });
+
+  it("changes when keeping open pull requests is turned on globally or for a project", () => {
+    const base = ThreadDoneService.autoMarkDoneSettingsKey(DEFAULT_SERVER_SETTINGS);
+    assert.notStrictEqual(
+      base,
+      ThreadDoneService.autoMarkDoneSettingsKey({
+        ...DEFAULT_SERVER_SETTINGS,
+        sidebarAutoMarkDoneKeepPullRequests: true,
+      }),
+    );
+    assert.notStrictEqual(
+      base,
+      ThreadDoneService.autoMarkDoneSettingsKey({
+        ...DEFAULT_SERVER_SETTINGS,
+        projectSettingsOverrides: { [PROJECT_ID]: { sidebarAutoMarkDoneKeepPullRequests: true } },
+      }),
+    );
   });
 });
 

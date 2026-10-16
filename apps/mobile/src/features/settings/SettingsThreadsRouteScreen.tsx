@@ -143,7 +143,8 @@ function ThreadBehaviorSettingsRows() {
     syncTargets.some(
       (target) =>
         target.sources.sidebarAutoMarkDoneOnMerge === "project" ||
-        target.sources.sidebarAutoMarkDoneAfterDays === "project",
+        target.sources.sidebarAutoMarkDoneAfterDays === "project" ||
+        target.sources.sidebarAutoMarkDoneKeepPullRequests === "project",
     );
   const clearProjectOverrides = () => {
     if (
@@ -156,6 +157,7 @@ function ThreadBehaviorSettingsRows() {
     const writes = planMobileScopedSettingsClear(syncTargets, [
       "sidebarAutoMarkDoneOnMerge",
       "sidebarAutoMarkDoneAfterDays",
+      "sidebarAutoMarkDoneKeepPullRequests",
     ]);
     if (writes.length === 0) return;
     writeInFlight.current = true;
@@ -231,6 +233,16 @@ function ThreadBehaviorSettingsRows() {
               onValueChange={(value) => writeToAll({ sidebarAutoMarkDoneAfterDays: value })}
             />
           </View>
+        ) : null}
+        {afterDays !== null ? (
+          <SettingsSwitchRow
+            icon="arrow.triangle.pull"
+            label="Keep threads with an open PR"
+            subtitle="Inactivity does not mark threads with an open pull request as Done."
+            value={referenceSettings.sidebarAutoMarkDoneKeepPullRequests}
+            disabled={disabled}
+            onValueChange={(value) => writeToAll({ sidebarAutoMarkDoneKeepPullRequests: value })}
+          />
         ) : null}
       </SettingsSection>
       {pendingWrites === 0 && mismatches.length > 0 ? (
