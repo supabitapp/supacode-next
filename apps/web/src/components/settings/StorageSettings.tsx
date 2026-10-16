@@ -146,7 +146,9 @@ function CleanupResults({
       {report.entries.map((entry, index) => {
         const name =
           entry.kind === "worktree"
-            ? (entry.path?.split(/[\\/]/).findLast(Boolean) ?? "Worktrees")
+            ? ((entry.threadId === null
+                ? entry.path
+                : entry.path?.split(/[\\/]/).findLast(Boolean)) ?? "Worktrees")
             : entry.kind === "logs"
               ? "Rotated logs"
               : "Browser artifacts";
@@ -163,7 +165,8 @@ function CleanupResults({
               </span>
             }
             control={
-              entry.outcome === "removed" && (
+              (entry.outcome === "removed" ||
+                (entry.outcome === "kept" && entry.bytes !== null)) && (
                 <span className="text-xs text-muted-foreground">
                   {[
                     entry.kind !== "worktree" && entry.files !== null
