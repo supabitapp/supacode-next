@@ -9,6 +9,7 @@ export const MOBILE_SHAPE = {
 
 /** Finite transitions only; each animation must honor useReducedMotionPreference. */
 export const MOBILE_MOTION = {
+  adjust: 120,
   enter: MOTION_ENTER_DURATION_MS,
   exit: MOTION_EXIT_DURATION_MS,
 } as const;

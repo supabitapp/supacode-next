@@ -1,3 +1,5 @@
+import { MOBILE_MOTION } from "../lib/designTokens";
+import { useReducedMotionPreference } from "../lib/useReducedMotionPreference";
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "./AppSymbol";
 import { useCallback, useEffect, useMemo } from "react";
@@ -8,7 +10,9 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  ReduceMotion,
   type SharedValue,
+  type WithTimingConfig,
 } from "react-native-reanimated";
 import type { ComponentProps } from "react";
 
@@ -18,7 +22,8 @@ type SymbolName = ComponentProps<typeof SymbolView>["name"];
 
 const THUMB_SIZE = 26;
 const TRACK_HEIGHT = 4;
-const SNAP_ANIMATION = { duration: 120 } as const;
+const SNAP_ANIMATION = { duration: MOBILE_MOTION.adjust, reduceMotion: ReduceMotion.Never };
+const REDUCED_SNAP_ANIMATION = { duration: 0, reduceMotion: ReduceMotion.Never };
 
 function clampFraction(value: number): number {
   "worklet";
@@ -34,9 +39,10 @@ function createSliderGesture(input: {
   readonly progress: SharedValue<number>;
   readonly trackWidth: SharedValue<number>;
   readonly dragging: SharedValue<boolean>;
+  readonly snap: WithTimingConfig;
   readonly commit: (next: number) => void;
 }) {
-  const { disabled, min, max, step, value, progress, trackWidth, dragging, commit } = input;
+  const { disabled, min, max, step, value, progress, trackWidth, dragging, commit, snap } = input;
   const snapValue = (raw: number): number => {
     "worklet";
     const stepped = Math.round((raw - min) / step) * step + min;
@@ -74,11 +80,11 @@ function createSliderGesture(input: {
       }
       dragging.set(false);
       if (!success) {
-        progress.set(withTiming(fractionOfValue(value), SNAP_ANIMATION));
+        progress.set(withTiming(fractionOfValue(value), snap));
         return;
       }
       const next = valueAtFraction(progress.value);
-      progress.set(withTiming(fractionOfValue(next), SNAP_ANIMATION));
+      progress.set(withTiming(fractionOfValue(next), snap));
       runOnJS(commit)(next);
     });
 
@@ -86,7 +92,7 @@ function createSliderGesture(input: {
     .enabled(!disabled)
     .onEnd((event) => {
       const next = valueAtFraction(fractionAt(event.x));
-      progress.set(withTiming(fractionOfValue(next), SNAP_ANIMATION));
+      progress.set(withTiming(fractionOfValue(next), snap));
       runOnJS(commit)(next);
     });
 
@@ -112,12 +118,13 @@ export function SliderRow(props: {
   const progress = useSharedValue(clampFraction(fraction));
   const trackWidth = useSharedValue(0);
   const dragging = useSharedValue(false);
+  const snap = useReducedMotionPreference() ? REDUCED_SNAP_ANIMATION : SNAP_ANIMATION;
 
   useEffect(() => {
     if (!dragging.get()) {
-      progress.set(withTiming(clampFraction(fraction), SNAP_ANIMATION));
+      progress.set(withTiming(clampFraction(fraction), snap));
     }
-  }, [dragging, fraction, progress]);
+  }, [dragging, fraction, progress, snap]);
 
   const commit = useCallback(
     (next: number) => {
@@ -142,8 +149,9 @@ export function SliderRow(props: {
         trackWidth,
         dragging,
         commit,
+        snap,
       }),
-    [commit, disabled, dragging, max, min, progress, step, trackWidth, value],
+    [commit, disabled, dragging, max, min, progress, snap, step, trackWidth, value],
   );
 
   const fillStyle = useAnimatedStyle(() => ({
