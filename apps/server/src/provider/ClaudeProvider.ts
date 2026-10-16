@@ -39,7 +39,7 @@ import {
   type ServerProviderDraft,
 } from "@supaterm/provider-core/server/snapshotProbe";
 import { resolveClaudeSdkExecutablePath } from "./Drivers/ClaudeExecutable.ts";
-import { makeClaudeEnvironment } from "./Drivers/ClaudeHome.ts";
+import { hasClaudeManagedMcpConfig, makeClaudeEnvironment } from "./Drivers/ClaudeHome.ts";
 import { discoverClaudeSkills } from "./Drivers/ClaudeSkills.ts";
 import type { ProviderWorkspaceSnapshot } from "@supaterm/provider-core/server/driver";
 import { makeUnavailableUsageLimits } from "@supaterm/provider-core/server/usageLimits";
@@ -213,6 +213,8 @@ export function buildClaudeCapabilitiesProbeQueryOptions(input: {
   readonly abortController: AbortController;
   readonly environment: NodeJS.ProcessEnv;
   readonly cwd: string | undefined;
+  /** An administrator's `managed-mcp.json` is installed; see `hasClaudeManagedMcpConfig`. */
+  readonly managedMcpConfig: boolean;
 }): ClaudeQueryOptions {
   return {
     persistSession: false,
@@ -225,9 +227,10 @@ export function buildClaudeCapabilitiesProbeQueryOptions(input: {
     settings: { disableAllHooks: true },
     allowedTools: [],
     // Ignore MCP definitions from every filesystem setting source above. The
-    // SDK combines this empty explicit map with --strict-mcp-config.
+    // SDK combines this empty explicit map with --strict-mcp-config, which
+    // Claude refuses next to a managed-mcp.json that already excludes them.
     mcpServers: {},
-    strictMcpConfig: true,
+    ...(input.managedMcpConfig ? {} : { strictMcpConfig: true }),
     env: {
       ...input.environment,
       // Connected claude.ai MCP servers are discovered outside filesystem
@@ -374,6 +377,7 @@ const probeClaudeCapabilities = (
       claudeSettings.binaryPath,
       claudeEnvironment,
     );
+    const managedMcpConfig = yield* hasClaudeManagedMcpConfig();
     return yield* Effect.tryPromise(async () => {
       const q = claudeQuery({
         // Never yield — we only need initialization data, not a conversation.
@@ -387,6 +391,7 @@ const probeClaudeCapabilities = (
           abortController: abort,
           environment: claudeEnvironment,
           cwd,
+          managedMcpConfig,
         }),
       });
       const init = await q.initializationResult();
