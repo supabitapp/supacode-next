@@ -202,7 +202,7 @@ const makeHarness = Effect.fn("TestConnectionHarness.make")(function* (options?:
     return yield* ConnectionDriver.connectOverRoutes(
       entry,
       (route) => options?.checkRoute?.(route) ?? Effect.succeed("unchecked"),
-      Effect.fnUntraced(function* (route, synchronizing) {
+      Effect.fnUntraced(function* (route) {
         const prepared = { ...(yield* prepare(route.target)), target: route.target };
         yield* reportProgress({ stage: "opening", prepared });
 
@@ -224,8 +224,6 @@ const makeHarness = Effect.fn("TestConnectionHarness.make")(function* (options?:
         );
 
         yield* reportProgress({ stage: "synchronizing", prepared });
-        yield* synchronizing;
-        yield* session.ready;
         return { prepared, session } satisfies ConnectionDriver.EnvironmentConnectionLease;
       }),
     );
@@ -631,7 +629,7 @@ describe("EnvironmentSupervisor", () => {
         supervisor.state,
         (state) => state.phase === "connecting" && state.stage === "synchronizing",
       );
-      yield* TestClock.adjust("89 seconds");
+      yield* TestClock.adjust("74 seconds");
       expect((yield* SubscriptionRef.get(supervisor.state)).stage).toBe("synchronizing");
 
       yield* TestClock.adjust("1 second");
