@@ -1,4 +1,5 @@
-import { Host, Switch as ComposeSwitch } from "@expo/ui/jetpack-compose";
+import { NativeThemeHost } from "./NativeThemeHost.android";
+import { Switch as ComposeSwitch } from "@expo/ui/jetpack-compose";
 import * as Haptics from "expo-haptics";
 import { View } from "react-native";
 import type { ThemedSwitchProps } from "./MaterialSwitch.types";
@@ -7,7 +8,7 @@ import { useControlTheme } from "./useControlTheme";
 
 /** Material's native switch, with the same palette and accessibility contract as our RN controls. */
 export function MaterialSwitch(props: ThemedSwitchProps) {
-  const { colorScheme, colors } = useControlTheme();
+  const { colors } = useControlTheme();
   const change = (value: boolean) => {
     void Haptics.performAndroidHapticsAsync(
       value ? Haptics.AndroidHaptics.Toggle_On : Haptics.AndroidHaptics.Toggle_Off,
@@ -31,11 +32,7 @@ export function MaterialSwitch(props: ThemedSwitchProps) {
       testID={props.testID}
     >
       <View importantForAccessibility="no-hide-descendants">
-        <Host
-          colorScheme={colorScheme}
-          ignoreSafeAreaKeyboardInsets
-          style={{ width: 52, height: 48 }}
-        >
+        <NativeThemeHost ignoreSafeAreaKeyboardInsets style={{ width: 52, height: 48 }}>
           <ComposeSwitch
             value={Boolean(props.value)}
             enabled={!props.disabled}
@@ -49,7 +46,7 @@ export function MaterialSwitch(props: ThemedSwitchProps) {
               uncheckedBorderColor: colors["--color-switch-inactive-thumb"],
             }}
           />
-        </Host>
+        </NativeThemeHost>
       </View>
     </View>
   );
