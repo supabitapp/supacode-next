@@ -8152,7 +8152,7 @@ export default function ChatView(props: ChatViewProps) {
           toastManager.add(
             stackedThreadToast({
               type: "error",
-              title: "Failed to mark thread as done",
+              title: "Failed to mark thread as Done",
               description: error instanceof Error ? error.message : "An error occurred.",
             }),
           );
