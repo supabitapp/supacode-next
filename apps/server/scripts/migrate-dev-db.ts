@@ -492,6 +492,9 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
     yield* removeDatabaseFiles(databasePath);
     yield* Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
+      // VACUUM INTO writes this connection's auto_vacuum mode, so the copy
+      // gets the incremental mode a freshly booted server creates.
+      yield* sql`PRAGMA auto_vacuum = INCREMENTAL`;
       yield* sql`VACUUM INTO ${databasePath}`;
     }).pipe(
       Effect.provide(NodeSqliteClient.layer({ filename: snapshotPath })),
@@ -503,8 +506,7 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
 
   yield* Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
-    // WAL does not survive VACUUM INTO; set it so first `vp run dev` finds
-    // the database exactly as server boot would have left it.
+    // WAL does not survive VACUUM INTO; turn it back on like server boot does.
     yield* sql.unsafe("PRAGMA journal_mode = WAL").unprepared;
   }).pipe(
     Effect.provide(NodeSqliteClient.layer({ filename: databasePath })),

@@ -117,7 +117,9 @@ it.layer(NodeServices.layer)("migrate-dev-db", (it) => {
               (SELECT COUNT(*) FROM auth_sessions) AS auth,
               (SELECT COUNT(*) FROM scheduled_tasks) AS tasks,
               (SELECT COUNT(*) FROM orchestration_v2_projection_context_transfers) AS transfers`;
-          return { threads, events, sessions, leftovers };
+          const [autoVacuum] = yield* sql<{ auto_vacuum: number }>`PRAGMA auto_vacuum`;
+          const [journal] = yield* sql<{ journal_mode: string }>`PRAGMA journal_mode`;
+          return { threads, events, sessions, leftovers, autoVacuum, journal };
         }),
       );
       assert.deepStrictEqual(
@@ -133,6 +135,8 @@ it.layer(NodeServices.layer)("migrate-dev-db", (it) => {
         ["session-shared"],
       );
       assert.deepStrictEqual(kept.leftovers, { auth: 0, tasks: 0, transfers: 0 });
+      assert.deepStrictEqual(kept.autoVacuum, { auto_vacuum: 2 });
+      assert.deepStrictEqual(kept.journal, { journal_mode: "wal" });
     }),
   );
 
