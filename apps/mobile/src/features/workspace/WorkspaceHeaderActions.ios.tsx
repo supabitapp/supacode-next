@@ -1,7 +1,7 @@
+import { Toolbar } from "../../components/Toolbar";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
-import { NativeHeaderToolbar } from "../../native/StackHeader";
 import { dispatchHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import type { WorkspaceDockFilterMenu } from "./WorkspaceDock.types";
 
@@ -16,8 +16,8 @@ export function WorkspaceHeaderActions(props: { readonly filterMenu: WorkspaceDo
     : "line.3.horizontal.decrease.circle";
 
   return (
-    <NativeHeaderToolbar placement="right">
-      <NativeHeaderToolbar.Button
+    <Toolbar placement="right">
+      <Toolbar.Button
         accessibilityLabel="Settings"
         icon="gearshape"
         onPress={() =>
@@ -27,19 +27,16 @@ export function WorkspaceHeaderActions(props: { readonly filterMenu: WorkspaceDo
           })
         }
       />
-      <NativeHeaderToolbar.Menu
-        accessibilityLabel={props.filterMenu.accessibilityLabel}
-        icon={filterIcon}
-      >
+      <Toolbar.Menu accessibilityLabel={props.filterMenu.accessibilityLabel} icon={filterIcon}>
         {props.filterMenu.actions.map((action) =>
           action.subactions ? (
-            <NativeHeaderToolbar.Menu
+            <Toolbar.Menu
               key={action.id ?? action.title}
               title={action.title}
               inline={action.displayInline}
             >
               {action.subactions.map((subaction) => (
-                <NativeHeaderToolbar.MenuAction
+                <Toolbar.MenuAction
                   key={subaction.id ?? subaction.title}
                   disabled={subaction.attributes?.disabled}
                   destructive={subaction.attributes?.destructive}
@@ -48,11 +45,11 @@ export function WorkspaceHeaderActions(props: { readonly filterMenu: WorkspaceDo
                   onPress={() => invokeFilterAction(props.filterMenu, subaction.id)}
                 >
                   {subaction.title}
-                </NativeHeaderToolbar.MenuAction>
+                </Toolbar.MenuAction>
               ))}
-            </NativeHeaderToolbar.Menu>
+            </Toolbar.Menu>
           ) : (
-            <NativeHeaderToolbar.MenuAction
+            <Toolbar.MenuAction
               key={action.id ?? action.title}
               disabled={action.attributes?.disabled}
               destructive={action.attributes?.destructive}
@@ -61,17 +58,17 @@ export function WorkspaceHeaderActions(props: { readonly filterMenu: WorkspaceDo
               onPress={() => invokeFilterAction(props.filterMenu, action.id)}
             >
               {action.title}
-            </NativeHeaderToolbar.MenuAction>
+            </Toolbar.MenuAction>
           ),
         )}
-      </NativeHeaderToolbar.Menu>
+      </Toolbar.Menu>
       {NATIVE_LIQUID_GLASS_SUPPORTED ? null : (
-        <NativeHeaderToolbar.Button
+        <Toolbar.Button
           accessibilityLabel="Focus search"
           icon="magnifyingglass"
           onPress={() => dispatchHardwareKeyboardCommand("focusSearch")}
         />
       )}
-    </NativeHeaderToolbar>
+    </Toolbar>
   );
 }

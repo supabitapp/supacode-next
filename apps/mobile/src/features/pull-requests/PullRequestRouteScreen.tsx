@@ -1,3 +1,4 @@
+import { Toolbar } from "../../components/Toolbar";
 import { usePullRequestToolbarHeight } from "./usePullRequestToolbarHeight";
 import { Chip } from "../../components/Chip";
 import { pullRequestTabOffset } from "./pullRequestTabScroll";
@@ -60,7 +61,7 @@ import { useAndroidWorkspaceBack } from "../workspace/useAndroidWorkspaceNavigat
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { SymbolView } from "../../components/AppSymbol";
 import { relativeTime } from "../../lib/time";
-import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
+import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { usePullRequestConnected } from "./usePullRequestConnected";
 import { composerPullRequests } from "../../state/pull-requests";
 import { useEnvironmentQuery } from "../../state/query";
@@ -411,44 +412,42 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
             ]}
           />
         ) : null}
-        <NativeHeaderToolbar placement="right">
-          <NativeHeaderToolbar.Menu
+        <Toolbar placement="right">
+          <Toolbar.Menu
             title="Pull request"
             accessibilityLabel="Pull request actions"
             icon="ellipsis"
           >
             {permissions.verdicts.length ? (
-              <NativeHeaderToolbar.MenuAction
+              <Toolbar.MenuAction
                 icon="text.bubble"
                 onPress={() =>
                   navigation.navigate("PullRequestReview", { ...params, mode: "review" })
                 }
               >
-                <NativeHeaderToolbar.Label>Submit review</NativeHeaderToolbar.Label>
-              </NativeHeaderToolbar.MenuAction>
+                <Toolbar.Label>Submit review</Toolbar.Label>
+              </Toolbar.MenuAction>
             ) : null}
             {permissions.canComment ? (
-              <NativeHeaderToolbar.MenuAction
+              <Toolbar.MenuAction
                 icon="plus.bubble"
                 onPress={() =>
                   navigation.navigate("PullRequestReview", { ...params, mode: "comment" })
                 }
               >
-                <NativeHeaderToolbar.Label>Add comment</NativeHeaderToolbar.Label>
-              </NativeHeaderToolbar.MenuAction>
+                <Toolbar.Label>Add comment</Toolbar.Label>
+              </Toolbar.MenuAction>
             ) : null}
             {pr ? (
-              <NativeHeaderToolbar.MenuAction
+              <Toolbar.MenuAction
                 icon="arrow.up.right"
                 onPress={() => void Linking.openURL(pr.url)}
               >
-                <NativeHeaderToolbar.Label>
-                  {openOnProviderLabel(pr.provider)}
-                </NativeHeaderToolbar.Label>
-              </NativeHeaderToolbar.MenuAction>
+                <Toolbar.Label>{openOnProviderLabel(pr.provider)}</Toolbar.Label>
+              </Toolbar.MenuAction>
             ) : null}
             {showsDeleteBranch ? (
-              <NativeHeaderToolbar.MenuAction
+              <Toolbar.MenuAction
                 icon={PR_ACTION_ICONS["delete-branch"]}
                 destructive
                 disabled={!action.available("delete-branch")}
@@ -461,13 +460,11 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                 }
                 onPress={confirmDeleteBranch}
               >
-                <NativeHeaderToolbar.Label>
-                  {PR_ACTION_LABELS["delete-branch"]}
-                </NativeHeaderToolbar.Label>
-              </NativeHeaderToolbar.MenuAction>
+                <Toolbar.Label>{PR_ACTION_LABELS["delete-branch"]}</Toolbar.Label>
+              </Toolbar.MenuAction>
             ) : null}
-          </NativeHeaderToolbar.Menu>
-        </NativeHeaderToolbar>
+          </Toolbar.Menu>
+        </Toolbar>
         <View
           style={{
             flex: 1,

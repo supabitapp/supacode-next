@@ -1,3 +1,4 @@
+import { Toolbar } from "../../components/Toolbar";
 import * as Dialog from "../../components/Dialog";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
 import { createNativeHeaderMenu } from "../../components/nativeHeaderMenu.ios";
@@ -16,7 +17,6 @@ import {
   resolveQuickAction,
 } from "@supaterm/client-runtime/state/vcs";
 import { useNavigation } from "@react-navigation/native";
-import { NativeHeaderToolbar } from "../../native/StackHeader";
 import { useCallback, useMemo } from "react";
 import { useEnvironmentScope } from "../../state/session";
 import {
@@ -488,47 +488,41 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
   }
 
   return (
-    <NativeHeaderToolbar placement="right">
+    <Toolbar placement="right">
       {props.auxiliaryPaneControl ? (
-        <NativeHeaderToolbar.Button
+        <Toolbar.Button
           accessibilityLabel={props.auxiliaryPaneControl.accessibilityLabel}
           icon="sidebar.right"
           onPress={props.auxiliaryPaneControl.onPress}
           separateBackground
         />
       ) : null}
-      <NativeHeaderToolbar.Menu
-        accessibilityLabel="More actions"
-        icon="ellipsis"
-        separateBackground
-      >
-        <NativeHeaderToolbar.Menu title="Terminal" icon="terminal">
+      <Toolbar.Menu accessibilityLabel="More actions" icon="ellipsis" separateBackground>
+        <Toolbar.Menu title="Terminal" icon="terminal">
           {props.projectScripts.length > 0 ? (
             props.projectScripts.map((script) => (
-              <NativeHeaderToolbar.MenuAction
+              <Toolbar.MenuAction
                 key={script.id}
                 icon={projectScriptMenuIcon(script.icon)}
                 disabled={!props.canOpenTerminal || !props.canOperateTerminal}
                 onPress={() => void props.onRunProjectScript(script)}
                 subtitle={script.command}
               >
-                <NativeHeaderToolbar.Label>
-                  {projectScriptMenuLabel(script)}
-                </NativeHeaderToolbar.Label>
-              </NativeHeaderToolbar.MenuAction>
+                <Toolbar.Label>{projectScriptMenuLabel(script)}</Toolbar.Label>
+              </Toolbar.MenuAction>
             ))
           ) : (
-            <NativeHeaderToolbar.MenuAction
+            <Toolbar.MenuAction
               icon="play"
               disabled
               onPress={() => {}}
               subtitle="This project has no saved scripts yet"
             >
-              <NativeHeaderToolbar.Label>No project scripts</NativeHeaderToolbar.Label>
-            </NativeHeaderToolbar.MenuAction>
+              <Toolbar.Label>No project scripts</Toolbar.Label>
+            </Toolbar.MenuAction>
           )}
           {props.terminalSessions.map((session) => (
-            <NativeHeaderToolbar.MenuAction
+            <Toolbar.MenuAction
               key={session.terminalId}
               icon="terminal"
               disabled={!props.canOpenTerminal}
@@ -543,34 +537,30 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
                 .filter(Boolean)
                 .join(" · ")}
             >
-              <NativeHeaderToolbar.Label>{session.displayLabel}</NativeHeaderToolbar.Label>
-            </NativeHeaderToolbar.MenuAction>
+              <Toolbar.Label>{session.displayLabel}</Toolbar.Label>
+            </Toolbar.MenuAction>
           ))}
-          <NativeHeaderToolbar.MenuAction
+          <Toolbar.MenuAction
             icon="plus"
             disabled={!props.canOpenTerminal || !props.canOperateTerminal}
             onPress={props.onOpenNewTerminal}
             subtitle="Start another shell for this thread"
           >
-            <NativeHeaderToolbar.Label>Open new terminal</NativeHeaderToolbar.Label>
-          </NativeHeaderToolbar.MenuAction>
-        </NativeHeaderToolbar.Menu>
-        <NativeHeaderToolbar.MenuAction
-          disabled={!props.canOpenFiles}
-          icon="folder"
-          onPress={model.openFiles}
-        >
+            <Toolbar.Label>Open new terminal</Toolbar.Label>
+          </Toolbar.MenuAction>
+        </Toolbar.Menu>
+        <Toolbar.MenuAction disabled={!props.canOpenFiles} icon="folder" onPress={model.openFiles}>
           Files
-        </NativeHeaderToolbar.MenuAction>
+        </Toolbar.MenuAction>
         {createNativeHeaderMenu({ ...threadGitMenuDefinition(props, model), title: "Git" })}
-      </NativeHeaderToolbar.Menu>
-    </NativeHeaderToolbar>
+      </Toolbar.Menu>
+    </Toolbar>
   );
 }
 
 /**
  * The standalone git actions menu (branch status, quick commit/push action,
- * review, overview). Rendered inside a NativeHeaderToolbar by both the thread
+ * review, overview). Rendered inside a Toolbar by both the thread
  * chat header and the review screen's toolbar.
  */
 export function ThreadGitMenu(props: ThreadGitMenuProps) {
