@@ -615,6 +615,35 @@ function BrowserLinkTargetSetting({ disabled }: { readonly disabled: boolean }) 
   );
 }
 
+function PullRequestLinksOpenInAppSetting() {
+  const openInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
+  const updateSettings = useUpdatePrimarySettings();
+
+  return (
+    <SettingsRow
+      {...searchableSetting("pull-request-links-open-in-app")}
+      description="Clicking a pull request link opens it in Supaterm. Turn off to open pull request links like any other link, on GitHub or your git host."
+      resetAction={
+        openInApp ? null : (
+          <SettingResetButton
+            label="open pull requests in Supaterm"
+            onClick={() => updateSettings({ pullRequestLinksOpenInApp: true })}
+          />
+        )
+      }
+      control={
+        <Switch
+          checked={openInApp}
+          onCheckedChange={(checked) =>
+            updateSettings({ pullRequestLinksOpenInApp: Boolean(checked) })
+          }
+          aria-label="Open pull requests in Supaterm"
+        />
+      }
+    />
+  );
+}
+
 function DeviceIntegrationSettings() {
   const { search, environment: selected } = useSettingsScope();
   const settings = useScopedSettings();
@@ -1570,6 +1599,7 @@ export function IntegrationsSettingsPanel() {
         ) : (
           previewDefaults
         )}
+        <PullRequestLinksOpenInAppSetting />
       </SettingsSection>
       <DeviceIntegrationSettings />
     </SettingsPageContainer>

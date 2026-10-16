@@ -9,6 +9,7 @@ import { sourceControlRepositorySelector } from "@supaterm/shared/sourceControl"
 
 import { useOpenLink } from "../browser/useOpenLink";
 import { isElectron } from "../env";
+import { useClientSettings } from "../hooks/useSettings";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 import { useRightPanelStore } from "../rightPanelStore";
 import type { EnvironmentProject } from "@supaterm/client-runtime/state/shell";
@@ -123,6 +124,8 @@ export function findProjectOnChangeRequestHost(
  * the pull requests page: a reader following a link the agent wrote is reading the thread, and
  * should still be reading it afterwards. Any change request opens there, not only the thread's
  * own, since the panel is told which one to show.
+ *
+ * With "Open pull requests in Supaterm" turned off, every link is left alone.
  */
 export function shouldOpenPullRequestExternally(
   event: Pick<MouseEvent<HTMLElement>, "metaKey" | "ctrlKey">,
@@ -146,9 +149,10 @@ export function useOpenChangeRequestLink(
   const allProjects = useProjects();
   const serverConfigs = useServerConfigs();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const openInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
   return useCallback(
     (event, targetUrl, targetThreadRef, targetEnvironmentId) => {
-      if (shouldOpenPullRequestExternally(event)) return false;
+      if (!openInApp || shouldOpenPullRequestExternally(event)) return false;
       const resolvedThreadRef = targetThreadRef ?? threadRef;
       const resolvedPanelRef = panelRef ?? resolvedThreadRef;
       const parsed = parseChangeRequestUrl(targetUrl);
@@ -235,7 +239,7 @@ export function useOpenChangeRequestLink(
       });
       return true;
     },
-    [allProjects, navigate, panelRef, primaryEnvironmentId, serverConfigs, threadRef],
+    [allProjects, navigate, openInApp, panelRef, primaryEnvironmentId, serverConfigs, threadRef],
   );
 }
 
