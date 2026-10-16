@@ -1,4 +1,4 @@
-import { Chip } from "../../components/Chip";
+import { Chip } from "../../components/ui/Chip";
 import { PullRequestSectionHeading } from "./PullRequestSectionHeading";
 import type { PullRequestListEntry } from "@supaterm/contracts";
 import { View } from "react-native";

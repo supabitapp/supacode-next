@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -9,11 +9,11 @@ import { useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppActivityIndicator } from "../../components/AppActivityIndicator";
-import { AppText as Text } from "../../components/AppText";
-import { Button } from "../../components/Button";
+import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
+import { AppText as Text } from "../../components/ui/AppText";
+import { Button } from "../../components/ui/Button";
 import { ProviderIcon } from "../../components/ProviderIcon";
-import { ScreenScrollView } from "../../components/ScreenScrollView";
+import { ScreenScrollView } from "../../components/ui/ScreenScrollView";
 import { cn } from "../../lib/cn";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";

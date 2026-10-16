@@ -1,14 +1,14 @@
 import { loadExpoFileSystem } from "../lib/expoFileSystem";
 import { FilePreviewGallery, useFilePreviewGallery } from "./FilePreviewGallery";
 import { composerImageGallery } from "../lib/composerImageGallery";
-import { SymbolView } from "../components/AppSymbol";
+import { SymbolView } from "./ui/AppSymbol";
 import { imageMimeType } from "@supaterm/shared/image";
 import { videoMimeType } from "@supaterm/shared/video";
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 
-import { AppText as Text } from "./AppText";
+import { AppText as Text } from "./ui/AppText";
 import { PierreEntryIcon } from "./PierreEntryIcon";
 import {
   isFileBackedComposerAttachment,
@@ -19,7 +19,7 @@ import {
 import { resolveOwnedComposerAttachmentFileUri } from "../lib/composerAttachmentFiles";
 import { VideoAttachmentTile } from "./VideoAttachmentTile";
 import { type MediaActionsSource } from "../lib/mediaActionsSource";
-import { PresentationSource } from "./NativePresentation";
+import { PresentationSource } from "./ui/NativePresentation";
 import type { FilePreviewSource } from "./FilePreviewModal";
 import { isPdfFile } from "../lib/filePreview";
 import type { EnvironmentId } from "@supaterm/contracts";

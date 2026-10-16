@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { resolveThreadReferenceCopyTarget } from "@supaterm/shared/threadReference";
 import { scopeThreadRef } from "@supaterm/client-runtime/environment";

@@ -1,6 +1,6 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { ConnectionTraceId } from "./ConnectionTraceId";
-import { SymbolView } from "../../components/AppSymbol";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { connectionAddressLabel } from "@supaterm/client-runtime/connection";
 import { relayName } from "@supaterm/shared/relay/name";
 import type { AtomCommandResult } from "@supaterm/client-runtime/state/runtime";
@@ -12,18 +12,18 @@ import { useCallback, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import { EnvironmentMachineSymbol } from "../../components/EnvironmentMachineSymbol";
-import { Button } from "../../components/Button";
-import { IconButton } from "../../components/IconButton";
-import { ThemedSwitch } from "../../components/ThemedSwitch";
+import { Button } from "../../components/ui/Button";
+import { IconButton } from "../../components/ui/IconButton";
+import { ThemedSwitch } from "../../components/ui/ThemedSwitch";
 import { cn } from "../../lib/cn";
 import type { ConnectedEnvironmentSummary } from "../../state/remote-runtime-types";
 import { serverEnvironment } from "../../state/server";
 import { environmentConnectionAddressAtom } from "../../state/presentation";
 import { ConnectionFormField } from "./ConnectionFormField";
 import { ConnectionStatusDot } from "./ConnectionStatusDot";
-import { DisclosureChevron } from "../../components/DisclosureChevron";
+import { DisclosureChevron } from "../../components/ui/DisclosureChevron";
 import { environmentStatusText } from "./environmentStatusText";
 
 function connectionStatusLabel(environment: ConnectedEnvironmentSummary): string | null {

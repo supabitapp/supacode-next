@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { resolveAssetUrl } from "@supaterm/client-runtime/state/assets";
 import type { EnvironmentId, ThreadId } from "@supaterm/contracts";
 import * as Option from "effect/Option";

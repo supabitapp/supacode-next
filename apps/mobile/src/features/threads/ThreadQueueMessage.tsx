@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 import { useRef } from "react";
 import { type AccessibilityActionEvent, Platform, Pressable, View } from "react-native";
 
-import { AppText as Text } from "../../components/AppText";
-import { Menu } from "../../components/Menu";
+import { AppText as Text } from "../../components/ui/AppText";
+import { Menu } from "../../components/ui/Menu";
 import { assetImageSource } from "../../lib/assetImageSource";
 import { useAssetUrl } from "../../state/assets";
 import type { ThreadQueueRowControls } from "./threadQueueControlPresentation";

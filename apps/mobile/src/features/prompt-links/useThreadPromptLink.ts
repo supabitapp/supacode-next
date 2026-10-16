@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { useNavigation } from "@react-navigation/native";
 import { parseThreadLinkPrompt } from "@supaterm/shared/promptLinks";
 import { useEffect, useRef } from "react";

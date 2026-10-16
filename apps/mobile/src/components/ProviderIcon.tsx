@@ -5,7 +5,7 @@ import { providerInstanceInitials } from "@supaterm/client-runtime/state/provide
 import { useId, useState } from "react";
 import { resolveOfficialAcpRegistryIconUrl } from "@supaterm/contracts";
 import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
-import { AppText as Text } from "./AppText";
+import { AppText as Text } from "./ui/AppText";
 import { getProviderClient } from "../lib/providerClients";
 
 type ProviderIconProps = {

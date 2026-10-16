@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { SegmentedControl } from "../../components/SegmentedControl";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { useWorkspaceTabSelection } from "./useWorkspaceTabSelection";
 

@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 import { Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { useAssetUrl } from "../../state/assets";
 import { assetImageSource } from "../../lib/assetImageSource";
 

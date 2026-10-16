@@ -1,4 +1,4 @@
-import * as Dialog from "../components/Dialog";
+import * as Dialog from "../components/ui/Dialog";
 import { filePreviewDelimiter, parseDelimitedPreview } from "@supaterm/shared/delimitedPreview";
 import type { EnvironmentId } from "@supaterm/contracts";
 import { readFilePreviewResponse } from "@supaterm/client-runtime/file-preview";

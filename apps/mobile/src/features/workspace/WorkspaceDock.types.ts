@@ -1,4 +1,4 @@
-import type { MenuProps } from "../../components/Menu.types";
+import type { MenuProps } from "../../components/ui/Menu.types";
 
 export interface WorkspaceDockFilterMenu {
   readonly title: string;

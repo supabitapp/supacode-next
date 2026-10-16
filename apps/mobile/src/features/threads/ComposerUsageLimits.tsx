@@ -1,8 +1,8 @@
 import type { EnvironmentId, UsageLimitsReport } from "@supaterm/contracts";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 
-import { SymbolView } from "../../components/AppSymbol";
-import { AppText as Text } from "../../components/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
 import { ResetCredits } from "../usage/ResetCredits";
 import { AccountLimits } from "../usage/UsageLimitsSection";
 

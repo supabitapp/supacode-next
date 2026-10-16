@@ -4,7 +4,7 @@ import type { EnvironmentId, PreviewSessionSnapshot, ThreadId } from "@supaterm/
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, View } from "react-native";
 
-import { SymbolView } from "../../components/AppSymbol";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { browserTabTitle } from "./browserTabs";
 import { PreviewStreamWebView } from "./PreviewStreamWebView";

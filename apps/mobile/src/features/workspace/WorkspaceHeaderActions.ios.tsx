@@ -1,4 +1,4 @@
-import { Toolbar } from "../../components/Toolbar";
+import { Toolbar } from "../../components/ui/Toolbar";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";

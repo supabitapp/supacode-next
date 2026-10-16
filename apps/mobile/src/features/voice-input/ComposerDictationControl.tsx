@@ -19,11 +19,11 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-import { AppActivityIndicator } from "../../components/AppActivityIndicator";
+import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { COMPOSER_LAYOUT_TRANSITION } from "../../components/composerLayoutTransition";
-import { GlassSurface } from "../../components/GlassSurface";
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
+import { GlassSurface } from "../../components/ui/GlassSurface";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
 import { cn } from "../../lib/cn";
 import type { VoiceComposerPresentation } from "./voiceInputPresentation";
 import { VOICE_WAVEFORM_SAMPLE_COUNT } from "./voiceInputMetering";

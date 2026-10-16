@@ -1,4 +1,4 @@
-import * as Dialog from "../components/Dialog";
+import * as Dialog from "../components/ui/Dialog";
 import { useAcknowledgedThreadMessageCleanup } from "./use-acknowledged-thread-message-cleanup";
 import { useAtomValue } from "@effect/atom-react";
 import {

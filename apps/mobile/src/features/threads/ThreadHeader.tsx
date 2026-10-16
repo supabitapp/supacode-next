@@ -1,12 +1,12 @@
 import { useMemo } from "react";
-import { AppBar } from "../../components/AppBar";
-import { ScreenHeaderButton } from "../../components/ScreenHeaderButton";
+import { AppBar } from "../../components/ui/AppBar";
+import { ScreenHeaderButton } from "../../components/ui/ScreenHeaderButton";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceListNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 
-import type { AppBarMenu, AppBarMenuItem } from "../../components/AppBar.types";
+import type { AppBarMenu, AppBarMenuItem } from "../../components/ui/AppBar.types";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {

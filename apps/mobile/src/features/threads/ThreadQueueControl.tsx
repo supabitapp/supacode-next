@@ -16,9 +16,9 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Button } from "../../components/Button";
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
+import { Button } from "../../components/ui/Button";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { beginQueuedRunEdit, useQueuedRunEdit } from "../../state/queued-run-edit";

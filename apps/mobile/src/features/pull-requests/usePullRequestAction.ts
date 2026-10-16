@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { useAtomRefresh } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@supaterm/client-runtime/state/runtime";
 import type {

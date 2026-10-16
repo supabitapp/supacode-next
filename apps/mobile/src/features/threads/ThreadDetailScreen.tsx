@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { pendingThreadCreationLabel } from "@supaterm/client-runtime/pending-thread-creation";
 import { useSelectedThreadComposerMetadata } from "../../state/use-thread-detail";
 import { useAtomValue } from "@effect/atom-react";

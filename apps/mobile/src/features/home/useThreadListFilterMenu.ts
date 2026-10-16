@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { MenuProps } from "../../components/Menu.types";
+import type { MenuProps } from "../../components/ui/Menu.types";
 import { buildHomeListFilterMenu } from "./home-list-filter-menu";
 import type { HomeHeaderProps } from "./HomeHeader.types";
 

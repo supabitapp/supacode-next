@@ -15,9 +15,9 @@ import {
 } from "@supaterm/shared/filePreview";
 import { mediaFileReference } from "@supaterm/client-runtime/media-reference";
 
-import { ScreenContent } from "../../components/ScreenContent";
-import { AudioFilePreview } from "../../components/AudioFilePreview";
-import { EmptyState } from "../../components/EmptyState";
+import { ScreenContent } from "../../components/ui/ScreenContent";
+import { AudioFilePreview } from "./AudioFilePreview";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { FilePreviewModal, type FilePreviewSource } from "../../components/FilePreviewModal";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { resolveFileSelectionNavigationAction } from "../../lib/adaptive-navigation";
@@ -50,7 +50,7 @@ import { preloadWorkspaceFileContents } from "./preload-workspace-file";
 import { SourceFileSurface } from "./SourceFileSurface";
 import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics";
 import { ThreadFileNavigatorPane } from "./thread-file-navigator-pane";
-import { AppBar } from "../../components/AppBar";
+import { AppBar } from "../../components/ui/AppBar";
 import { WorkspaceFileImagePreview } from "./WorkspaceFileImagePreview";
 import { WorkspaceFilePreviewError } from "./WorkspaceFilePreviewError";
 import { WorkspaceFileVideoPreview } from "./WorkspaceFileVideoPreview";

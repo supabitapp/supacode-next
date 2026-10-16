@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { loadExpoFileSystem } from "../../lib/expoFileSystem";
 import Constants from "expo-constants";
 import * as Crypto from "expo-crypto";

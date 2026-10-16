@@ -42,9 +42,9 @@ import Animated, {
 import { USER_INPUT_TOGGLE_DURATION_MS } from "./pendingUserInputLayout";
 import { QuestionAutoDismissToggle } from "./QuestionAutoDismissTimer";
 
-import { SymbolView } from "../../components/AppSymbol";
-import { AppText as Text } from "../../components/AppText";
-import { ControlPill } from "../../components/ControlPill";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
+import { ControlPill } from "../../components/ui/ControlPill";
 import { cn } from "../../lib/cn";
 import { playDecisionHaptic } from "../../lib/decisionHaptic";
 import { useFontFamily } from "../../lib/useFontFamily";

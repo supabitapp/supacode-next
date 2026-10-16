@@ -1,4 +1,4 @@
-import * as Dialog from "../components/Dialog";
+import * as Dialog from "../components/ui/Dialog";
 import { useAtomValue } from "@effect/atom-react";
 import type { EnvironmentId } from "@supaterm/contracts";
 import * as Cause from "effect/Cause";

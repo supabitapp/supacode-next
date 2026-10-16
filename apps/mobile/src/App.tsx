@@ -9,7 +9,7 @@ import { createStaticNavigation } from "@react-navigation/native";
 
 import { RegistryContext } from "@effect/atom-react";
 import { ThreadArrangementHost } from "./features/threads/ThreadArrangementSheet";
-import * as Dialog from "./components/Dialog";
+import * as Dialog from "./components/ui/Dialog";
 import { prepareNativeShowcaseCapture } from "./features/showcase/nativeShowcaseScene";
 import { IncomingShareProvider } from "./features/sharing/IncomingShareProvider";
 import {
@@ -18,7 +18,7 @@ import {
 } from "./features/settings/appearance/AppearancePreferencesProvider";
 import { RootStack } from "./Stack";
 import { appAtomRegistry } from "./state/atom-registry";
-import { OverlayPortalHost } from "./components/OverlayPortal";
+import { OverlayPortalHost } from "./components/ui/OverlayPortal";
 import { shouldHandleAppLink } from "./lib/appLinking";
 import { disarmInlineConfirmsOnTouch } from "./lib/useInlineConfirm";
 import { useMobileNavigationTheme } from "./lib/useMobileNavigationTheme";

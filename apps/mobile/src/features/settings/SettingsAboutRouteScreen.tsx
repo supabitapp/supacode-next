@@ -1,13 +1,13 @@
-import * as Dialog from "../../components/Dialog";
-import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
+import * as Dialog from "../../components/ui/Dialog";
+import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { availableScratchWorkspaceRoot } from "@supaterm/client-runtime/operations/projects";
 import Constants from "expo-constants";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import {
   type AppUpdateCheckState,
   isAppUpdateCheckAvailable,
@@ -20,7 +20,7 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import { SettingsActionRow } from "./components/SettingsActionRow";
 import type { SettingsTarget } from "./settings-environment-filter";
 import { useSendFeedback } from "./use-send-feedback";
-import { Menu } from "../../components/Menu";
+import { Menu } from "../../components/ui/Menu";
 import { useProjects } from "../../state/entities";
 import { useEnvironments } from "../../state/environments";
 

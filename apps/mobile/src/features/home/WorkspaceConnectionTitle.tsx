@@ -2,8 +2,8 @@ import type { NativeStackNavigationOptions } from "@react-navigation/native-stac
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Pressable, View } from "react-native";
 
-import { AppText as Text } from "../../components/AppText";
-import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
+import { AppText as Text } from "../../components/ui/AppText";
+import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import {
   brandTitleOffset,
   CompactBrandTitle,

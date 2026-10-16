@@ -1,4 +1,4 @@
-import { Toolbar } from "../../components/Toolbar";
+import { Toolbar } from "../../components/ui/Toolbar";
 import { WorkspaceHeaderActions } from "../workspace/WorkspaceHeaderActions";
 import { useThreadListFilterMenu } from "./useThreadListFilterMenu";
 import { NativeStackScreenOptions } from "../../native/StackHeader";

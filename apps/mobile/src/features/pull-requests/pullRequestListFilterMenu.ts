@@ -1,4 +1,4 @@
-import type { MenuProps } from "../../components/Menu.types";
+import type { MenuProps } from "../../components/ui/Menu.types";
 import type { PullRequestListControls } from "./pullRequestList";
 
 const STATES = { open: "Open", closed: "Closed", merged: "Merged", all: "All states" } as const;

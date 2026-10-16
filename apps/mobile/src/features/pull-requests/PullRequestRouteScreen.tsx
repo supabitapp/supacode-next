@@ -1,6 +1,6 @@
-import { Toolbar } from "../../components/Toolbar";
+import { Toolbar } from "../../components/ui/Toolbar";
 import { usePullRequestToolbarHeight } from "./usePullRequestToolbarHeight";
-import { Chip } from "../../components/Chip";
+import { Chip } from "../../components/ui/Chip";
 import { pullRequestTabOffset } from "./pullRequestTabScroll";
 
 import { PullRequestGuideContent } from "./guide/PullRequestGuideScreen";
@@ -51,15 +51,15 @@ import {
 import { NativeScrollViewMarker as ScrollViewMarker } from "../../native/NativeScrollViewMarker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText as Text } from "../../components/AppText";
-import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { AppText as Text } from "../../components/ui/AppText";
+import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
 
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { AndroidWorkspaceSidebarButton } from "../layout/workspace-sidebar-toolbar";
 import { useAndroidWorkspaceBack } from "../workspace/useAndroidWorkspaceNavigation";
 
-import { SegmentedControl } from "../../components/SegmentedControl";
-import { SymbolView } from "../../components/AppSymbol";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { relativeTime } from "../../lib/time";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { usePullRequestConnected } from "./usePullRequestConnected";

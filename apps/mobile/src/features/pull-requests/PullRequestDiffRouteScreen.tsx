@@ -1,10 +1,10 @@
-import { Toolbar } from "../../components/Toolbar";
+import { Toolbar } from "../../components/ui/Toolbar";
 import { guideFocusedRows, type GuideDiffFocus } from "./guide/guideDiffFocus";
 
 import * as Clipboard from "expo-clipboard";
-import { Menu } from "../../components/Menu";
-import { IconButton } from "../../components/IconButton";
-import { Button } from "../../components/Button";
+import { Menu } from "../../components/ui/Menu";
+import { IconButton } from "../../components/ui/IconButton";
+import { Button } from "../../components/ui/Button";
 import { usePullRequestReviewDraft } from "./usePullRequestReviewDraft";
 import { usePullRequestFilesViewed } from "./usePullRequestFilesViewed";
 import { usePullRequestPermissions } from "./usePullRequestPermissions";
@@ -23,16 +23,16 @@ import { pullRequestReviewKey } from "./pullRequestReviewDrafts";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { AppActivityIndicator } from "../../components/AppActivityIndicator";
+import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText as Text } from "../../components/AppText";
-import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { AppText as Text } from "../../components/ui/AppText";
+import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
 
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 
-import { EmptyState } from "../../components/EmptyState";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 

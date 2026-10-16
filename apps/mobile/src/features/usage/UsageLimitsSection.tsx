@@ -16,7 +16,7 @@ import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "rea
 import { refreshUsageLimits } from "@supaterm/client-runtime/state/usage";
 import { Linking, Pressable, View } from "react-native";
 
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import { environmentPresentations } from "../../state/presentation";
 import { serverEnvironment } from "../../state/server";

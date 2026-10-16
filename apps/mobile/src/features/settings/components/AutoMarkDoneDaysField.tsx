@@ -3,7 +3,7 @@ import {
   MIN_SIDEBAR_AUTO_MARK_DONE_AFTER_DAYS,
 } from "@supaterm/contracts";
 import type { ComponentProps } from "react";
-import { NumberField } from "../../../components/NumberField";
+import { NumberField } from "../../../components/ui/NumberField";
 
 export type AutoMarkDoneDaysFieldProps = Pick<
   ComponentProps<typeof NumberField>,

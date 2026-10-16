@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import { useAtomValue } from "@effect/atom-react";
 import {
   AuthOrchestrationOperateScope,
@@ -34,18 +34,18 @@ import { AppState, Platform, Pressable, TextInput as RNTextInput, View } from "r
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "../../components/Button";
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
+import { Button } from "../../components/ui/Button";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import {
   EnvironmentMachineSymbol,
   ENVIRONMENT_MACHINE_SYMBOLS,
 } from "../../components/EnvironmentMachineSymbol";
-import { Menu } from "../../components/Menu";
+import { Menu } from "../../components/ui/Menu";
 import type { ComposerEditorSelection } from "../../components/ComposerEditor";
-import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
-import { SegmentedControl } from "../../components/SegmentedControl";
-import { ThemedSwitch } from "../../components/ThemedSwitch";
+import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { ThemedSwitch } from "../../components/ui/ThemedSwitch";
 import { buildModelOptions } from "../../lib/modelOptions";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { useProjects, useEnvironmentServerConfig } from "../../state/entities";

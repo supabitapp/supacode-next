@@ -2,8 +2,8 @@ import type { ToolGroupImage } from "@supaterm/client-runtime/work-log/presentat
 import { ThreadMarkdownImage } from "./ThreadMarkdownImage";
 import { SubagentStatusDot } from "./SubagentStatusDot";
 import { ThreadSubagentGroup } from "./thread-subagent-group";
-import { DisclosureChevron } from "../../components/DisclosureChevron";
-import { MotionPresence } from "../../components/MotionPresence";
+import { DisclosureChevron } from "../../components/ui/DisclosureChevron";
+import { MotionPresence } from "../../components/ui/MotionPresence";
 import { useNoticeMotion } from "../../lib/useNoticeMotion";
 import { useForegroundMotion } from "../../lib/useForegroundMotion";
 import { ThreadWorkLogDetail } from "./thread-work-log-detail";
@@ -21,7 +21,7 @@ import {
 } from "@supaterm/client-runtime/work-log/user-input";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { type AppSymbolName, SymbolView } from "../../components/AppSymbol";
+import { type AppSymbolName, SymbolView } from "../../components/ui/AppSymbol";
 import { MaskedView } from "@expo/ui/community/masked-view";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
@@ -53,9 +53,9 @@ import { environmentThreadDetails, threadEnvironment } from "../../state/threads
 import { useAtomCommand } from "../../state/use-atom-command";
 import { toolActivityFaviconUrl } from "@supaterm/shared/favicon";
 
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import { SupatermMark } from "../../components/SupatermMark";
-import { BrowserAppIcon } from "../../components/BrowserAppIcon";
+import { BrowserAppIcon } from "./BrowserAppIcon";
 import { cn } from "../../lib/cn";
 import { THREAD_WORK_ROW_MIN_HEIGHT, type deriveThreadWorkLogSizing } from "../../lib/layout";
 import {

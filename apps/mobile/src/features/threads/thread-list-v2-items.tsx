@@ -1,4 +1,4 @@
-import * as Dialog from "../../components/Dialog";
+import * as Dialog from "../../components/ui/Dialog";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
   THREAD_LIST_V2_MONO_FONT as MONO_FONT,
@@ -8,7 +8,7 @@ import {
   getThreadListV2NewBranchMenuTitle,
   getThreadListV2RowAppearance,
 } from "./thread-list-v2-row-appearance";
-import { RowPressable } from "../../components/RowPressable";
+import { RowPressable } from "../../components/ui/RowPressable";
 import { CustomSnoozeSheet } from "./CustomSnoozeSheet";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { threadArrangementOpenAtom } from "../../state/thread-order";
@@ -30,9 +30,9 @@ import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSw
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
 import { environmentPresentations } from "../../state/presentation";
-import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
-import { AppText as Text } from "../../components/AppText";
-import { Menu } from "../../components/Menu";
+import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
+import { Menu } from "../../components/ui/Menu";
 import { EnvironmentMachineSymbol } from "../../components/EnvironmentMachineSymbol";
 import { ProjectFavicon } from "../../components/ProjectFavicon";
 import { ProviderIcon, ProviderInstanceIcon } from "../../components/ProviderIcon";
@@ -61,7 +61,7 @@ import { QueuedMessageIcon } from "./queued-message-icon";
 import { UnsentDraftIcon } from "./unsent-draft-icon";
 import { shouldRecedeThreadRow } from "./thread-row-emphasis";
 import { ThreadSearchMatchExcerpt } from "./thread-search-match";
-import { DisclosureChevron } from "../../components/DisclosureChevron";
+import { DisclosureChevron } from "../../components/ui/DisclosureChevron";
 import { THREAD_LIST_MOTION_DURATION } from "./thread-list-motion";
 import { ThreadListWorkingStatus } from "./thread-list-working-status";
 import { resolveThreadListV2RowStatusLabel } from "./thread-list-row-status";

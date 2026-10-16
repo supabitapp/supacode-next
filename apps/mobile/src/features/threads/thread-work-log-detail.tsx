@@ -13,7 +13,7 @@ import {
   workEntryViewedImagePath,
 } from "@supaterm/client-runtime/work-log/presentation";
 
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import type { FilePreviewSource } from "../../components/FilePreviewModal";
 import type { MarkdownImageRenderer } from "../../native/SelectableMarkdownText";
 import { cn } from "../../lib/cn";
