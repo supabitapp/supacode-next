@@ -24,6 +24,7 @@ import {
 } from "../logicalProject";
 import { resolveNewThreadEnvMode, resolveProjectSettings } from "@supaterm/shared/projectSettings";
 import {
+  readProject,
   readProjects,
   readThreadShell,
   readThreadShells,
@@ -128,6 +129,10 @@ export function useNewThreadHandler() {
           candidate.id === projectRef.projectId &&
           candidate.environmentId === projectRef.environmentId,
       );
+      // Removal can land while the project file is read; a draft opened
+      // after that belongs to a project that no longer exists.
+      const abandonedSinceRequest = () =>
+        routeChangedSinceRequest() || (project !== undefined && readProject(projectRef) === null);
       // The resolver applies project overrides and, until the server has
       // folded them, the aggregate's own legacy fields.
       const projectSettings = resolveProjectSettings(
@@ -231,7 +236,7 @@ export function useNewThreadHandler() {
             workspaceContext = pickExplicitWorkspaceOptions(options);
           } else if (!isDraftAlreadyOpen) {
             const defaultEnvMode = await resolveDefaultEnvMode();
-            if (routeChangedSinceRequest()) {
+            if (abandonedSinceRequest()) {
               return null;
             }
             // The await yields. If the draft was opened (a concurrent
@@ -367,7 +372,7 @@ export function useNewThreadHandler() {
       const createdAt = new Date().toISOString();
       return (async () => {
         const initialEnvMode = options?.envMode ?? (await resolveDefaultEnvMode());
-        if (routeChangedSinceRequest()) {
+        if (abandonedSinceRequest()) {
           return null;
         }
         // The await yields, so a concurrent invocation may have registered a
