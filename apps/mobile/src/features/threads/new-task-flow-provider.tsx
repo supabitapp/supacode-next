@@ -1,8 +1,8 @@
+import * as Dialog from "../../components/Dialog";
 import { resolveFilesystemReadAccess } from "@supaterm/client-runtime/state/filesystem";
 import { useEnvironmentPresentation } from "../../state/presentation";
 import { environmentSession } from "../../state/session";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 
 import type {
@@ -157,7 +157,7 @@ function canMoveEditedPendingTask(
   ) {
     return true;
   }
-  Alert.alert(
+  Dialog.alert(
     "Messages are queued behind this task",
     "They wait on this machine, so the task stays here until they send.",
   );
@@ -945,7 +945,7 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
         }
         if (!isAtomCommandInterrupted(result)) {
           const error = squashAtomCommandFailure(result);
-          Alert.alert(
+          Dialog.alert(
             "Could not switch machine",
             error instanceof Error
               ? error.message

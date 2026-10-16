@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
   THREAD_LIST_V2_MONO_FONT as MONO_FONT,
@@ -24,7 +25,7 @@ import { canSnooze, resolveSnoozePresets } from "@supaterm/client-runtime/state/
 import { withOccurrenceKeys } from "@supaterm/shared/occurrenceKeys";
 import type { MenuAction } from "@react-native-menu/menu";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
-import { Alert, Pressable, useWindowDimensions, View } from "react-native";
+import { Pressable, useWindowDimensions, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
@@ -953,7 +954,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       if (snoozeSelection._tag === "selected") {
         handleSnooze(snoozeSelection.preset.snoozedUntil);
       } else if (snoozeSelection._tag === "expired") {
-        Alert.alert("Could not snooze thread", "That snooze time has passed. Choose another time.");
+        Dialog.alert(
+          "Could not snooze thread",
+          "That snooze time has passed. Choose another time.",
+        );
       }
     },
     [

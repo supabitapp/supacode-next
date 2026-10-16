@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import previewStreamScript from "@supaterm/mobile-preview-stream";
 import {
   previewStreamControlLabel,
@@ -20,7 +21,7 @@ import {
   useState,
   type Ref,
 } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
 
@@ -107,7 +108,7 @@ function offerDownload(
     readonly tabId: string;
   },
 ) {
-  Alert.alert(`Downloaded ${download.fileName}`, undefined, [
+  Dialog.alert(`Downloaded ${download.fileName}`, undefined, [
     { text: "Not now", style: "cancel" },
     {
       text: "Save or share",
@@ -125,7 +126,7 @@ function offerDownload(
             }),
           )
           .catch((cause: unknown) =>
-            Alert.alert(
+            Dialog.alert(
               "Could not save the download",
               cause instanceof Error ? cause.message : undefined,
             ),
@@ -302,7 +303,7 @@ function PreviewStreamDocumentView({
       threadId,
       tabId,
     }).catch((cause: unknown) =>
-      Alert.alert(
+      Dialog.alert(
         "Could not send the files to the page",
         cause instanceof Error ? cause.message : undefined,
       ),

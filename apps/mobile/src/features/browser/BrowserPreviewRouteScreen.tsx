@@ -1,9 +1,10 @@
+import * as Dialog from "../../components/Dialog";
 import { useIsFocused, useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { EnvironmentId, ThreadId, type PreviewSessionSnapshot } from "@supaterm/contracts";
 import { normalizePreviewUrl } from "@supaterm/shared/preview";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Platform, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, Platform, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ControlPill } from "../../components/ControlPill";
@@ -99,7 +100,7 @@ function BrowserPreviewScreen({
   }, [focused, loaded, tabs.length, onClose]);
   const onPictureInPicture = useCallback((state: PreviewPictureInPictureState, detail?: string) => {
     setPictureInPicture({ supported: state.supported, active: state.active });
-    if (detail) Alert.alert("Picture in picture is unavailable", detail);
+    if (detail) Dialog.alert("Picture in picture is unavailable", detail);
   }, []);
   const selectTab = (next: string) => {
     setPictureInPicture(NO_PICTURE_IN_PICTURE);
@@ -223,7 +224,7 @@ function BrowserAddressBar({
     try {
       onCommand({ type: "navigate", url: normalizePreviewUrl(value) });
     } catch {
-      Alert.alert("Could not open this address", "Enter an http or https URL.");
+      Dialog.alert("Could not open this address", "Enter an http or https URL.");
     }
   };
   return (

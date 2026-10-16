@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import { makeMcpAppRequests } from "@supaterm/client-runtime/mcp-apps/requests";
 import type { EnvironmentId, ThreadId, TurnItemId } from "@supaterm/contracts";
 import {
@@ -20,7 +21,7 @@ import * as Predicate from "effect/Predicate";
 import Constants from "expo-constants";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
@@ -57,7 +58,7 @@ frame.src=${JSON.stringify(src).replace(/</g, "\\u003c")};})();</script></body><
 
 const confirm = (title: string, message: string, action: string) =>
   new Promise<boolean>((resolve) => {
-    Alert.alert(
+    Dialog.alert(
       title,
       message,
       [
