@@ -26,6 +26,7 @@ import { DesktopWebLinkCoordinator } from "../components/desktop/DesktopWebLinkC
 import { DesktopAppActivationCoordinator } from "../components/desktop/DesktopAppActivationCoordinator";
 import { RunningThreadKeepAlive } from "../components/desktop/RunningThreadKeepAlive";
 import { ProviderUpdateLaunchNotification } from "../components/ProviderUpdateLaunchNotification";
+import { DesktopUpdateLaunchNotice } from "../components/sidebar/updateEverythingRun";
 import { ThreadNotificationCoordinator } from "../components/ThreadNotificationCoordinator";
 import { ReopenClosedViewShortcut } from "../components/ReopenClosedViewShortcut";
 import { ProjectCloneToastCoordinator } from "../components/ProjectCloneToastCoordinator";
@@ -253,6 +254,7 @@ function RootRouteView() {
             <EventRouter skipInitialBootstrapNavigation={returningFromWelcome} />
           ) : null}
           {primaryEnvironmentAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
+          {isElectron ? <DesktopUpdateLaunchNotice /> : null}
           {/* Hosted Nightly is "hosted-static", not authenticated, and needs it too. */}
           {appShell}
           {/* Above the router: a theme draft is judged by walking the app, so the

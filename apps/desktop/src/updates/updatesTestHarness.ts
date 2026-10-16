@@ -37,6 +37,8 @@ export interface UpdatesHarnessOptions {
   readonly platform?: NodeJS.Platform;
   /** Contents of the resources/package-type marker a Linux package ships. */
   readonly packageType?: string | undefined;
+  /** Contents of the install record a previous run left behind. */
+  readonly installRecord?: string | undefined;
 }
 
 export function makeHarness(options: UpdatesHarnessOptions = {}) {
@@ -208,9 +210,19 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
         } satisfies DesktopAppSettings.DesktopAppSettings["Service"])
       : DesktopAppSettings.layer;
 
+  // Tracks the install records installs leave, so installs stay free of real
+  // disk I/O that would outrun the tests' settle loops.
+  const installRecords = new Map<string, string>();
+  let previousInstallRecord = options.installRecord;
+  const isInstallRecord = (path: string) =>
+    path.endsWith(DesktopUpdates.DESKTOP_UPDATE_INSTALL_RECORD_FILE);
   const layerFileSystem = FileSystem.layerNoop({
-    readFileString: (path) =>
-      path === "/missing/resources/package-type" && options.packageType !== undefined
+    readFileString: (path) => {
+      const installRecord = isInstallRecord(path)
+        ? (installRecords.get(path) ?? previousInstallRecord)
+        : undefined;
+      if (installRecord !== undefined) return Effect.succeed(installRecord);
+      return path === "/missing/resources/package-type" && options.packageType !== undefined
         ? Effect.succeed(options.packageType)
         : Effect.fail(
             PlatformError.systemError({
@@ -219,7 +231,18 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
               _tag: "NotFound",
               pathOrDescriptor: path,
             }),
-          ),
+          );
+    },
+    makeDirectory: () => Effect.void,
+    writeFileString: (path, data) =>
+      Effect.sync(() => {
+        if (isInstallRecord(path)) installRecords.set(path, data);
+      }),
+    remove: (path) =>
+      Effect.sync(() => {
+        installRecords.delete(path);
+        if (isInstallRecord(path)) previousInstallRecord = undefined;
+      }),
   });
 
   const layer = DesktopUpdates.layer.pipe(
@@ -246,6 +269,9 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     checkCount: () => checkCount,
     quitAndInstalls: () => quitAndInstallCount,
     installSteps,
+    installRecords,
+    /** The record the test started with, until the app removes it. */
+    previousInstallRecord: () => previousInstallRecord,
     downloadCount: () => downloadCount,
     feedUrls: (): ElectronUpdater.ElectronUpdaterFeedUrl[] => feedUrls,
     fullChangelog: () => fullChangelog,
