@@ -99,7 +99,7 @@ const STATUS_LABEL_BY_STATUS: Partial<Record<ThreadListV2Status, StatusLabel>> =
   },
   waiting: {
     label: "Waiting",
-    icon: "circle.dashed",
+    icon: "circle.dashed.inset.filled",
     className: "text-foreground-muted",
     iconTintClassName: "accent-foreground-muted",
   },
