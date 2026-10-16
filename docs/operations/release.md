@@ -63,7 +63,7 @@ bumps require a new store binary under the existing OTA fingerprint policy.
   - The executable is built with a Node that supports `--build-sea` (`VP_NODE_VERSION=26.8.2`, kept in step with `SEA_NODE_VERSION` in `apps/server/vite.config.ts`), while the repo stays on `engines.node`.
   - Release macOS archives are signed with the Developer ID certificate and notarized using the Apple credentials loaded through fnox. Windows executables use the same Azure Trusted Signing setup as the installer. Every native addon in the macOS archive is signed too, since the hardened runtime refuses unsigned libraries.
   - Each archive is extracted and executed on its build runner (`scripts/smoke-cli-archive.ts`) before it is uploaded.
-- After the GitHub Release is published, publishes the `supaterm` npm package with OIDC trusted publishing from the same workflow file. It is only a launcher (`scripts/npm-launcher/supaterm.mjs`, packed by `scripts/build-npm-launcher.ts`): on first run it downloads its exact version's CLI archive from the GitHub Release (or from `SUPATERM_RELEASE_BASE_URL`), verifies it against `SHA256SUMS`, and unpacks it into `<Supaterm home>/runtime/versions/<version>`, the layout the install scripts and `supaterm update` share. The executables are not on npm: its publish-time scanning can hold 80-250 MB packages back for up to an hour after the launcher is live, and every install in that window would get a launcher with no executable. The old `@supabitapp/supaterm-<platform>-<arch>` packages get no new versions. Because the launcher reads from the release, `publish_cli` runs after `release`, never before.
+- After the GitHub Release is published, publishes the `supaterm` npm package with OIDC trusted publishing from the same workflow file. It is only a launcher (`scripts/npm-launcher/supaterm.mjs`, packed by `scripts/build-npm-launcher.ts`): on first run it downloads its exact version's CLI archive from the GitHub Release (or from `SUPATERM_RELEASE_BASE_URL`), verifies it against `SHA256SUMS`, and unpacks it into `<Supaterm home>/runtime/versions/<version>`, the layout the install scripts and `supaterm update` share. The executables are not on npm: its publish-time scanning can hold 80-250 MB packages back for up to an hour after the launcher is live, and every install in that window would get a launcher with no executable. The old `@supabitapp/supaterm-<platform>-<arch>` packages get no new versions. Because the launcher reads from the release, `publish_cli` runs after `release`, never before. `release` waits for `check_cli_publish`, which packs the launcher and runs `npm publish --dry-run`, so a publish that would fail stops the run before the GitHub Release is public.
   - stable releases publish npm dist-tag `latest`
   - nightly releases publish npm dist-tag `nightly`
   - preview releases publish npm dist-tag `preview`, which nothing resolves unless asked for by name
@@ -206,7 +206,8 @@ release archives, and then its npm launcher, available before users can receive 
 
 The workflow enforces this ordering:
 
-1. `release` publishes the GitHub Release with the CLI archives and `SHA256SUMS`.
+1. `release` publishes the GitHub Release with the CLI archives and `SHA256SUMS`, once
+   `check_cli_publish` has run the npm publish as a dry run.
 2. `publish_cli` publishes the `supaterm@<version>` launcher, which downloads from that release, on
    every channel.
 3. `deploy_web` depends on both before moving the hosted channel to the new client.
