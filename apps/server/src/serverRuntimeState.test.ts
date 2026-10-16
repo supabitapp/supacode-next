@@ -80,7 +80,7 @@ describe("server ownership", () => {
       yield* ServerRuntimeState.persistServerRuntimeState({
         path: statePath,
         // @effect-diagnostics-next-line globalDateInEffect:off - Legacy identity uses the real process start time, not TestClock.
-        state: { ...state, startedAt: new Date().toISOString() },
+        state: { ...state, pid: process.ppid, startedAt: new Date().toISOString() },
       });
       const refused = yield* Effect.scoped(ServerOwnership.acquireServerOwnership(statePath)).pipe(
         Effect.flip,
@@ -92,6 +92,34 @@ describe("server ownership", () => {
       });
       yield* Effect.scoped(ServerOwnership.acquireServerOwnership(statePath));
     }).pipe(Effect.provide(layerOwnership)),
+  );
+
+  it.effect("treats a pre-lock record naming this process as stale when ps is unavailable", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "supaterm-owner-self-" });
+      const statePath = path.join(root, "server-runtime.json");
+      const state = yield* makeState;
+      yield* ServerRuntimeState.persistServerRuntimeState({
+        path: statePath,
+        state: { ...state, pid: process.pid, startedAt: "2020-01-01T00:00:00.000Z" },
+      });
+      yield* Effect.scoped(ServerOwnership.acquireServerOwnership(statePath));
+    }).pipe(
+      Effect.provide(
+        Layer.succeed(ProcessRunner.ProcessRunner, {
+          run: (input) =>
+            Effect.fail(
+              new ProcessRunner.ProcessSpawnError({
+                command: input.command,
+                argumentCount: input.args.length,
+                cause: new Error("ps is not installed"),
+              }),
+            ),
+        }).pipe(Layer.provideMerge(NodeServices.layer)),
+      ),
+    ),
   );
 
   it.effect("never removes a runtime record another server published", () =>

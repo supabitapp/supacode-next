@@ -50,12 +50,13 @@ const isSqliteBusy = (cause: unknown) =>
 
 /**
  * Servers from before this lock only publish `server-runtime.json`. Treat
- * their record as stale only when the process start time proves PID reuse.
+ * their record as stale only when the process start time proves PID reuse, or
+ * when it names this process, as a restarted container reusing PID 1 does.
  */
 const legacyOwnerIsLive = Effect.fn("legacyOwnerIsLive")(function* (
   state: PersistedServerRuntimeState,
 ) {
-  if (!isProcessAlive(state.pid)) return false;
+  if (state.pid === process.pid || !isProcessAlive(state.pid)) return false;
   const recordedAt = Date.parse(state.startedAt);
   if (!Number.isFinite(recordedAt)) return true;
   const windows = (yield* HostProcess.Platform) === "win32";
