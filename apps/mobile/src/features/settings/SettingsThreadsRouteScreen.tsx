@@ -22,6 +22,7 @@ import {
   SettingsEnvironmentFilterHeader,
 } from "./components/SettingsEnvironmentFilterHeader";
 import {
+  AUTO_MARK_DONE_KEYS,
   planAutoMarkDoneSettingsSync,
   type AutoMarkDoneSettings,
 } from "./autoMarkDoneSettingsSync";
@@ -140,11 +141,8 @@ function ThreadBehaviorSettingsRows() {
     !canWriteSettings || pendingWrites > 0 || (projectSelected && !supportsProjectOverrides);
   const hasProjectOverrides =
     projectSelected &&
-    syncTargets.some(
-      (target) =>
-        target.sources.sidebarAutoMarkDoneOnMerge === "project" ||
-        target.sources.sidebarAutoMarkDoneAfterDays === "project" ||
-        target.sources.sidebarAutoMarkDoneKeepPullRequests === "project",
+    syncTargets.some((target) =>
+      AUTO_MARK_DONE_KEYS.some((key) => target.sources[key] === "project"),
     );
   const clearProjectOverrides = () => {
     if (
@@ -154,11 +152,7 @@ function ThreadBehaviorSettingsRows() {
       )
     )
       return;
-    const writes = planMobileScopedSettingsClear(syncTargets, [
-      "sidebarAutoMarkDoneOnMerge",
-      "sidebarAutoMarkDoneAfterDays",
-      "sidebarAutoMarkDoneKeepPullRequests",
-    ]);
+    const writes = planMobileScopedSettingsClear(syncTargets, AUTO_MARK_DONE_KEYS);
     if (writes.length === 0) return;
     writeInFlight.current = true;
     setPendingTargets(syncTargets);

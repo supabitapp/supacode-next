@@ -1,11 +1,13 @@
 import type { EnvironmentId, ProjectId, ServerSettings } from "@supaterm/contracts";
+import * as Struct from "effect/Struct";
 
-export type AutoMarkDoneSettings = Pick<
-  ServerSettings,
-  | "sidebarAutoMarkDoneAfterDays"
-  | "sidebarAutoMarkDoneOnMerge"
-  | "sidebarAutoMarkDoneKeepPullRequests"
->;
+export const AUTO_MARK_DONE_KEYS = [
+  "sidebarAutoMarkDoneAfterDays",
+  "sidebarAutoMarkDoneOnMerge",
+  "sidebarAutoMarkDoneKeepPullRequests",
+] as const satisfies ReadonlyArray<keyof ServerSettings>;
+
+export type AutoMarkDoneSettings = Pick<ServerSettings, (typeof AUTO_MARK_DONE_KEYS)[number]>;
 
 interface AutoMarkDoneSyncTarget {
   readonly environmentId: EnvironmentId;
@@ -23,20 +25,12 @@ export function planAutoMarkDoneSettingsSync(
   },
   targets: readonly AutoMarkDoneSyncTarget[],
 ) {
-  const patch: AutoMarkDoneSettings = {
-    sidebarAutoMarkDoneAfterDays: reference.settings.sidebarAutoMarkDoneAfterDays,
-    sidebarAutoMarkDoneOnMerge: reference.settings.sidebarAutoMarkDoneOnMerge,
-    sidebarAutoMarkDoneKeepPullRequests: reference.settings.sidebarAutoMarkDoneKeepPullRequests,
-  };
+  const patch: AutoMarkDoneSettings = Struct.pick(reference.settings, AUTO_MARK_DONE_KEYS);
   const mismatches = targets.filter(
-    (target) =>
-      (target.environmentId !== reference.environmentId ||
-        target.projectId !== reference.projectId) &&
-      target.settings !== null &&
-      (target.settings.sidebarAutoMarkDoneAfterDays !== patch.sidebarAutoMarkDoneAfterDays ||
-        target.settings.sidebarAutoMarkDoneOnMerge !== patch.sidebarAutoMarkDoneOnMerge ||
-        target.settings.sidebarAutoMarkDoneKeepPullRequests !==
-          patch.sidebarAutoMarkDoneKeepPullRequests),
+    ({ environmentId, projectId, settings }) =>
+      (environmentId !== reference.environmentId || projectId !== reference.projectId) &&
+      settings !== null &&
+      AUTO_MARK_DONE_KEYS.some((key) => settings[key] !== patch[key]),
   );
   return { patch, mismatches };
 }
