@@ -724,11 +724,13 @@ export const layer = Layer.effect(
         const now = yield* localNow;
         const uuid =
           input.commandId === undefined
-            ? yield* crypto.randomUUIDv4.pipe(
-                Effect.mapError((cause) =>
-                  taskError("Could not generate schedule task id.", { cause }),
-                ),
-              )
+            ? yield* crypto
+                .randomUUIDv4()
+                .pipe(
+                  Effect.mapError((cause) =>
+                    taskError("Could not generate schedule task id.", { cause }),
+                  ),
+                )
             : null;
         const id =
           input.id ??

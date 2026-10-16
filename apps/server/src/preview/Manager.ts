@@ -150,7 +150,7 @@ const currentIsoTimestamp = DateTime.now.pipe(Effect.map(DateTime.formatIso));
 export const make = Effect.gen(function* PreviewManagerMake() {
   const config = yield* ServerConfig.ServerConfig;
   const crypto = yield* Crypto.Crypto;
-  const serverEpoch = yield* crypto.randomUUIDv4.pipe(Effect.orDie);
+  const serverEpoch = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
   const stateRef = yield* SynchronizedRef.make<ManagerState>(initialState);
   // Unbounded PubSub is fine here — events are tiny and we don't want to
   // block publishers if a subscriber is slow. WS clients backpressure on
@@ -528,7 +528,7 @@ export const make = Effect.gen(function* PreviewManagerMake() {
           ...session.snapshot,
           reveal: true,
           revealRequest: {
-            id: yield* crypto.randomUUIDv4.pipe(Effect.orDie),
+            id: yield* crypto.randomUUIDv4().pipe(Effect.orDie),
             force: input.force,
           },
           updatedAt: yield* currentIsoTimestamp,

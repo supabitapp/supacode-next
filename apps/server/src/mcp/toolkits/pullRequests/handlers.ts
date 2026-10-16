@@ -206,7 +206,7 @@ const make = Effect.gen(function* () {
           .pipe(Effect.map((repositoryIdentity) => ({ ...project, repositoryIdentity })));
 
   const commandId = (tag: string, threadId: ThreadId) =>
-    crypto.randomUUIDv4.pipe(
+    crypto.randomUUIDv4().pipe(
       Effect.orDie,
       Effect.map((uuid) => CommandId.make(`server:${tag}:${threadId}:${uuid}`)),
     );

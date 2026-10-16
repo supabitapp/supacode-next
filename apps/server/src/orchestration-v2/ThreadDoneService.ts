@@ -340,7 +340,7 @@ export const make = Effect.gen(function* () {
           autoMarkDoneOnMerge: currentSettings.sidebarAutoMarkDoneOnMerge,
         });
         if (doneAt === null) return thread;
-        const uuid = yield* crypto.randomUUIDv4;
+        const uuid = yield* crypto.randomUUIDv4();
         yield* orchestrator.dispatch({
           type: "thread.auto-mark-done",
           commandId: CommandId.make(`server:auto-mark-done:${thread.id}:${uuid}`),
