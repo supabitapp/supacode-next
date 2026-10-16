@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as SqlClient from "effect/sql/SqlClient";
 
-import { runMigrations } from "../src/persistence/Migrations.ts";
+import { migrationManifest, runMigrations } from "../src/persistence/Migrations.ts";
 import * as NodeSqliteClient from "@supaterm/shared/nodeSqliteClient";
 import { runMigrateDevDb } from "./migrate-dev-db.ts";
 
@@ -223,8 +223,8 @@ it.layer(NodeServices.layer)("migrate-dev-db", (it) => {
         }),
       );
       assert.deepStrictEqual(
-        copied.history.map((row) => [row.migration_id, row.name]),
-        [[1, "Baseline"]],
+        copied.history.map((row) => [row.migration_id, row.name] as const),
+        migrationManifest,
       );
       assert.deepStrictEqual(copied.retired, []);
       assert.deepStrictEqual(
