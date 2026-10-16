@@ -5,6 +5,7 @@ import type { PullRequestSpeedActionResult } from "~/components/pullRequest/Pull
 import { usePullRequestCloseBatch } from "~/components/pullRequest/usePullRequestActions";
 import { SidebarPointerSensor } from "~/components/Sidebar.pointer";
 import { resolveSidebarSweepKeys } from "~/components/Sidebar.logic";
+import { sortProjectsByGroupOrder } from "@supaterm/client-runtime/state/project-grouping";
 import { pullRequestHostOf, resolveEnvironmentMachineKind } from "@supaterm/contracts";
 import type {
   EnvironmentId,
@@ -46,6 +47,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -160,6 +162,7 @@ import {
 } from "../rightPanelStore";
 import { useDebouncedValue } from "../state/queries";
 import { useAllEnvironmentShellsBootstrapped, useProjects } from "../state/entities";
+import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { useEnvironments } from "../state/environments";
 import {
   pullRequestEnvironment,
@@ -2117,7 +2120,7 @@ function PullRequestsRouteView() {
     />
   );
   const filtersMenu = (
-    <PullRequestFiltersMenu
+    <PullRequestFiltersMenuInSidebarOrder
       onOpenChange={setFiltersOpen}
       state={search.state}
       stateOptions={STATE_TABS}
@@ -2450,6 +2453,18 @@ function PullRequestsRouteView() {
       </div>
     </SidebarInset>
   );
+}
+
+/** Lists the projects in the sidebar's order; it re-renders with thread activity, so the page does not. */
+function PullRequestFiltersMenuInSidebarOrder(
+  props: ComponentProps<typeof PullRequestFiltersMenu>,
+) {
+  const sidebarProjectGroups = useSidebarProjectGroups();
+  const projects = useMemo(
+    () => sortProjectsByGroupOrder(props.projects, sidebarProjectGroups),
+    [props.projects, sidebarProjectGroups],
+  );
+  return <PullRequestFiltersMenu {...props} projects={projects} />;
 }
 
 /** A compact stand-in for one pill group when the header is narrow. */

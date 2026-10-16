@@ -127,9 +127,8 @@ import { isMacPlatform } from "~/lib/utils";
 import { useOpenPrLink } from "../lib/openPullRequestLink";
 import { readLocalApi } from "../localApi";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
-import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
+import { selectProjectGroupingSettings } from "../logicalProject";
 import {
-  buildSidebarProjectSnapshots,
   projectGroupMemberKeys,
   projectGroupsSpanEnvironments,
   resolveSidebarProjectScopeKey,
@@ -144,6 +143,7 @@ import {
 import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
 import { useThreadUndoNotice } from "../hooks/showThreadUndoNotice";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
+import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerMarkDoneAndAdvance } from "../markDoneAndAdvance";
@@ -228,7 +228,6 @@ import {
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
   sortPinnedThreadsForSidebar,
-  sortSidebarV2ProjectGroups,
   sortWorkingThreadsBySend,
   useThreadJumpHintVisibility,
   useRetainedValue,
@@ -2207,7 +2206,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
 
 export default function Sidebar() {
   const projects = useProjects();
-  const projectOrder = useUiStateStore((store) => store.projectOrder);
   const threads = useSidebarThreadShells();
   const serverThreadRefs = useThreadRefs();
   const serverThreadKeys = useMemo(
@@ -2219,7 +2217,6 @@ export default function Sidebar() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
-  const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -2334,37 +2331,7 @@ export default function Sidebar() {
     [environments],
   );
   const environmentMachineById = useEnvironmentMachines();
-  const orderedProjects = useMemo(
-    () =>
-      orderItemsByPreferredIds({
-        items: projects,
-        preferredIds: projectOrder,
-        getId: getProjectOrderKey,
-      }),
-    [projectOrder, projects],
-  );
-  const unsortedProjectGroups = useMemo(
-    () =>
-      buildSidebarProjectSnapshots({
-        projects: sidebarProjectSortOrder === "manual" ? orderedProjects : projects,
-        groupScratchProjects: true,
-        settings: projectGroupingSettings,
-        primaryEnvironmentId,
-        resolveEnvironmentLabel: (environmentId) => environmentLabelById.get(environmentId) ?? null,
-      }),
-    [
-      environmentLabelById,
-      orderedProjects,
-      primaryEnvironmentId,
-      projectGroupingSettings,
-      projects,
-      sidebarProjectSortOrder,
-    ],
-  );
-  const projectGroups = useMemo(
-    () => sortSidebarV2ProjectGroups(unsortedProjectGroups, threads, sidebarProjectSortOrder),
-    [sidebarProjectSortOrder, threads, unsortedProjectGroups],
-  );
+  const projectGroups = useSidebarProjectGroups();
   const projectGroupsRef = useRef(projectGroups);
   useLayoutEffect(() => {
     projectGroupsRef.current = projectGroups;

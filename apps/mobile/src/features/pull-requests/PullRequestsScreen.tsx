@@ -4,8 +4,10 @@ import { useStartNewTask } from "../threads/use-start-new-task";
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ProjectId } from "@supaterm/contracts";
+import { sortProjectsByGroupOrder } from "@supaterm/client-runtime/state/project-grouping";
+import { ProjectId, type SidebarProjectGroupingMode } from "@supaterm/contracts";
 import { useAtomValue } from "@effect/atom-react";
+import { Atom } from "effect/reactivity";
 import {
   ActivityIndicator,
   Keyboard,
@@ -24,6 +26,10 @@ import { EmptyState } from "../../components/EmptyState";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
 import { useWorkspaceState } from "../../state/workspace";
 import { useProjects } from "../../state/entities";
+import { useMobileProjectGroupingSettings } from "../../state/project-grouping";
+import { environmentProjects } from "../../state/projects";
+import { environmentThreadShells } from "../../state/threads";
+import { buildHomeProjectScopes, sortHomeProjectScopes } from "../home/homeThreadList";
 import { environmentServerConfigsAtom } from "../../state/server";
 import { PullRequestListRow } from "./PullRequestListRow";
 import { createPullRequestListFilterMenu } from "./pullRequestListFilterMenu";
@@ -42,6 +48,25 @@ import {
 import { useDebouncedValue } from "../../state/queries";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { useAndroidWorkspaceSelection } from "../workspace/useAndroidWorkspaceSelection";
+
+/** The home project list's order, which the new-task picker also shows: latest activity first. */
+const homeProjectOrderAtom = Atom.family((projectGroupingMode: SidebarProjectGroupingMode) =>
+  Atom.make((get) =>
+    sortHomeProjectScopes({
+      scopes: buildHomeProjectScopes({
+        projects: get(environmentProjects.projectsAtom),
+        environmentId: null,
+        projectGroupingMode,
+      }),
+      threads: get(environmentThreadShells.threadShellsAtom),
+      pendingTasks: [],
+      projectSortOrder: "updated_at",
+    }).map((scope) => ({ memberProjectRefs: scope.projectRefs })),
+  ).pipe(
+    // Thread activity that keeps the order must not re-render the whole list screen.
+    Atom.withEquality((previous, next) => JSON.stringify(previous) === JSON.stringify(next)),
+  ),
+);
 
 function PullRequestScrollView(props: ScrollViewProps) {
   const insets = useSafeAreaInsets();
@@ -184,9 +209,19 @@ export function PullRequestsScreen(
       ].sort(),
     }));
   }
-  const projects = allProjects.filter(
-    (project) =>
-      !project.isScratch && (environmentId === null || project.environmentId === environmentId),
+  const { sidebarProjectGroupingMode } = useMobileProjectGroupingSettings();
+  const projectOrder = useAtomValue(homeProjectOrderAtom(sidebarProjectGroupingMode));
+  const projects = useMemo(
+    () =>
+      sortProjectsByGroupOrder(
+        allProjects.filter(
+          (project) =>
+            !project.isScratch &&
+            (environmentId === null || project.environmentId === environmentId),
+        ),
+        projectOrder,
+      ),
+    [allProjects, environmentId, projectOrder],
   );
   const renderPullRequest = useCallback(
     ({ item }: { readonly item: EnvironmentPullRequestListEntry }) => (
