@@ -60,7 +60,7 @@ import {
 } from "@supaterm/client-runtime/markdown-images";
 import { resolveViewedImageAsset } from "@supaterm/client-runtime/work-log/presentation";
 import {
-  renderCodexFileCitationsAsMarkdown,
+  renderCodexInlineDirectivesAsMarkdown,
   splitCodexArtifactTemplateMarkdown,
 } from "@supaterm/shared/codexMarkdownDirectives";
 import {
@@ -852,7 +852,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
     }
     if (segment.markdown.trim().length === 0) return null;
 
-    const markdown = renderCodexFileCitationsAsMarkdown(segment.markdown);
+    const markdown = renderCodexInlineDirectivesAsMarkdown(segment.markdown);
     return (
       <SelectableMarkdownText
         key={`markdown:${segment.sourceOffset}`}
