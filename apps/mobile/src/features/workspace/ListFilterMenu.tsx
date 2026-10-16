@@ -1,18 +1,12 @@
-import { GlassView } from "expo-glass-effect";
 import { Pressable, View } from "react-native";
-import { withUniwind } from "uniwind";
 import { AppText as Text } from "../../components/AppText";
 import { SymbolView } from "../../components/AppSymbol";
 import { ControlPillMenu } from "../../components/ControlPillMenu";
 import type { ControlPillMenuProps } from "../../components/ControlPillMenu.types";
+import { ThemedGlassView } from "../../components/GlassSurface";
 import { cn } from "../../lib/cn";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-
-const FilterGlass = withUniwind(GlassView, {
-  style: { fromClassName: "className" },
-  tintColor: { fromClassName: "tintColorClassName", styleProperty: "accentColor" },
-});
 
 const PILL = "h-8 flex-row items-center gap-1.5 rounded-full px-3";
 
@@ -20,7 +14,7 @@ const PILL = "h-8 flex-row items-center gap-1.5 rounded-full px-3";
 export function ListFilterMenu(props: {
   readonly label: string;
   readonly accessibilityLabel: string;
-  readonly active?: boolean;
+  readonly active: boolean;
   readonly actions: ControlPillMenuProps["actions"];
   readonly onSelect: (id: string) => void;
 }) {
@@ -49,18 +43,19 @@ export function ListFilterMenu(props: {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={props.accessibilityLabel}
-        accessibilityState={{ selected: Boolean(props.active) }}
+        accessibilityValue={{ text: props.label }}
+        accessibilityState={{ selected: props.active }}
         hitSlop={6}
       >
         {NATIVE_LIQUID_GLASS_SUPPORTED ? (
-          <FilterGlass
+          <ThemedGlassView
             isInteractive
             colorScheme={themeAppearance}
             tintColorClassName={props.active ? "accent-primary" : undefined}
             className={PILL}
           >
             {content}
-          </FilterGlass>
+          </ThemedGlassView>
         ) : (
           <View className={cn(PILL, props.active ? "bg-primary" : "bg-subtle")}>{content}</View>
         )}

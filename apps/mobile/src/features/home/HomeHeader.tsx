@@ -56,11 +56,12 @@ export function HomeHeader(props: HomeHeaderProps) {
     return searchBarRef.current !== null;
   }, [primaryColumn, panes.primarySidebarVisible, togglePrimarySidebar]);
   useHardwareKeyboardCommand("focusSearch", focusSearch);
-  const filterMenu = buildHomeListFilterMenu(props);
 
   if (props.usesWorkspaceToolbar) {
     return <WorkspaceHeaderActions />;
   }
+
+  const filterMenu = buildHomeListFilterMenu(props);
 
   return (
     <>

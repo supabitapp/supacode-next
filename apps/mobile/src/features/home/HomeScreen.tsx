@@ -16,7 +16,16 @@ import {
 import { type EnvironmentId, type SidebarProjectGroupingMode } from "@supaterm/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useFocusEffect } from "@react-navigation/native";
-import { use, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+} from "react";
 import {
   Platform,
   ScrollView,
@@ -82,7 +91,6 @@ import {
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
-import { ThreadListFilters } from "./ThreadListFilters";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -102,8 +110,6 @@ interface HomeScreenProps {
   readonly projectSortOrder: HomeProjectSortOrder;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
   readonly onSearchQueryChange: (query: string) => void;
-  readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
-  readonly onProjectChange: (projectKey: string | null) => void;
   readonly onAddConnection: () => void;
   readonly onOpenSettings: () => void;
   readonly onStartNewTask: () => void;
@@ -130,6 +136,7 @@ interface HomeScreenProps {
   readonly onDeletePendingTask: (pendingTask: PendingNewTask) => void;
   readonly onNewThreadOnBranch: (thread: EnvironmentThreadShell) => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
+  readonly listHeader: ReactElement | undefined;
 }
 
 /* ─── Layout constants ───────────────────────────────────────────────── */
@@ -407,10 +414,6 @@ export function HomeScreen(props: HomeScreenProps) {
         projectGroupingMode: props.projectGroupingMode,
       }),
     [props.projectGroupingMode, props.projects, props.selectedEnvironmentId],
-  );
-  const projectFilterOptions = useMemo(
-    () => projectScopes.map((scope) => ({ key: scope.key, label: scope.title })),
-    [projectScopes],
   );
   const hasSearchQuery = props.searchQuery.trim().length > 0;
   const projectByKey = useMemo(() => {
@@ -950,24 +953,6 @@ export function HomeScreen(props: HomeScreenProps) {
     );
   }
 
-  const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
-
-  const v2ListHeader = (
-    <>
-      {listHeader}
-      {Platform.OS === "ios" && workspace ? (
-        <ThreadListFilters
-          environments={props.environments}
-          projects={projectFilterOptions}
-          selectedEnvironmentId={props.selectedEnvironmentId}
-          selectedProjectKey={props.selectedProjectKey}
-          onEnvironmentChange={props.onEnvironmentChange}
-          onProjectChange={props.onProjectChange}
-        />
-      ) : null}
-    </>
-  );
-
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.
   const v2ListEmpty =
@@ -1041,7 +1026,9 @@ export function HomeScreen(props: HomeScreenProps) {
               recycleItems
               itemLayoutAnimation={listMotion.layout}
               extraData={v2ExtraData}
-              ListHeaderComponent={v2ListHeader}
+              ListHeaderComponent={
+                Platform.OS === "ios" ? props.listHeader : <HomeTopContentSpacer />
+              }
               ListEmptyComponent={v2ListEmpty}
               style={{ flex: 1 }}
               automaticallyAdjustsScrollIndicatorInsets={Platform.OS === "ios"}
