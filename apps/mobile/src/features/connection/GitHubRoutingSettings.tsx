@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import { useAtomValue } from "@effect/atom-react";
 import {
   connectionAddressLabel,
@@ -7,7 +8,7 @@ import {
   type GitHubRoutingPermission,
 } from "@supaterm/client-runtime/connection";
 import { useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
 import { SymbolView } from "../../components/AppSymbol";
@@ -92,7 +93,7 @@ export function GitHubRoutingSettings() {
                       void update({ environmentId, permission: option.value }).then((result) => {
                         setSaving(false);
                         if (result._tag === "Failure")
-                          Alert.alert(
+                          Dialog.alert(
                             "Could not save GitHub routing permission",
                             "Try again before leaving this screen.",
                           );

@@ -1,3 +1,4 @@
+import * as Dialog from "../../components/Dialog";
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import {
   type ConnectionRoute,
@@ -15,7 +16,7 @@ import { AsyncResult } from "effect/reactivity";
 import * as Option from "effect/Option";
 import * as Haptics from "expo-haptics";
 import { useContext, useState } from "react";
-import { Alert, Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import Reanimated, { ReduceMotion, useAnimatedStyle, withTiming } from "react-native-reanimated";
 
 import { type AppSymbolName, SymbolView } from "../../components/AppSymbol";
@@ -119,7 +120,7 @@ export function EnvironmentRoutesSection({
     return to;
   };
   const confirmRemove = (route: ConnectionRoute) =>
-    Alert.alert(
+    Dialog.alert(
       `Remove ${connectionRouteLabel(route)}?`,
       connectionRouteAddress(route) ?? undefined,
       [
