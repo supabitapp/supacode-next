@@ -294,7 +294,8 @@ pull requests in the current project's repository. Pull requests linked to the t
 from any repository and listed first, after any exact number match. Continue typing digits to filter the recent list
 by any part of its pull request numbers. A complete number is also resolved directly, even when that
 pull request is older than the recent list. Type a single word after `#` to search pull requests in
-the repository by text. Choose a result to insert it as a chip.
+the repository by text. Choose a result to insert it as a chip. You can also drag a pull request
+from the thread's linked pull requests panel onto the composer.
 
 Another thread can be context too. Type `@` followed by part of its title to pick one from
 the same server, or on web and desktop drag a thread out of the sidebar and drop it on the
