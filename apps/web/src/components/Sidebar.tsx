@@ -146,6 +146,7 @@ import { useThreadUndoNotice } from "../hooks/showThreadUndoNotice";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
+import { registerMarkDoneAndAdvance } from "../markDoneAndAdvance";
 import { useClientSettings } from "../hooks/useSettings";
 import { usePickerShortcuts } from "../hooks/usePickerShortcuts";
 import { Kbd } from "./ui/kbd";
@@ -3169,6 +3170,8 @@ export default function Sidebar() {
     },
     [planForwardNavigation, markThreadDone],
   );
+  // The thread.mark-done shortcut parks the open thread through this same path.
+  useEffect(() => registerMarkDoneAndAdvance(attemptMarkDone), [attemptMarkDone]);
   // Post-completion navigation must skip threads being marked done in this same batch —
   // they are all leaving the card block together. Rows already in the done
   // shelf are skipped: nothing to do on a valid mixed selection. Pinned and

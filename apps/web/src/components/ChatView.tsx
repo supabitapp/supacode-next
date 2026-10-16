@@ -238,6 +238,7 @@ import {
 import { useTheme } from "../hooks/useTheme";
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
 import { isCommandPaletteOpen } from "../commandPaletteBus";
+import { markDoneAndAdvance } from "../markDoneAndAdvance";
 import { subscribeSnapShotComposerFocus } from "../lib/desktopSnapShot";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
@@ -8169,6 +8170,8 @@ export default function ChatView(props: ChatViewProps) {
           void handleReopenActiveThread();
           return;
         }
+        // Same as the sidebar Mark as Done button: mark done, then open the next thread.
+        if (markDoneAndAdvance(activeThreadRef)) return;
 
         void markThreadDone(activeThreadRef).then((result) => {
           if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
