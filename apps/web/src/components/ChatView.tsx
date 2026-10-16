@@ -100,6 +100,7 @@ import { type EnvironmentConnectionPresentation } from "@supaterm/client-runtime
 import { readPastedComposerContext } from "./composerInlineTokenPaste";
 import { isPasteAsTextShortcut } from "@supaterm/client-runtime/text-paste";
 import { effectiveSnoozed, threadWokeAt } from "@supaterm/client-runtime/state/thread-snooze";
+import { childThreadInputsTitle } from "@supaterm/client-runtime/state/threads";
 import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
 import {
   deriveProviderSubagentStatus,
@@ -309,6 +310,7 @@ import {
   MessageCircleIcon,
   DownloadIcon,
   GitBranchIcon,
+  ShieldQuestionIcon,
   TargetIcon,
   WifiOffIcon,
 } from "lucide-react";
@@ -7549,11 +7551,8 @@ export default function ChatView(props: ChatViewProps) {
       id: `child-input:${first.id}`,
       variant: "info",
       priority: "activity",
-      icon: <MessageCircleIcon />,
-      title:
-        childThreadInputs.length === 1
-          ? "Subagent needs input"
-          : `${childThreadInputs.length} subagents need input`,
+      icon: first.hasPendingApprovals ? <ShieldQuestionIcon /> : <MessageCircleIcon />,
+      title: childThreadInputsTitle(childThreadInputs),
       description: childThreadInputs.map((child, index) => (
         <Fragment key={child.id}>
           {index > 0 ? " " : null}
@@ -7567,7 +7566,7 @@ export default function ChatView(props: ChatViewProps) {
       )),
       actions: (
         <Button size="xs" variant="ghost" onClick={() => onOpenRelatedThread(first.id)}>
-          Open question
+          {first.hasPendingApprovals ? "Open approval" : "Open question"}
         </Button>
       ),
     };
