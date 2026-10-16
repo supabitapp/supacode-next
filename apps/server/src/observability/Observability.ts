@@ -8,6 +8,7 @@ import * as Tracer from "effect/Tracer";
 import * as OtlpExporter from "effect/observability/OtlpExporter";
 import * as OtlpMetrics from "effect/observability/OtlpMetrics";
 import * as OtlpTracer from "effect/observability/OtlpTracer";
+import * as Statement from "effect/sql/Statement";
 
 import * as ServerConfig from "../config.ts";
 import * as ResourceAttribution from "../resourceTelemetry/ResourceAttribution.ts";
@@ -29,6 +30,9 @@ export const layer = Layer.unwrap(
     const layerTraceReferences = Layer.mergeAll(
       Layer.succeed(Tracer.MinimumTraceLevel, config.traceMinLevel),
       Layer.succeed(References.TracerTimingEnabled, config.traceTimingEnabled),
+      // Keeps each SQL statement's span current while it waits for a connection,
+      // so the client can record the lock wait on it.
+      Layer.succeed(Statement.SpanPropagationEnabled, true),
     );
 
     const layerTracer = Layer.unwrap(
