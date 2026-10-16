@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema";
 import { sweepStalePendingAttachments } from "./attachmentStore.ts";
 import { DEFAULT_SIGNAL_EXPORT, type SignalExport } from "@supaterm/shared/observability";
 import * as OtelEnvironment from "@supaterm/shared/otelEnvironment";
+import packageJson from "../package.json" with { type: "json" };
 
 export const RuntimeMode = Schema.Literals(["web", "desktop"]);
 export type RuntimeMode = typeof RuntimeMode.Type;
@@ -116,14 +117,21 @@ export const make = (config: ServerConfig["Service"]) => ServerConfig.of(config)
 
 /**
  * Resource attributes shared by every OTLP exporter, so traces, metrics, and
- * logs report the same service identity to the collector.
+ * logs report the same service identity to the collector. `host.name` keeps
+ * servers apart when several export to one collector; a `host.name` set in
+ * `OTEL_RESOURCE_ATTRIBUTES` wins, since explicit attributes override it.
  */
-export const otlpResource = (config: ServerConfig["Service"]) => ({
+export const otlpResource = (
+  config: Pick<ServerConfig["Service"], "mode" | "otelEnvironment">,
+  hostName: string,
+) => ({
   serviceName: "supaterm-server",
+  serviceVersion: packageJson.version,
   attributes: {
     "service.namespace": "supaterm",
     "service.runtime": "supaterm-server",
     "service.mode": config.mode,
+    "host.name": config.otelEnvironment.resourceAttributes["host.name"] || hostName,
   },
 });
 

@@ -1,3 +1,4 @@
+import * as HostProcess from "@supaterm/shared/HostProcess";
 import { makeLocalFileTracer, makeTraceSink } from "@supaterm/shared/observability";
 import * as SharedObservability from "@supaterm/shared/observability";
 import * as OtelEnvironment from "@supaterm/shared/otelEnvironment";
@@ -24,7 +25,7 @@ export const layer = Layer.unwrap(
     // The trace serializer stays in the returned context because the browser
     // trace forwarder exports on the same signal.
     const layerSerialization = SharedObservability.layerOtlpSerialization(traces.protocol);
-    const resource = ServerConfig.otlpResource(config);
+    const resource = ServerConfig.otlpResource(config, yield* HostProcess.Hostname);
     const attribution = yield* ResourceAttribution.ResourceAttribution;
 
     const layerTraceReferences = Layer.mergeAll(
