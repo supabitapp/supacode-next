@@ -1,3 +1,4 @@
+import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import * as Dialog from "../../components/Dialog";
 import previewStreamScript from "@supaterm/mobile-preview-stream";
 import {
@@ -21,7 +22,7 @@ import {
   useState,
   type Ref,
 } from "react";
-import { ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
+import { Platform, Pressable, TextInput, View } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
 
@@ -159,7 +160,7 @@ export function PreviewStreamWebView(
           : "flex-1 items-center justify-center gap-4 px-6"
       }
     >
-      {props.compact || !error ? <ActivityIndicator colorClassName="accent-icon" /> : null}
+      {props.compact || !error ? <AppActivityIndicator colorClassName="accent-icon" /> : null}
       {!props.compact && (
         <>
           <AppText
@@ -543,7 +544,7 @@ function PreviewStreamDocumentView({
           className="absolute inset-0 items-center justify-center gap-4 px-6"
           style={{ backgroundColor: background }}
         >
-          {status === "connecting" ? <ActivityIndicator colorClassName="accent-icon" /> : null}
+          {status === "connecting" ? <AppActivityIndicator colorClassName="accent-icon" /> : null}
           {compact ? null : (
             <AppText
               accessibilityLiveRegion="polite"

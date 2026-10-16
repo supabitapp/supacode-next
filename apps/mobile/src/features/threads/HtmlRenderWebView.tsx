@@ -1,3 +1,4 @@
+import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { useNavigation } from "@react-navigation/native";
 import type { EnvironmentId, ThreadId } from "@supaterm/contracts";
 import {
@@ -9,7 +10,7 @@ import {
   type HtmlRenderTheme,
 } from "@supaterm/shared/htmlRender";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, View, type ColorValue } from "react-native";
+import { Platform, Pressable, View, type ColorValue } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
 import { SymbolView } from "../../components/AppSymbol";
@@ -180,7 +181,7 @@ export function HtmlRenderWebView(props: {
       />
       {loaded ? null : (
         <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
-          <ActivityIndicator />
+          <AppActivityIndicator />
         </View>
       )}
     </View>
@@ -259,7 +260,7 @@ export function ThreadHtmlRender(props: {
           </Pressable>
         ) : (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator />
+            <AppActivityIndicator />
           </View>
         )}
         {uri !== null && !failed ? (

@@ -9,7 +9,6 @@ import { ProjectId, type SidebarProjectGroupingMode } from "@supaterm/contracts"
 import { useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/reactivity";
 import {
-  ActivityIndicator,
   Keyboard,
   Platform,
   Pressable,
@@ -18,6 +17,7 @@ import {
   View,
   type ScrollViewProps,
 } from "react-native";
+import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { ScrollViewMarker } from "react-native-screens";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -356,7 +356,7 @@ export function PullRequestsScreen(
         ListFooterComponent={
           result.loadingMore ? (
             <View className="items-center py-5">
-              <ActivityIndicator
+              <AppActivityIndicator
                 colorClassName="accent-icon"
                 accessibilityLabel="Loading more pull requests"
               />
@@ -376,7 +376,7 @@ export function PullRequestsScreen(
         ListEmptyComponent={
           result.isPending && connectedTargets.length > 0 ? (
             <View className="items-center py-12">
-              <ActivityIndicator colorClassName="accent-icon" />
+              <AppActivityIndicator colorClassName="accent-icon" />
             </View>
           ) : (
             <View className="px-8 py-12">
