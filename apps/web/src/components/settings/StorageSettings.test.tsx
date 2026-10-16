@@ -4,6 +4,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   ProjectId,
   ThreadId,
+  type DatabaseStorageStatus,
   type StorageCleanupReport,
 } from "@supaterm/contracts";
 import { act, type ReactNode } from "react";
@@ -14,15 +15,22 @@ const state = vi.hoisted(() => ({
   settings: {} as typeof DEFAULT_SERVER_SETTINGS,
   run: vi.fn(),
   report: null as StorageCleanupReport | null,
+  databaseStorage: null as DatabaseStorageStatus | null,
 }));
 
 vi.mock("../../state/server", async () => {
   const { Atom } = await import("effect/reactivity");
   const report = Atom.make(() => ({ _tag: "Success", value: state.report, waiting: false }));
+  const databaseStorage = Atom.make(() => ({
+    _tag: "Success",
+    value: state.databaseStorage,
+    waiting: false,
+  }));
   const allowed = Atom.make(true);
   return {
     serverEnvironment: {
       storageCleanupReport: () => report,
+      databaseStorage: () => databaseStorage,
       runStorageCleanup: { permissionAtom: () => allowed },
     },
   };
@@ -106,6 +114,7 @@ beforeEach(() => {
     projectSettingsOverrides: {},
   };
   state.report = null;
+  state.databaseStorage = null;
   state.run.mockReset();
   container = document.createElement("div");
   document.body.append(container);
@@ -241,4 +250,22 @@ it("shows an orphan's full path and size while keeping thread row titles unchang
   );
   expect(container.textContent).toContain("6.29 MB");
   expect(container.textContent).toContain("0 B recovered.");
+});
+
+it.each([
+  ["an unconverted database with 2 GiB free", {}, true],
+  ["a database that already shrinks itself", { incrementalVacuumEnabled: true }, false],
+  ["less than 1 GiB free", { reclaimableBytes: 512 * 1024 ** 2 }, false],
+] as const)("suggests supaterm doctor for %s", async (_name, change, shown) => {
+  const status = {
+    databaseBytes: 4 * 1024 ** 3,
+    reclaimableBytes: 2 * 1024 ** 3,
+    incrementalVacuumEnabled: false,
+    compactCommand: "supaterm doctor --base-dir /home/jane/.supaterm",
+    ...change,
+  };
+  state.databaseStorage = status;
+  await render();
+  expect(container.textContent?.includes("Reclaim 2.0 GiB on Machine")).toBe(shown);
+  expect(container.textContent?.includes(status.compactCommand)).toBe(shown);
 });

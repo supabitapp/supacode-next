@@ -7,6 +7,7 @@ import * as Path from "effect/Path";
 
 import {
   formatCliCommand,
+  resolveHostCliCommand,
   resolveRootCliCommand,
   resolveServerInstallation,
 } from "./invocation.ts";
@@ -200,6 +201,85 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
           env: { SUPATERM_CLI_SHIM_PATH: path.join(home, "gone") },
         }),
       ).toBe('sudo env "PATH=$PATH" supaterm browser setup');
+    }).pipe(Effect.scoped),
+  );
+});
+
+it.layer(NodeServices.layer)("host CLI commands", (it) => {
+  it.effect("renders a PowerShell command line on Windows", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const shim = path.join(home, "supaterm.cmd");
+      yield* fs.writeFileString(shim, "@echo off\r\n");
+      const hostCommand = (platform: NodeJS.Platform, env: Record<string, string>) =>
+        resolveHostCliCommand("doctor", ["--base-dir", "C:\\Users\\Jane Doe\\.supaterm"]).pipe(
+          Effect.provideService(
+            HostProcess.ExecutablePath,
+            "C:\\Program Files\\Supaterm\\supaterm.exe",
+          ),
+          Effect.provideService(HostProcess.Arguments, [
+            "C:\\Program Files\\Supaterm\\supaterm.exe",
+            "C:\\Program Files\\Supaterm\\resources\\app.asar\\apps\\server\\dist\\bin.mjs",
+          ]),
+          Effect.provideService(HostProcess.IsExecutable, false),
+          Effect.provideService(HostProcess.Platform, platform),
+          Effect.provideService(HostProcess.Environment, { PATH: "", ...env }),
+        );
+      // The desktop shim is called through `&`, and each argument is quoted
+      // the PowerShell way: no POSIX single quotes anywhere.
+      expect((yield* hostCommand("win32", { SUPATERM_CLI_SHIM_PATH: shim })).command).toBe(
+        `& "${shim}" doctor "--base-dir" "C:\\Users\\Jane Doe\\.supaterm"`,
+      );
+      // Without a launcher, plain `supaterm` with PowerShell-quoted arguments.
+      expect((yield* hostCommand("win32", {})).command).toBe(
+        'supaterm doctor "--base-dir" "C:\\Users\\Jane Doe\\.supaterm"',
+      );
+      // Typographic quotes also delimit PowerShell strings; doubling keeps them.
+      expect(
+        (yield* resolveHostCliCommand("doctor", [
+          "--base-dir",
+          "C:\\Supaterm\\\u201CArchive\u201D",
+        ]).pipe(
+          Effect.provideService(HostProcess.Platform, "win32"),
+          Effect.provideService(HostProcess.Environment, { PATH: "" }),
+          Effect.provideService(HostProcess.ExecutablePath, "C:\\supaterm.exe"),
+          Effect.provideService(HostProcess.Arguments, ["C:\\supaterm.exe", "C:\\bin.mjs"]),
+          Effect.provideService(HostProcess.IsExecutable, false),
+        )).command,
+      ).toBe('supaterm doctor "--base-dir" "C:\\Supaterm\\\u201C\u201CArchive\u201D\u201D"');
+      // POSIX hosts keep single quotes for the same input. The shim prefix is
+      // a host path, so only the arguments are asserted.
+      expect((yield* hostCommand("linux", { SUPATERM_CLI_SHIM_PATH: shim })).command).toMatch(
+        / doctor --base-dir 'C:\\Users\\Jane Doe\\\.supaterm'$/,
+      );
+    }).pipe(Effect.scoped),
+  );
+});
+
+it.layer(NodeServices.layer)("host CLI commands through an Electron runtime", (it) => {
+  it.effect("runs the entrypoint as Node in the host's shell syntax", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const entry = path.join(root, "bin.mjs");
+      yield* fs.writeFileString(entry, "");
+      const hostCommand = (platform: NodeJS.Platform) =>
+        resolveHostCliCommand("doctor", ["--base-dir", "/home/jane/.supaterm"]).pipe(
+          Effect.provideService(HostProcess.ExecutablePath, "/opt/supaterm/supaterm"),
+          Effect.provideService(HostProcess.Arguments, ["/opt/supaterm/supaterm", entry]),
+          Effect.provideService(HostProcess.IsExecutable, false),
+          Effect.provideService(HostProcess.Platform, platform),
+          Effect.provideService(HostProcess.Environment, { PATH: "", ELECTRON_RUN_AS_NODE: "1" }),
+        );
+      expect((yield* hostCommand("linux")).command).toBe(
+        `env ELECTRON_RUN_AS_NODE=1 /opt/supaterm/supaterm ${entry} doctor --base-dir /home/jane/.supaterm`,
+      );
+      expect((yield* hostCommand("win32")).command).toBe(
+        `$env:ELECTRON_RUN_AS_NODE=1; & "/opt/supaterm/supaterm" "${entry}" doctor "--base-dir" "/home/jane/.supaterm"`,
+      );
     }).pipe(Effect.scoped),
   );
 });

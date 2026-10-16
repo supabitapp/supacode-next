@@ -147,34 +147,76 @@ export const resolveCliCommand = (subcommand: string) =>
 const shellWord = (value: string) =>
   /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replaceAll("'", `'"'"'`)}'`;
 
-const resolveInstallCommand = Effect.gen(function* () {
+/**
+ * Quotes `value` for PowerShell, the default Windows terminal. Always quoted,
+ * so a path reads the same whether or not it holds a space. Inside double
+ * quotes `"` and its typographic forms (which also end the string) double,
+ * and `$` and the backtick are escaped so nothing expands.
+ */
+const powershellWord = (value: string) =>
+  `"${value
+    .replaceAll("`", "``")
+    .replaceAll("$", "`$")
+    .replace(/["\u201C\u201D\u201E]/g, "$&$&")}"`;
+
+/** Quotes a word for the host's shell: POSIX, or PowerShell on Windows. */
+const hostShellWord = (platform: NodeJS.Platform, value: string) =>
+  platform === "win32" ? powershellWord(value) : shellWord(value);
+
+/**
+ * The words a person can type to run this install when `supaterm` is not on
+ * PATH: the desktop app's `supaterm` shim, a standalone binary, or this
+ * process's runtime and entrypoint, which an Electron runtime only runs as
+ * Node with `ELECTRON_RUN_AS_NODE=1`.
+ */
+const resolveInstallLauncher = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const shim = (yield* HostProcess.Environment).SUPATERM_CLI_SHIM_PATH?.trim();
+  const environment = yield* HostProcess.Environment;
+  const shim = environment.SUPATERM_CLI_SHIM_PATH?.trim();
   if (shim && (yield* fs.exists(shim).pipe(Effect.orElseSucceed(() => false)))) {
-    return Option.some(shellWord(shim));
+    return Option.some({ words: [shim], runAsNode: false });
   }
   const invocation = yield* resolveSelfInvocation();
-  if (invocation.entrypoint === undefined) return Option.some(shellWord(invocation.command));
-  if (!(yield* fs.exists(invocation.entrypoint).pipe(Effect.orElseSucceed(() => false)))) {
-    return Option.none<string>();
+  if (invocation.entrypoint === undefined) {
+    return Option.some({ words: [invocation.command], runAsNode: false });
   }
-  const command = `${shellWord(invocation.command)} ${shellWord(invocation.entrypoint)}`;
-  return Option.some(
-    (yield* HostProcess.Environment).ELECTRON_RUN_AS_NODE === "1"
-      ? `env ELECTRON_RUN_AS_NODE=1 ${command}`
-      : command,
-  );
+  if (!(yield* fs.exists(invocation.entrypoint).pipe(Effect.orElseSucceed(() => false)))) {
+    return Option.none();
+  }
+  return Option.some({
+    words: [invocation.command, invocation.entrypoint],
+    runAsNode: environment.ELECTRON_RUN_AS_NODE === "1",
+  });
 });
 
-const resolveHostCliCommand = (subcommand: string) =>
+/**
+ * `supaterm <subcommand> <args>` for a person to run on this host: `supaterm` when it is
+ * on PATH, the package runner this process came from, or else the absolute
+ * path of the launcher for this install, such as the one the desktop app
+ * installs. `args` are quoted for the host's shell: POSIX, or PowerShell on
+ * Windows.
+ */
+export const resolveHostCliCommand = (subcommand: string, args: ReadonlyArray<string> = []) =>
   Effect.gen(function* () {
+    const platform = yield* HostProcess.Platform;
+    const withArgs = (prefix: string) =>
+      [prefix, ...args.map((arg) => hostShellWord(platform, arg))].join(" ");
     const command = yield* resolveCliCommand(subcommand);
-    if (command !== `supaterm ${subcommand}`) return { command, launcher: false };
-    if (yield* isCommandAvailable("supaterm")) return { command, launcher: false };
-    const launcher = yield* resolveInstallCommand;
-    return Option.isSome(launcher)
-      ? { command: `${launcher.value} ${subcommand}`, launcher: true }
-      : { command, launcher: false };
+    if (command !== `supaterm ${subcommand}`)
+      return { command: withArgs(command), launcher: false };
+    if (yield* isCommandAvailable("supaterm"))
+      return { command: withArgs(command), launcher: false };
+    const launcher = yield* resolveInstallLauncher;
+    if (Option.isNone(launcher)) return { command: withArgs(command), launcher: false };
+    const quoted = launcher.value.words.map((word) => hostShellWord(platform, word)).join(" ");
+    // PowerShell runs a quoted path only through the call operator.
+    const call = platform === "win32" ? `& ${quoted}` : quoted;
+    const runAsNode = !launcher.value.runAsNode
+      ? ""
+      : platform === "win32"
+        ? "$env:ELECTRON_RUN_AS_NODE=1; "
+        : "env ELECTRON_RUN_AS_NODE=1 ";
+    return { command: withArgs(`${runAsNode}${call} ${subcommand}`), launcher: true };
   });
 
 export const resolveRootCliCommand = (subcommand: string) =>
