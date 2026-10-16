@@ -905,8 +905,10 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
       const beforeCompaction = yield* projections.getThreadProjection(threadId);
 
       const summary = yield* maintenance.compactEventStore;
-      // Superseded state spans several discovery pages. Both turn-item updates stay.
-      assert.isAtLeast(summary.deletedEventCount, 507);
+      // Superseded state spans several discovery pages. Both turn-item updates
+      // stay, and so do the first message and node events (replay order). The
+      // rename stays too: visits are read state and only supersede each other.
+      assert.isAtLeast(summary.deletedEventCount, 504);
 
       const remaining = yield* sql<{ readonly event_id: string }>`
         SELECT event_id
@@ -919,6 +921,9 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
         remaining.map((row) => row.event_id),
         [
           "event:foundation-compact:create",
+          "event:foundation-compact:meta",
+          "event:foundation-compact:message-1",
+          "event:foundation-compact:node-1",
           "event:foundation-compact:item-1",
           "event:foundation-compact:visit-2",
           "event:foundation-compact:message-2",
