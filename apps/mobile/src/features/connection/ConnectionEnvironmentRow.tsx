@@ -1,6 +1,6 @@
 import { ConnectionTraceId } from "./ConnectionTraceId";
 import { SymbolView } from "../../components/AppSymbol";
-import { connectionAddressLabel, connectionStatusText } from "@supaterm/client-runtime/connection";
+import { connectionAddressLabel } from "@supaterm/client-runtime/connection";
 import { relayName } from "@supaterm/shared/relay/name";
 import type { AtomCommandResult } from "@supaterm/client-runtime/state/runtime";
 import { type EnvironmentId, resolveEnvironmentMachineKind } from "@supaterm/contracts";
@@ -23,12 +23,13 @@ import { environmentConnectionAddressAtom } from "../../state/presentation";
 import { ConnectionFormField } from "./ConnectionFormField";
 import { ConnectionStatusDot } from "./ConnectionStatusDot";
 import { DisclosureChevron } from "../../components/DisclosureChevron";
+import { environmentStatusText } from "./environmentStatusText";
 
 function connectionStatusLabel(environment: ConnectedEnvironmentSummary): string | null {
   if (!environment.isEnabled && environment.connectionState !== "unsupported") {
     return "Off";
   }
-  return connectionStatusText({
+  return environmentStatusText({
     phase: environment.connectionState,
     error: environment.connectionError,
     traceId: environment.connectionErrorTraceId,

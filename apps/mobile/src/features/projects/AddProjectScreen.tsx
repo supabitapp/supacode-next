@@ -26,10 +26,7 @@ import {
   sortAddProjectProviderSources,
   type AddProjectRemoteSource,
 } from "@supaterm/client-runtime/operations/projects";
-import {
-  connectionStatusText,
-  type EnvironmentConnectionPhase,
-} from "@supaterm/client-runtime/connection";
+import { type EnvironmentConnectionPhase } from "@supaterm/client-runtime/connection";
 import {
   canPreloadBrowsePath,
   createBrowseNavigationCoordinator,
@@ -84,6 +81,7 @@ import {
   useRemoteEnvironmentRuntime,
   useSavedRemoteConnections,
 } from "../../state/use-remote-environment-registry";
+import { environmentStatusText } from "../connection/environmentStatusText";
 import { resolveAddProjectEnvironment } from "./AddProjectScreen.logic";
 import {
   createNewTaskDraft,
@@ -566,7 +564,7 @@ export function AddProjectSourceScreen() {
                 subtitle={
                   canCreateProjectInEnvironment(environment.connectionState)
                     ? undefined
-                    : connectionStatusText({
+                    : environmentStatusText({
                         phase: environment.connectionState,
                         error: environment.connectionError,
                         traceId: environment.connectionErrorTraceId,
