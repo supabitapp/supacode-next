@@ -327,6 +327,18 @@ describe("server state projection", () => {
       fromVersion: "0.0.30",
       targetVersion: "0.0.31",
     });
+    // A prepared desktop app update restarts only after the client commits it.
+    expect(
+      serverUpdateStateForProgressEvent("0.0.30", "0.0.31", {
+        type: "complete",
+        result: { targetVersion: "0.0.31", method: "desktop-app", desktopUpdateToken: "token" },
+      }),
+    ).toEqual({
+      status: "running",
+      stage: "installing",
+      fromVersion: "0.0.30",
+      targetVersion: "0.0.31",
+    });
   });
 
   it("keeps active update state and hides stale failures after a version change", () => {
