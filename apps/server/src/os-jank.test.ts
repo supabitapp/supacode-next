@@ -100,6 +100,38 @@ effectIt.effect("hydrates PATH when the desktop handoff is absent", () =>
   ),
 );
 
+effectIt.effect("keeps mise's PATH record with the login shell PATH", () =>
+  Effect.acquireUseRelease(
+    Effect.sync(() =>
+      vi
+        .spyOn(NodeChildProcess, "execFileSync")
+        .mockReturnValue(
+          [
+            "__SUPATERM_ENV_PATH_START__",
+            "/home/me/.local/bin:/mise/installs/claude/latest:/mise/shims",
+            "__SUPATERM_ENV_PATH_END__",
+            "__SUPATERM_ENV___MISE_DIFF_START__",
+            "mise-diff",
+            "__SUPATERM_ENV___MISE_DIFF_END__",
+          ].join("\n"),
+        ),
+    ),
+    () =>
+      Effect.gen(function* () {
+        const env: NodeJS.ProcessEnv = { SHELL: "/bin/bash", PATH: "/usr/bin" };
+
+        yield* fixPath().pipe(
+          Effect.provideService(HostProcess.Platform, "linux"),
+          Effect.provideService(HostProcess.Environment, env),
+          Effect.provide(NodeServices.layer),
+        );
+
+        assert.equal(env.__MISE_DIFF, "mise-diff");
+      }),
+    (probe) => Effect.sync(() => probe.mockRestore()),
+  ),
+);
+
 effectIt.effect("repairs Windows PATH even when the desktop marks it prepared", () =>
   Effect.gen(function* () {
     const env: NodeJS.ProcessEnv = { PATH: "C:\\Windows" };
