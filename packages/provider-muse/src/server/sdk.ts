@@ -136,6 +136,10 @@ export function museApprovalMode(runtimeMode: RuntimeMode) {
   return runtimeMode === "full-access" ? "allowAll" : "promptUnmatched";
 }
 
+export function musePermissionProfile(runtimeMode: RuntimeMode) {
+  return runtimeMode === "full-access" ? ":unrestricted" : ":ask-me";
+}
+
 export function museServeArgs(
   options: Pick<MuseSdkHostOptions, "readOnly" | "sessionLogging" | "runtimeMode">,
 ) {
