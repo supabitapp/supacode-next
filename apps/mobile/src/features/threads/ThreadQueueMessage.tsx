@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { type AccessibilityActionEvent, Platform, Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
-import { ControlPillMenu } from "../../components/ControlPill";
+import { Menu } from "../../components/Menu";
 import { assetImageSource } from "../../lib/assetImageSource";
 import { useAssetUrl } from "../../state/assets";
 import type { ThreadQueueRowControls } from "./threadQueueControlPresentation";
@@ -66,7 +66,7 @@ export function ThreadQueueMessage(props: {
   };
 
   return (
-    <ControlPillMenu
+    <Menu
       {...accessibilityProps}
       shouldOpenOnLongPress
       actions={actions}
@@ -105,7 +105,7 @@ export function ThreadQueueMessage(props: {
           attachments={props.attachments}
         />
       </Pressable>
-    </ControlPillMenu>
+    </Menu>
   );
 }
 

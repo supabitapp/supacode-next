@@ -19,7 +19,7 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import { SettingsActionRow } from "./components/SettingsActionRow";
 import type { SettingsTarget } from "./settings-environment-filter";
 import { useSendFeedback } from "./use-send-feedback";
-import { ControlPillMenu } from "../../components/ControlPillMenu";
+import { Menu } from "../../components/Menu";
 import { useProjects } from "../../state/entities";
 import { useEnvironments } from "../../state/environments";
 
@@ -181,7 +181,7 @@ function FeedbackSettingsAction() {
   );
   if (eligibleTargets.length < 2) return row;
   return (
-    <ControlPillMenu
+    <Menu
       accessible
       accessibilityRole="button"
       accessibilityLabel="Send feedback"
@@ -197,7 +197,7 @@ function FeedbackSettingsAction() {
       }}
     >
       {row}
-    </ControlPillMenu>
+    </Menu>
   );
 }
 

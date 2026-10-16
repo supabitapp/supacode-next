@@ -150,7 +150,7 @@ import { VideoAttachmentTile } from "../../components/VideoAttachmentTile";
 import { resolveMarkdownMediaPreview } from "../../lib/markdownMedia";
 import { attachmentVideoPreviewSource } from "../../lib/videoPreviewSource";
 import { CopyTextButton } from "../../components/CopyTextButton";
-import { ControlPillMenu } from "../../components/ControlPill";
+import { Menu } from "../../components/Menu";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
 
@@ -355,7 +355,7 @@ function UserMessageCopyButton(props: {
   const linkText = replaceComposerContextReferences(props.text, (reference) => reference.label);
   if (linkText.length > PROMPT_LINK_MAX_PROMPT_LENGTH) return button;
   return (
-    <ControlPillMenu
+    <Menu
       actions={USER_MESSAGE_COPY_MENU_ACTIONS}
       onPressAction={({ nativeEvent }) => {
         if (nativeEvent.event === "copy-prompt-link") void copyPromptLink(linkText);
@@ -363,7 +363,7 @@ function UserMessageCopyButton(props: {
       shouldOpenOnLongPress
     >
       {button}
-    </ControlPillMenu>
+    </Menu>
   );
 }
 

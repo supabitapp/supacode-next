@@ -95,7 +95,7 @@ import type { RemoteClientConnectionState } from "../../lib/connection";
 import { resolveProviderOptionDescriptors } from "../../lib/providerOptions";
 import { ComposerSpeedToggle } from "../../components/ComposerSpeedToggle";
 import { ComposerModelControl } from "./ComposerModelControl";
-import { ControlPillMenu } from "../../components/ControlPill";
+import { Menu } from "../../components/Menu";
 import type { ActiveTurnComposerAction } from "@supaterm/client-runtime/state/composer-dispatch";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
 import {
@@ -261,7 +261,7 @@ function SendActionButton(props: {
     (action): action is ActiveTurnComposerAction => action !== null,
   );
   return (
-    <ControlPillMenu
+    <Menu
       accessibilityLabel="Choose how to send this message"
       shouldOpenOnLongPress
       preservesKeyboard
@@ -282,7 +282,7 @@ function SendActionButton(props: {
       }}
     >
       {button}
-    </ControlPillMenu>
+    </Menu>
   );
 }
 

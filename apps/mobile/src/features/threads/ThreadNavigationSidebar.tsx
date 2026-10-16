@@ -30,7 +30,7 @@ import type { SearchBarCommands } from "react-native-screens";
 
 import { AppText as Text } from "../../components/AppText";
 import { brandTitleOffset, CompactBrandTitle } from "../../components/CompactBrandTitle";
-import { ControlPillMenu } from "../../components/ControlPill";
+import { Menu } from "../../components/Menu";
 import { SymbolView } from "../../components/AppSymbol";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
@@ -1061,9 +1061,9 @@ function ThreadNavigationSidebarPane(
               brand={<CompactBrandTitle allowFontScaling={false} />}
             />
             <View className="flex-row items-center gap-2.5">
-              <ControlPillMenu actions={listMenuActions} onPressAction={handleListMenuAction}>
+              <Menu actions={listMenuActions} onPressAction={handleListMenuAction}>
                 <SidebarFilterButton accessibilityLabel="Filter threads" icon={filterIcon} />
-              </ControlPillMenu>
+              </Menu>
               <SidebarHeaderActions onOpenSettings={props.onOpenSettings} />
             </View>
           </View>
