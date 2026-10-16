@@ -7,8 +7,8 @@ import {
 import { markdownWithAuthoredWindowsPaths, markdownWithHtml } from "../lib/markdownDocument";
 import { markdownMermaidMedia } from "../lib/markdownMermaidMedia";
 import { NativeMermaidBlock } from "./NativeMermaidBlock";
-import { useCallback, useMemo, useState } from "react";
-import { ActionSheetIOS, Platform, Share, StyleSheet, View } from "react-native";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { Platform, Share, StyleSheet, View } from "react-native";
 import {
   EnrichedMarkdownText,
   type DocumentAssetsEvent,
@@ -18,7 +18,7 @@ import {
 import type { SelectableMarkdownTextProps } from "./SelectableMarkdownText.types";
 
 import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
-import { AndroidAnchoredMenu } from "../components/AndroidAnchoredMenu";
+import { Menu } from "../components/Menu";
 import { useEnrichedLinkVariants } from "./useEnrichedLinkVariants";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
 import {
@@ -282,37 +282,20 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
     [mermaidSources, resolveImageSource],
   );
   const renderMarkdown = (openAndroidMenu?: () => void) => {
-    const onLinkLongPress = props.fileContextMenu
-      ? ({ url }: { url: string }) => {
-          const menu = props.fileContextMenu?.(url) ?? {
-            title: url,
-            actions: [
-              { id: "enriched-open-link", title: "Open link" },
-              { id: "enriched-copy-link", title: "Copy link" },
-            ],
-          };
-          const actions = menu.actions;
-          if (Platform.OS === "ios") {
-            ActionSheetIOS.showActionSheetWithOptions(
-              {
-                title: menu.title,
-                options: [...actions.map((action) => action.title), "Cancel"],
-                cancelButtonIndex: actions.length,
-                disabledButtonIndices: actions.flatMap((action, index) =>
-                  action.disabled ? [index] : [],
-                ),
-              },
-              (index) => {
-                const action = actions[index];
-                if (action && !action.disabled) performMenuAction(url, action.id);
-              },
-            );
-          } else {
+    const onLinkLongPress =
+      Platform.OS === "android" && props.fileContextMenu
+        ? ({ url }: { url: string }) => {
+            const menu = props.fileContextMenu?.(url) ?? {
+              title: url,
+              actions: [
+                { id: "enriched-open-link", title: "Open link" },
+                { id: "enriched-copy-link", title: "Copy link" },
+              ],
+            };
             setActiveMenu({ url, menu });
             openAndroidMenu?.();
           }
-        }
-      : undefined;
+        : undefined;
 
     return (
       <View
@@ -358,7 +341,8 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
   };
 
   return Platform.OS === "android" && props.fileContextMenu ? (
-    <AndroidAnchoredMenu
+    <Menu
+      shouldOpenOnLongPress
       title={activeMenu?.menu.title}
       actions={
         activeMenu?.menu.actions.map((action) => ({
@@ -372,9 +356,17 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
       }}
       style={{ flexShrink: 1, minWidth: 0 }}
     >
-      {renderMarkdown}
-    </AndroidAnchoredMenu>
+      <MarkdownMenuAnchor renderMarkdown={renderMarkdown} />
+    </Menu>
   ) : (
     renderMarkdown()
   );
+}
+
+/** Adapts the rich-text link gesture to Menu's long-press trigger without wrapping text in a Pressable. */
+function MarkdownMenuAnchor(props: {
+  readonly renderMarkdown: (openMenu?: () => void) => ReactNode;
+  readonly onLongPress?: () => void;
+}) {
+  return props.renderMarkdown(props.onLongPress);
 }
