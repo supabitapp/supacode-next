@@ -21,7 +21,7 @@ import { formatItemFullDetail, type ThreadFeedActivity } from "../../lib/threadA
 import { useTurnItemDetail } from "../../state/queries";
 import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
 import { QuestionAnswerHistory } from "./QuestionAnswerHistory";
-import { ThreadCommandOutput } from "./thread-command-output";
+import { ThreadCommandOutput, useCommandOutputStreaming } from "./thread-command-output";
 import { ThreadMarkdownImage } from "./ThreadMarkdownImage";
 
 function ReplCodeText({
@@ -67,7 +67,7 @@ export function ThreadWorkLogDetail(props: {
 }) {
   const { row } = props;
   // Command rows stream their output, including the final output, from the server.
-  const streamsOutput = row.projectedItem.item.type === "command_execution";
+  const streamsOutput = useCommandOutputStreaming(props.environmentId, row.projectedItem);
   const fetchedDetail = useTurnItemDetail(
     row.fetchesDetail && !streamsOutput
       ? { environmentId: props.environmentId, row: row.projectedItem }

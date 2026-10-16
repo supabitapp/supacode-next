@@ -1,4 +1,14 @@
-import type { EnvironmentId, ThreadId, TurnItemId } from "@supaterm/contracts";
+import type {
+  EnvironmentId,
+  OrchestrationV2ProjectedTurnItem,
+  ThreadId,
+  TurnItemId,
+} from "@supaterm/contracts";
+import { useAtomValue } from "@effect/atom-react";
+import {
+  commandOutputUnavailable,
+  NO_COMMAND_OUTPUT,
+} from "@supaterm/client-runtime/state/command-output";
 import { TERMINAL_PALETTES, terminalOutputSpans } from "@supaterm/shared/terminalOutput";
 import { useLayoutEffect, useMemo, useRef } from "react";
 
@@ -10,9 +20,31 @@ import { useEnvironmentQuery } from "../../state/query";
 const FOLLOW_SLACK_PX = 8;
 
 /**
+ * True for a command row whose output streams from the server. Older servers
+ * reject the subscription, and their rows show the fetched item's output.
+ */
+export function useCommandOutputStreaming(
+  environmentId: EnvironmentId,
+  projectedItem: OrchestrationV2ProjectedTurnItem,
+): boolean {
+  const isCommand = projectedItem.item.type === "command_execution";
+  // Shares the panel's subscription, and re-renders only when availability changes.
+  const unavailable = useAtomValue(
+    isCommand
+      ? orchestrationEnvironment.v2.commandOutput({
+          environmentId,
+          input: { threadId: projectedItem.sourceThreadId, itemId: projectedItem.sourceItemId },
+        })
+      : NO_COMMAND_OUTPUT,
+    commandOutputUnavailable,
+  );
+  return isCommand && !unavailable;
+}
+
+/**
  * Output of one expanded command row: streams while the command runs, then
- * shows its final output. It subscribes only while mounted, so collapsed rows
- * and other threads receive nothing.
+ * shows its final output. Mount it only when `useCommandOutputStreaming` holds.
+ * It subscribes only while mounted, so collapsed rows and other threads receive nothing.
  */
 export function CommandOutputPanel(props: {
   readonly environmentId: EnvironmentId;

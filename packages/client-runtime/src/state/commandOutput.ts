@@ -1,4 +1,6 @@
 import type { OrchestrationV2CommandOutputFrame } from "@supaterm/contracts";
+import * as Option from "effect/Option";
+import { AsyncResult, Atom } from "effect/reactivity";
 import {
   appendTerminalOutput,
   EMPTY_TERMINAL_OUTPUT,
@@ -34,4 +36,21 @@ export function applyCommandOutputFrame(
     ),
     running: frame.running,
   };
+}
+
+/** A row with no output subscription, for hooks that subscribe only for command rows. */
+export const NO_COMMAND_OUTPUT = Atom.make(AsyncResult.initial<CommandOutputView>());
+
+/**
+ * Whether a row's output subscription failed before it sent any output, as it
+ * does on servers from before live command output. Such rows show the fetched
+ * item's final output instead.
+ */
+export function commandOutputUnavailable(
+  result: AsyncResult.AsyncResult<CommandOutputView, unknown>,
+): boolean {
+  return (
+    result._tag === "Failure" &&
+    (Option.getOrUndefined(AsyncResult.value(result))?.output.text ?? "") === ""
+  );
 }

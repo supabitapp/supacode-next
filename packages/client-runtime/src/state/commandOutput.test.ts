@@ -1,6 +1,12 @@
+import * as Option from "effect/Option";
+import { AsyncResult } from "effect/reactivity";
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyCommandOutputFrame, EMPTY_COMMAND_OUTPUT } from "./commandOutput.ts";
+import {
+  applyCommandOutputFrame,
+  commandOutputUnavailable,
+  EMPTY_COMMAND_OUTPUT,
+} from "./commandOutput.ts";
 
 describe("applyCommandOutputFrame", () => {
   it("continues an escape and a redraw split across appends", () => {
@@ -49,5 +55,46 @@ describe("applyCommandOutputFrame", () => {
     expect(view.output.text).toBe("done\n");
     expect(view.output.truncated).toBe(false);
     expect(view.running).toBe(false);
+  });
+});
+
+describe("commandOutputUnavailable", () => {
+  const view = (text: string, running: boolean) =>
+    AsyncResult.success(
+      applyCommandOutputFrame(EMPTY_COMMAND_OUTPUT, {
+        kind: "replace",
+        text,
+        truncated: false,
+        running,
+      }),
+    );
+
+  it("falls back when a server rejects the subscription before any output", () => {
+    expect(
+      commandOutputUnavailable(AsyncResult.fail("Unknown request tag: subscribeCommandOutput")),
+    ).toBe(true);
+    expect(
+      commandOutputUnavailable(
+        AsyncResult.fail("Request failed", { previousSuccess: Option.some(view("", true)) }),
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps streaming while the first frame is on its way", () => {
+    expect(commandOutputUnavailable(AsyncResult.initial(true))).toBe(false);
+  });
+
+  it("keeps a finished command with no output on the stream", () => {
+    expect(commandOutputUnavailable(view("", false))).toBe(false);
+  });
+
+  it("keeps output the stream already sent when it fails later", () => {
+    expect(
+      commandOutputUnavailable(
+        AsyncResult.fail("Connection lost", {
+          previousSuccess: Option.some(view("partial\n", true)),
+        }),
+      ),
+    ).toBe(false);
   });
 });

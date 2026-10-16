@@ -27,7 +27,7 @@ import { formatWorkspaceRelativePath } from "../../filePathDisplay";
 import { Button } from "../ui/button";
 import ChatMarkdown, { ChatMarkdownAssetImage } from "../ChatMarkdown";
 import { RenderErrorBoundary } from "../RenderErrorBoundary";
-import { CommandOutputPanel } from "./CommandOutputPanel";
+import { CommandOutputPanel, useCommandOutputStreaming } from "./CommandOutputPanel";
 import { resolveExternalWebLinkHref } from "./externalLinkContextMenu";
 import type { ExpandedImagePreview } from "./ExpandedImagePreview";
 import { ShellCommandBlock } from "./ShellCommandBlock";
@@ -234,7 +234,7 @@ function ToolCallBody(
 
 export const V2ItemInspector = memo(function V2ItemInspector(props: V2ItemInspectorProps) {
   // Command rows stream their output, including the final output, from the server.
-  const streamsOutput = props.projectedItem.item.type === "command_execution";
+  const streamsOutput = useCommandOutputStreaming(props.environmentId, props.projectedItem);
   const fetched = useFetchedTurnItem(props.projectedItem, props.environmentId, streamsOutput);
   const item = fetched.item;
   const outputState = fetched.output;
