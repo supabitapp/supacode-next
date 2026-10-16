@@ -3010,7 +3010,6 @@ export default function Sidebar() {
     },
     [planForwardNavigation, markThreadDone],
   );
-  // The thread.mark-done shortcut parks the open thread through this same path.
   useEffect(() => registerMarkDoneAndAdvance(attemptMarkDone), [attemptMarkDone]);
   // Post-completion navigation must skip threads being marked done in this same batch —
   // they are all leaving the card block together. Rows already in the done

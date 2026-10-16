@@ -7868,7 +7868,6 @@ export default function ChatView(props: ChatViewProps) {
           void handleReopenActiveThreadStable();
           return;
         }
-        // Same as the sidebar Mark as Done button: mark done, then open the next thread.
         if (markDoneAndAdvance(activeThreadRef)) return;
 
         void markThreadDone(activeThreadRef).then((result) => {

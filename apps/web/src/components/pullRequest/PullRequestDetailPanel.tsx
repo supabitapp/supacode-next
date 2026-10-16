@@ -13,6 +13,7 @@ import {
   AuthSourceControlWriteScope,
   type EnvironmentId,
   type PullRequestAction,
+  type PullRequestDetail,
   type PullRequestMergeMethod,
   type PullRequestListEntry,
   type PullRequestUpdateMethod,
@@ -321,6 +322,15 @@ const openNumberContextMenu = (
     position: { x: event.clientX, y: event.clientY },
   });
 };
+
+function deleteBranchHint(
+  detail: Pick<PullRequestDetail, "headBranch" | "headRepositoryNameWithOwner" | "repository">,
+  { connected, armed }: { readonly connected: boolean; readonly armed: boolean },
+): string {
+  if (!connected) return "Reconnect to delete this branch";
+  if (armed) return "Local branches and worktrees are not changed";
+  return `${detail.headBranch} in ${detail.headRepositoryNameWithOwner ?? detail.repository}`;
+}
 
 function PullRequestBaseFreshnessWarning({
   baseBranch,
@@ -2278,11 +2288,10 @@ export function PullRequestDetailPanel({
                             />
                           )}
                           <span className="max-w-full truncate text-xs text-muted-foreground">
-                            {!environmentConnected
-                              ? "Reconnect to delete this branch"
-                              : confirm.armed === "delete-branch"
-                                ? "Local branches and worktrees are not changed"
-                                : `${detail.headBranch} in ${detail.headRepositoryNameWithOwner ?? detail.repository}`}
+                            {deleteBranchHint(detail, {
+                              connected: environmentConnected,
+                              armed: confirm.armed === "delete-branch",
+                            })}
                           </span>
                         </span>
                       </MenuItem>

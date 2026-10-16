@@ -642,9 +642,6 @@ const make = Effect.gen(function* () {
           return keep("repository or branch changed");
         const changes = yield* localChangesReason(worktreePath, settings);
         if (changes !== null) return keep(changes);
-        // The project's done script starts in the worktree right after the
-        // thread is marked done. Marking done stamps updatedAt now, even when
-        // automatic marking backdates doneAt to the thread's last activity.
         if (
           !deleted &&
           group.some(

@@ -777,12 +777,8 @@ export const layerWithOptions = (
         ReturnType<typeof readReleasedBackgroundTasks>
       >[number];
 
-      // Removes the tasks `readReleasedBackgroundTasks` found from their
-      // rosters. Their process is gone, so nothing will report them ending,
-      // and a leftover roster keeps the thread Waiting. Tasks a
-      // replacement session reported since are left in place. The write
-      // commits only if the stored row still equals what was read, and is
-      // retried a few times when a provider update lands in between.
+      // Their process is gone, so nothing will report them ending, and a
+      // leftover roster keeps the thread Waiting.
       const writeReleasedBackgroundWorkEvents = (
         released: ReadonlyArray<ReleasedBackgroundTasks>,
       ) =>

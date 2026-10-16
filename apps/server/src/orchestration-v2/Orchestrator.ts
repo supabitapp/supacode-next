@@ -8797,13 +8797,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     });
   });
 
-  /**
-   * What Stop holds besides the run it interrupts: durable queued messages wait for the
-   * user, buffered provider wakes are cancelled, and the thread's pull request and workflow
-   * run watches end. Every wake its delegated tasks still owe is dropped, since Stop stops
-   * those tasks too.
-   * `cohortRunIds` are dropped even when they owe nothing, like a plain interrupt's.
-   */
   const holdStoppedThread = (input: {
     readonly command: Extract<
       OrchestrationV2ServerCommand,

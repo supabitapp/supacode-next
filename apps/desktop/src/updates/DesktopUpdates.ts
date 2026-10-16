@@ -579,8 +579,6 @@ export const make = Effect.gen(function* () {
     );
   }).pipe(Effect.withSpan("desktop.updates.downloadAvailableUpdate"));
 
-  // Records the version an install hands to the OS installer, so the next
-  // start can tell whether it applied. Best effort.
   const installRecordDir = environment.path.join(environment.baseDir, "runtime");
   const installRecordPath = environment.path.join(
     installRecordDir,

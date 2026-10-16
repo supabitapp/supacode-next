@@ -1498,8 +1498,6 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
         yield* fileSystem.makeDirectory(path.dirname(targetPath), { recursive: true });
         yield* fileSystem.rename(archivePath, targetPath);
       } else {
-        // The new Windows ARM fallback must extract x64 ZIPs even when Git's GNU tar wins PATH.
-        // Archive selection for existing native distributions stays unchanged.
         const tarCommand =
           platformTarget === "windows-aarch64" &&
           paths.platformTarget === "windows-x86_64" &&

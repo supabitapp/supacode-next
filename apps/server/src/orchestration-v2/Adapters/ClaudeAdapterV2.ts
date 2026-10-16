@@ -234,17 +234,10 @@ const CLAUDE_SCRIPT_EXTENSIONS = [".js", ".mjs", ".tsx", ".ts", ".jsx"];
 const CLAUDE_MCP_REGISTRATION_TIMEOUT = "90 seconds";
 
 /**
- * Starts the Claude CLI as the leader of its own process group. When the CLI
- * exits it stops the MCP servers it started, but not their children: a
- * plugin's `bun run start` wrapper dies and its `bun server.ts` keeps running,
- * writing to a pipe nobody reads. Those stay in the CLI's group, so
- * the rest of the group gets SIGKILL once the CLI exits for any reason.
- * Commands the agent runs through its Bash tool start their own groups, so
- * background jobs it launched are not part of this.
- *
- * The SDK reads stderr only from its own spawn, where it redacts credentials
- * before adding the tail to exit errors. Here stderr is dropped instead, so
- * exit errors carry only the code or signal.
+ * When the CLI exits it stops the MCP servers it started, but not their children: a plugin's
+ * `bun run start` wrapper dies and its `bun server.ts` keeps running, writing to a pipe nobody
+ * reads. Those stay in the CLI's group, so the rest of the group gets SIGKILL once the
+ * CLI exits for any reason.
  */
 function spawnClaudeProcessGroup(options: ClaudeSpawnOptions): ClaudeSpawnedProcess {
   const child = NodeChildProcess.spawn(options.command, options.args, {

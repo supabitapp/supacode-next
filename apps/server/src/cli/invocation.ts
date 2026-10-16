@@ -153,6 +153,9 @@ const powershellWord = (value: string) =>
 const hostShellWord = (platform: NodeJS.Platform, value: string) =>
   platform === "win32" ? powershellWord(value) : shellWord(value);
 
+const electronRunAsNodePrefix = (platform: NodeJS.Platform) =>
+  platform === "win32" ? "$env:ELECTRON_RUN_AS_NODE=1; " : "env ELECTRON_RUN_AS_NODE=1 ";
+
 /**
  * The words a person can type to run this install when `supaterm` is not on
  * PATH: the desktop app's `supaterm` shim, a standalone binary, or this
@@ -201,11 +204,7 @@ export const resolveHostCliCommand = (subcommand: string, args: ReadonlyArray<st
     const quoted = launcher.value.words.map((word) => hostShellWord(platform, word)).join(" ");
     // PowerShell runs a quoted path only through the call operator.
     const call = platform === "win32" ? `& ${quoted}` : quoted;
-    const runAsNode = !launcher.value.runAsNode
-      ? ""
-      : platform === "win32"
-        ? "$env:ELECTRON_RUN_AS_NODE=1; "
-        : "env ELECTRON_RUN_AS_NODE=1 ";
+    const runAsNode = launcher.value.runAsNode ? electronRunAsNodePrefix(platform) : "";
     return { command: withArgs(`${runAsNode}${call} ${subcommand}`), launcher: true };
   });
 
