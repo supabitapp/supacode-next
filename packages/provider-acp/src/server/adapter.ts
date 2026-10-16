@@ -89,7 +89,7 @@ import {
   resolveEmbeddedTerminalContent,
   type AcpClientTerminals,
 } from "./clientTerminals.ts";
-import { ACP_SESSION_MODE_OPTION_ID } from "./sessionConfig.ts";
+import { ACP_EMPTY_OPTION_VALUE, ACP_SESSION_MODE_OPTION_ID } from "./sessionConfig.ts";
 import * as AcpSessionRuntime from "./AcpSessionRuntime.ts";
 import {
   supatermAcpPromptWithInstructions,
@@ -6322,7 +6322,11 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
               };
             });
           }
-          const optionSelections = modelSelection.options ?? [];
+          // Restore the agent's own empty value for choices Supaterm stores under a
+          // reserved ID (see ACP_EMPTY_OPTION_VALUE).
+          const optionSelections = (modelSelection.options ?? []).map((selection) =>
+            selection.value === ACP_EMPTY_OPTION_VALUE ? { ...selection, value: "" } : selection,
+          );
           const configOptions = yield* runtime.getConfigOptions;
           const availableConfigIds = new Set(configOptions.map((option) => option.id));
           const hasNativeConfigWithSyntheticModeId = availableConfigIds.has(
