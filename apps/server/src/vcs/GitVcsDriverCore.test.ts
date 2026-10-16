@@ -999,11 +999,25 @@ it.effect.each([
     name: "reference lock",
     stderr: "error: cannot lock ref 'refs/remotes/origin/main': is at abc but expected def",
     expected: "could not update a local reference",
+    attempts: 3,
   },
   {
     name: "lock file",
     stderr: "fatal: Unable to create '/repo/.git/FETCH_HEAD.lock': File exists.",
     expected: "could not update a local reference",
+    attempts: 3,
+  },
+  {
+    name: "reference race on Git 2.53",
+    stderr: "error: fetching ref refs/remotes/origin/main failed: incorrect old value provided",
+    expected: "could not update a local reference",
+    attempts: 3,
+  },
+  {
+    name: "held reference lock on Git 2.53",
+    stderr: "error: fetching ref refs/remotes/origin/main failed: reference already exists",
+    expected: "could not update a local reference",
+    attempts: 3,
   },
   {
     name: "reference namespace conflict",
@@ -1077,10 +1091,7 @@ it.effect.each([
     assert.notInclude(yield* encodeGitCommandError(error), secret);
     assert.notProperty(error, "stderr");
     assert.notProperty(error, "args");
-    assert.equal(
-      yield* Ref.get(attempts),
-      scenario.name === "reference lock" || scenario.name === "lock file" ? 3 : 1,
-    );
+    assert.equal(yield* Ref.get(attempts), "attempts" in scenario ? scenario.attempts : 1);
   }).pipe(Effect.provide(layerServerConfig.pipe(Layer.provideMerge(NodeServices.layer)))),
 );
 
@@ -3889,6 +3900,8 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         "error: cannot lock ref 'refs/remotes/origin/main': reference is missing but expected def",
         "error: cannot lock ref 'refs/remotes/origin/main': Unable to create '/repo/.git/refs/remotes/origin/main.lock': File exists.",
         "fatal: Unable to create '/repo/.git/FETCH_HEAD.lock': File exists.",
+        "error: fetching ref refs/remotes/origin/main failed: incorrect old value provided",
+        "error: fetching ref refs/remotes/origin/main failed: reference already exists",
       ].flatMap((stderr) => ["setup", "background"].map((method) => ({ method, stderr }))),
     )("recovers from a temporary conflict during $method fetch: $stderr", ({ method, stderr }) =>
       Effect.gen(function* () {

@@ -573,7 +573,7 @@ function fetchFailureDetail(stderr: string): string | undefined {
   }
   if (
     lines.some((line) =>
-      /^(?:(?:error|fatal): cannot lock ref\b|fatal: Unable to create ['"].+\.lock['"]:)/i.test(
+      /^(?:(?:error|fatal): cannot lock ref\b|fatal: Unable to create ['"].+\.lock['"]:|error: fetching ref \S+ failed: (?:incorrect old value provided|reference already exists)$)/i.test(
         line,
       ),
     )
@@ -595,6 +595,9 @@ function isTransientGitFetchFailure(stderr: string): boolean {
         message,
       ) ||
       /^(?:(?:error|fatal): cannot lock ref ['"].+['"]: |fatal: )Unable to create ['"].+\.lock['"]: File exists\.$/i.test(
+        message,
+      ) ||
+      /^error: fetching ref \S+ failed: (?:incorrect old value provided|reference already exists)$/i.test(
         message,
       )
     );
