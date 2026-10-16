@@ -2081,6 +2081,8 @@ export const makeMuseAdapterV2 = Effect.fn("makeMuseAdapterV2")(function* (
         providerSession: session,
         events: Stream.fromQueue(events),
 
+        // Workflows and subagents run in this session's own `muse` host.
+        backgroundTasksEndWithProcess: true,
         hasPendingBackgroundWork: Effect.sync(
           () => observedChildren.size > 0 || wake !== undefined,
         ),
