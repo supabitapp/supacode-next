@@ -1,5 +1,6 @@
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { NativeHeaderToolbar } from "../../native/StackHeader";
 import { dispatchHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import type { WorkspaceDockFilterMenu } from "./WorkspaceDock.types";
@@ -64,11 +65,13 @@ export function WorkspaceHeaderActions(props: { readonly filterMenu: WorkspaceDo
           ),
         )}
       </NativeHeaderToolbar.Menu>
-      <NativeHeaderToolbar.Button
-        accessibilityLabel="Focus search"
-        icon="magnifyingglass"
-        onPress={() => dispatchHardwareKeyboardCommand("focusSearch")}
-      />
+      {NATIVE_LIQUID_GLASS_SUPPORTED ? null : (
+        <NativeHeaderToolbar.Button
+          accessibilityLabel="Focus search"
+          icon="magnifyingglass"
+          onPress={() => dispatchHardwareKeyboardCommand("focusSearch")}
+        />
+      )}
     </NativeHeaderToolbar>
   );
 }
