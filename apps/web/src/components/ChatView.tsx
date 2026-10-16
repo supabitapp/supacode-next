@@ -6970,6 +6970,7 @@ export default function ChatView(props: ChatViewProps) {
       return;
     useRightPanelStore.getState().openPullRequest(activeThreadRef, pullRequestPanelTarget);
   };
+  const addPullRequestSurfaceStable = useStableCallback(addPullRequestSurface);
   const pullRequestSurfaceAvailable = supportsPullRequests && pullRequestPanelTarget !== null;
   const supportsMarkDone = serverConfig != null;
   const supportsSnooze = serverConfig != null;
@@ -7314,6 +7315,7 @@ export default function ChatView(props: ChatViewProps) {
       sendInFlightRef.current = false;
     }
   };
+  const sendStandaloneCommandStable = useStableCallback(sendStandaloneCommand);
   const activeGoal = activeThreadShell?.goal ?? null;
   const goalBannerItem = useMemo<ComposerBannerStackItem | null>(() => {
     if (!activeThread || activeGoal === null) return null;
@@ -7334,7 +7336,9 @@ export default function ChatView(props: ChatViewProps) {
             <Button
               size="xs"
               variant="ghost"
-              onClick={() => void sendStandaloneCommand("/goal resume", "Failed to resume goal.")}
+              onClick={() =>
+                void sendStandaloneCommandStable("/goal resume", "Failed to resume goal.")
+              }
             >
               Resume
             </Button>
@@ -7342,14 +7346,14 @@ export default function ChatView(props: ChatViewProps) {
           <Button
             size="xs"
             variant="ghost"
-            onClick={() => void sendStandaloneCommand("/goal clear", "Failed to clear goal.")}
+            onClick={() => void sendStandaloneCommandStable("/goal clear", "Failed to clear goal.")}
           >
             Clear
           </Button>
         </>
       ),
     };
-  }, [activeGoal, activeThread, isWorking, sendStandaloneCommand]);
+  }, [activeGoal, activeThread, isWorking, sendStandaloneCommandStable]);
 
   const backgroundWorkBannerItem = useMemo<ComposerBannerStackItem | null>(() => {
     const presentation = presentPendingBackgroundWork(activeBackgroundTasks);
@@ -10718,7 +10722,7 @@ export default function ChatView(props: ChatViewProps) {
               onAddTerminal={addTerminalSurfaceStable}
               onAddDiff={addDiffSurfaceStable}
               onAddFiles={addFilesSurfaceStable}
-              onAddPullRequest={addPullRequestSurface}
+              onAddPullRequest={addPullRequestSurfaceStable}
               onAddPullRequests={addPullRequestsSurfaceStable}
               onAddDevice={addDeviceSurfaceStable}
               browserAvailable={canOperatePreview && browserAvailable}
@@ -10776,7 +10780,7 @@ export default function ChatView(props: ChatViewProps) {
             onAddTerminal={addTerminalSurfaceStable}
             onAddDiff={addDiffSurfaceStable}
             onAddFiles={addFilesSurfaceStable}
-            onAddPullRequest={addPullRequestSurface}
+            onAddPullRequest={addPullRequestSurfaceStable}
             onAddPullRequests={addPullRequestsSurfaceStable}
             onAddDevice={addDeviceSurfaceStable}
             browserAvailable={canOperatePreview && browserAvailable}
