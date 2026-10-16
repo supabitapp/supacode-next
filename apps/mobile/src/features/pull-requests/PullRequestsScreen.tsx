@@ -71,7 +71,7 @@ const homeProjectOrderAtom = Atom.family((projectGroupingMode: SidebarProjectGro
 function PullRequestScrollView(props: ScrollViewProps) {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollViewMarker>
+    <ScrollViewMarker style={{ flex: 1 }}>
       <ScrollView
         {...props}
         automaticallyAdjustContentInsets={false}
