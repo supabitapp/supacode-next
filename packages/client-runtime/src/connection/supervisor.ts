@@ -38,7 +38,14 @@ import {
 
 const RETRY_BASE_DELAY_MS = 1_000;
 const RETRY_MAX_DELAY_MS = 300_000;
+// Per-route budget to resolve credentials and create the session, which ends
+// when the driver reports the synchronizing stage. Each route that gets that
+// far adds its own budget for the socket to open (bounded at 15 seconds by the
+// RPC session) and the server to deliver the first config snapshot. A cold
+// server with a large database can take longer than 15 seconds to answer, and
+// that is not a reason to drop a working connection.
 const CONNECTION_ESTABLISHMENT_TIMEOUT = "15 seconds";
+const synchronizationTimeout = Duration.millis(ConnectionDriver.ROUTE_SNAPSHOT_TIMEOUT_MS);
 const CONNECTION_PROBE_TIMEOUT = "15 seconds";
 // Mobile resumes, explicit retries, and offline events want a fast answer:
 // the user is waiting, or the network may be gone.
@@ -371,11 +378,16 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
     attempt: number,
     generation: number,
     lastFailure: ConnectionAttemptError | null,
+    synchronizedRoutes: Ref.Ref<number>,
   ) {
     const next = yield* attemptEntry;
     return yield* driver.connect(
       next.entry,
-      (progress) => reportProgress(attempt, generation, lastFailure, progress),
+      (progress) =>
+        (progress.stage === "synchronizing"
+          ? Ref.update(synchronizedRoutes, (count) => count + 1)
+          : Effect.void
+        ).pipe(Effect.andThen(reportProgress(attempt, generation, lastFailure, progress))),
       next.preflight,
     );
   });
@@ -585,8 +597,11 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
     const switchingTo = yield* Ref.get(preferredRoute);
     const routeCount = connectionRoutes(yield* Ref.get(currentEntry)).length;
     yield* SubscriptionRef.set(prepared, Option.none());
+    const synchronizedRoutes = yield* Ref.make(0);
     const establishment = yield* Effect.raceAllFirst([
-      exitUnlessInterrupted(establishConnection(attempt, generation, lastFailure)).pipe(
+      exitUnlessInterrupted(
+        establishConnection(attempt, generation, lastFailure, synchronizedRoutes),
+      ).pipe(
         Effect.map((exit): EstablishmentEvent => ({
           _tag: "Completed",
           exit,
@@ -599,13 +614,28 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
         })),
       ),
       // Every route gets a full setup timeout, after the driver has waited
-      // for routes that were slow to answer their check.
-      Effect.sleep(
-        Duration.sum(
-          Duration.times(Duration.fromInputUnsafe(CONNECTION_ESTABLISHMENT_TIMEOUT), routeCount),
-          Duration.millis(routeCount > 1 ? ConnectionDriver.LATE_ROUTE_CHECK_TIMEOUT_MS : 0),
-        ),
-      ).pipe(Effect.as<EstablishmentEvent>({ _tag: "TimedOut" })),
+      // for routes that were slow to answer their check. Each route that
+      // reaches synchronizing adds its own snapshot budget, so a route that
+      // fails late does not eat the next route's time.
+      Effect.gen(function* () {
+        const startedAt = yield* Clock.monotonicTimeNanos;
+        const setup = Duration.toNanosUnsafe(
+          Duration.sum(
+            Duration.times(Duration.fromInputUnsafe(CONNECTION_ESTABLISHMENT_TIMEOUT), routeCount),
+            Duration.millis(routeCount > 1 ? ConnectionDriver.LATE_ROUTE_CHECK_TIMEOUT_MS : 0),
+          ),
+        );
+        while (true) {
+          const synchronized = BigInt(yield* Ref.get(synchronizedRoutes));
+          const deadline =
+            startedAt + setup + synchronized * Duration.toNanosUnsafe(synchronizationTimeout);
+          const remaining = deadline - (yield* Clock.monotonicTimeNanos);
+          if (remaining <= 0n) {
+            return { _tag: "TimedOut" } as const satisfies EstablishmentEvent;
+          }
+          yield* Effect.sleep(Duration.nanos(remaining));
+        }
+      }),
     ]);
 
     if (establishment._tag === "Interrupted") {

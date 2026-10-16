@@ -1,5 +1,6 @@
 import * as Context from "effect/Context";
 import * as Clock from "effect/Clock";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Exit from "effect/Exit";
@@ -53,6 +54,14 @@ export type RouteCheck = "answered" | "silent" | "unchecked";
 export const ROUTE_CHECK_TIMEOUT_MS = 2_500;
 /** How long a connection attempt keeps listening for a route that missed the first check. */
 export const LATE_ROUTE_CHECK_TIMEOUT_MS = 15_000;
+/** How long a route has to resolve credentials and open its session. */
+const ROUTE_SETUP_TIMEOUT_MS = 15_000;
+/**
+ * How long a route that opened its session waits for the first config
+ * snapshot. A cold server with a large database can take longer than the
+ * setup budget to answer, and that is not a reason to drop a working socket.
+ */
+export const ROUTE_SNAPSHOT_TIMEOUT_MS = 75_000;
 const ROUTE_PREFERENCE_WAIT_MS = 250;
 const PREFLIGHT_VALIDITY_NANOS = 10_000_000_000n;
 
@@ -107,8 +116,10 @@ export const leaseRouteOrigin = (route: ConnectionRoute, httpBaseUrl: string) =>
 };
 
 type CheckRoute = (route: ConnectionRoute) => Effect.Effect<RouteCheck, never, Scope.Scope>;
+/** `synchronizing` marks that the session is open and waits for its first snapshot. */
 type ConnectRoute<R> = (
   route: ConnectionRoute,
+  synchronizing: Effect.Effect<void>,
 ) => Effect.Effect<EnvironmentConnectionLease, ConnectionAttemptError, R | Scope.Scope>;
 
 export const connectOverRoutes = Effect.fn("ConnectionDriver.connectOverRoutes")(function* <R>(
@@ -157,17 +168,23 @@ const selectAndConnect = Effect.fnUntraced(function* <R>(
   // Each route gets its own scope so a half-open session closes before the next try.
   const attempt = Effect.fnUntraced(function* (route: ConnectionRoute) {
     const routeScope = yield* Scope.fork(connectionScope);
-    const result = yield* connectRoute(route).pipe(
-      Effect.timeoutOrElse({
-        duration: "15 seconds",
-        orElse: () =>
-          Effect.fail(
-            new ConnectionTransientError({
-              reason: "timeout",
-              detail: `${route.target.label} did not respond during connection setup.`,
-            }),
-          ),
-      }),
+    const synchronizing = yield* Deferred.make<void>();
+    const deadline = Effect.sleep(ROUTE_SETUP_TIMEOUT_MS).pipe(
+      Effect.andThen(Deferred.isDone(synchronizing)),
+      Effect.flatMap((open) => (open ? Effect.sleep(ROUTE_SNAPSHOT_TIMEOUT_MS) : Effect.void)),
+      Effect.andThen(
+        Effect.fail(
+          new ConnectionTransientError({
+            reason: "timeout",
+            detail: `${route.target.label} did not respond during connection setup.`,
+          }),
+        ),
+      ),
+    );
+    const result = yield* Effect.raceFirst(
+      connectRoute(route, Deferred.succeed(synchronizing, undefined).pipe(Effect.asVoid)),
+      deadline,
+    ).pipe(
       Scope.provide(routeScope),
       Effect.onExit((exit) => (Exit.isSuccess(exit) ? Effect.void : Scope.close(routeScope, exit))),
       Effect.result,
@@ -280,7 +297,7 @@ export const make = Effect.gen(function* () {
         preparationFor(route) !== undefined
           ? Effect.succeed<RouteCheck>("answered")
           : checkRoute(entry, route, LATE_ROUTE_CHECK_TIMEOUT_MS),
-      Effect.fnUntraced(function* (route) {
+      Effect.fnUntraced(function* (route, synchronizing) {
         const cached = preparationFor(route);
         const prepared =
           cached !== undefined && cached.expiresAtNanos > (yield* Clock.monotonicTimeNanos)
@@ -289,6 +306,7 @@ export const make = Effect.gen(function* () {
         yield* reportProgress({ stage: "opening", prepared });
         const session = yield* sessions.connect(prepared);
         yield* reportProgress({ stage: "synchronizing", prepared });
+        yield* synchronizing;
         yield* session.ready;
         return { prepared, session } satisfies EnvironmentConnectionLease;
       }),
