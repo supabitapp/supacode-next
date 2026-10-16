@@ -127,7 +127,7 @@ import ChatMarkdown, { ChatMarkdownAssetImage } from "../ChatMarkdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Root, RootContent } from "mdast";
-import { SupatermMark } from "../SupatermMark";
+import { SupatermIcon } from "../SupatermIcon";
 import { ThreadContextChip } from "../ThreadContextChip";
 import {
   BotIcon,
@@ -3783,8 +3783,11 @@ function ActivityShimmerOverlay({ children }: { children: ReactNode }) {
 
 const failedToolIconClassName = "text-tool-error-icon/40";
 
-function toolIconAcceptsTint(toolIcon: ToolActivityIcon | undefined): boolean {
-  return toolIcon === undefined;
+function toolIconAcceptsTint(
+  toolIcon: ToolActivityIcon | undefined,
+  fallbackName: WorkEntryIconName | undefined,
+): boolean {
+  return toolIcon === undefined && fallbackName !== "supaterm";
 }
 
 function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "working" }> }) {
@@ -3942,7 +3945,7 @@ function LiveActivityContent({
   highlighted?: boolean;
 }) {
   const showTrailingFailureMark =
-    failed && iconName !== undefined && !toolIconAcceptsTint(toolIcon);
+    failed && iconName !== undefined && !toolIconAcceptsTint(toolIcon, iconName);
 
   return (
     <WorkLogRow
@@ -5245,7 +5248,7 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
     case "device":
       return <SmartphoneIcon className={className} aria-hidden />;
     case "supaterm":
-      return <SupatermMark className={className} aria-hidden />;
+      return <SupatermIcon className={className} aria-hidden />;
     case "check":
       return <CheckIcon className={className} aria-hidden />;
     case "circle-alert":
@@ -5793,7 +5796,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
           ) : null}
           {showFailedIndicator &&
           !showDestructiveRowStyle &&
-          !toolIconAcceptsTint(entryToolIcon) ? (
+          !toolIconAcceptsTint(entryToolIcon, entryIconName) ? (
             <XIcon aria-hidden className={cn("size-3 shrink-0", failedToolIconClassName)} />
           ) : null}
           <TimelineRowTimestamp createdAt={workEntry.createdAt} timestampFormat={timestampFormat} />

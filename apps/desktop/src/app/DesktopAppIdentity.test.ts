@@ -174,13 +174,13 @@ describe("DesktopAppIdentity", () => {
     {
       stage: "Nightly",
       runtimeName: "Supaterm Nightly",
-      aboutName: "Supaterm (Nightly)",
+      aboutName: "Supaterm",
       environment: { appVersion: "0.0.43-nightly.20260929.2428" },
     },
     {
       stage: "Dev",
       runtimeName: "Supaterm Dev",
-      aboutName: "Supaterm (Dev)",
+      aboutName: "Supaterm",
       environment: { env: { VITE_DEV_SERVER_URL: "http://localhost:5173" } },
     },
   ])(

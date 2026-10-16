@@ -160,14 +160,14 @@ const emptyRecording = (): RecordedRegistration => ({
 describe("DesktopLinuxUrlHandler", () => {
   it("renders a scheme-handler desktop entry with freedesktop Exec quoting", () => {
     const entry = DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
-      displayName: "Supaterm (Nightly)",
+      displayName: "Supaterm",
       execTarget: '/home/al ice/Apps/Supaterm "100%" $HOME\\x.AppImage',
       scheme: "supaterm",
       iconPath: "/home/al ice/icons/Supaterm\\x.png",
     });
 
     assert.include(entry, "[Desktop Entry]");
-    assert.include(entry, "Name=Supaterm (Nightly)");
+    assert.include(entry, "Name=Supaterm");
     assert.include(
       entry,
       'Exec="/home/al ice/Apps/Supaterm \\\\"100%%\\\\" \\\\$HOME\\\\\\\\x.AppImage" %U',
