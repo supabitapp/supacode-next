@@ -126,6 +126,8 @@ export function HtmlRenderDocument(props: {
   readonly threadRef?: ScopedThreadRef | undefined;
   /** Receives the page's content height whenever it changes, so an inline frame can fit it. */
   readonly onContentHeight?: (height: number) => void;
+  /** Called when the page has loaded. */
+  readonly onLoad?: () => void;
 }) {
   const theme = useHtmlRenderTheme();
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -294,6 +296,7 @@ export function HtmlRenderDocument(props: {
         // Covers a theme change that landed while the page was loading.
         postTheme();
         postShortcuts();
+        props.onLoad?.();
       }}
       // A frame whose color scheme differs from its document's paints an opaque
       // canvas, so the blank document a frame starts with would flash white in
