@@ -163,7 +163,7 @@
     },
     "autolinking": {
       "buildFromSource": [
-        "expo-ui",
+        "@expo/ui",
         "react-native-screens",
         "react-native-reanimated",
         "@react-native-menu/menu",

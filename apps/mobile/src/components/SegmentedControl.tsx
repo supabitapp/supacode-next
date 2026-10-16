@@ -10,7 +10,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { AppText as Text } from "./AppText";
 import { cn } from "../lib/cn";
-import { MaterialSegmentedControl } from "./MaterialSegmentedControl";
 import type { SegmentedControlProps } from "./SegmentedControl.types";
 
 export type { SegmentedControlProps } from "./SegmentedControl.types";
@@ -46,9 +45,6 @@ export function SegmentedControl<Value extends number | string>(
       },
     ],
   }));
-  if (Platform.OS === "android") {
-    return <MaterialSegmentedControl {...props} onSelect={select} />;
-  }
   return (
     <View
       accessible={false}
