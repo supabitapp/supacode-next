@@ -77,7 +77,7 @@ import { ChatGptSharingStatus } from "./ChatGptSharingStatus";
 import { environmentServerConfigsAtom, serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useNewTaskFlow } from "./new-task-flow-provider";
-import { MaterialScreenContent } from "../../components/MaterialScreenContent";
+import { ScreenContent } from "../../components/ScreenContent";
 import {
   createProviderCatalogRefreshRunner,
   providerCatalogRefreshError,
@@ -1435,7 +1435,7 @@ function ThreadSettingsModelsScreen() {
               : undefined,
         }}
       />
-      <MaterialScreenContent>
+      <ScreenContent>
         <ThreadSettingsMainContent
           onOpenSubmenu={(submenu) => {
             const title =
@@ -1447,7 +1447,7 @@ function ThreadSettingsModelsScreen() {
             navigation.navigate("ThreadSettingsChoice", { ...submenu, title });
           }}
         />
-      </MaterialScreenContent>
+      </ScreenContent>
       <NativeHeaderToolbar placement="left">
         <NativeHeaderToolbar.Button
           accessibilityLabel="Cancel thread settings"
@@ -1527,12 +1527,12 @@ function ThreadSettingsChoiceScreen() {
           hideBottomBorder
         />
       ) : null}
-      <MaterialScreenContent>
+      <ScreenContent>
         <ThreadSettingsChoiceContent
           submenu={route.params}
           onSelected={() => navigation.goBack()}
         />
-      </MaterialScreenContent>
+      </ScreenContent>
     </>
   );
 }

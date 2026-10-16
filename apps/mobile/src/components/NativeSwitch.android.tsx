@@ -2,12 +2,12 @@ import { NativeThemeHost } from "./NativeThemeHost.android";
 import { Switch as ComposeSwitch } from "@expo/ui/jetpack-compose";
 import * as Haptics from "expo-haptics";
 import { View } from "react-native";
-import type { ThemedSwitchProps } from "./MaterialSwitch.types";
+import type { ThemedSwitchProps } from "./NativeSwitch.types";
 
 import { useControlTheme } from "./useControlTheme";
 
 /** Material's native switch, with the same palette and accessibility contract as our RN controls. */
-export function MaterialSwitch(props: ThemedSwitchProps) {
+export function NativeSwitch(props: ThemedSwitchProps) {
   const { colors } = useControlTheme();
   const change = (value: boolean) => {
     void Haptics.performAndroidHapticsAsync(

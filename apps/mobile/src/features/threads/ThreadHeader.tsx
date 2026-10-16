@@ -1,12 +1,12 @@
 import { useMemo } from "react";
-import { ScreenHeader } from "../../components/ScreenHeader";
+import { AppBar } from "../../components/AppBar";
 import { ScreenHeaderButton } from "../../components/ScreenHeaderButton";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceListNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 
-import type { ScreenHeaderMenu, ScreenHeaderMenuItem } from "../../components/ScreenHeader.types";
+import type { AppBarMenu, AppBarMenuItem } from "../../components/AppBar.types";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
@@ -23,8 +23,8 @@ export function ThreadHeader(
   const { layout, panes, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
   const native = useThreadHeaderOptions(props);
-  const androidHeaderMenu = useMemo<ScreenHeaderMenu>(() => {
-    const items: ScreenHeaderMenuItem[] = [];
+  const androidHeaderMenu = useMemo<AppBarMenu>(() => {
+    const items: AppBarMenuItem[] = [];
     if (props.hasWorkspaceRoot) {
       items.push({
         id: "thread-terminal",
@@ -68,7 +68,7 @@ export function ThreadHeader(
 
   return (
     <>
-      <ScreenHeader
+      <AppBar
         title={props.title}
         subtitle={props.subtitle}
         sidebar={native.sidebar}

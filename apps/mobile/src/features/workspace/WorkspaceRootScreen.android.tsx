@@ -4,10 +4,10 @@ import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { EmptyState } from "../../components/EmptyState";
-import { MaterialScreenContent } from "../../components/MaterialScreenContent";
+import { ScreenContent } from "../../components/ScreenContent";
 import { HomeRouteScreen } from "../home/HomeRouteScreen";
 import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
-import { MaterialPullRequestToolbar } from "../pull-requests/MaterialPullRequestToolbar.android";
+import { PullRequestToolbar } from "../pull-requests/PullRequestToolbar.android";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WORKSPACE_DOCK } from "./workspace-tabs-state";
@@ -56,10 +56,10 @@ export function WorkspaceRootScreen() {
               <HomeRouteScreen />
             ) : (
               <>
-                <MaterialPullRequestToolbar />
-                <MaterialScreenContent>
+                <PullRequestToolbar />
+                <ScreenContent>
                   <PullRequestsScreen />
-                </MaterialScreenContent>
+                </ScreenContent>
               </>
             )}
           </View>

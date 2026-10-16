@@ -62,7 +62,7 @@ import {
   ComposerToolbarRow,
 } from "../../components/ComposerToolbar";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
-import { MaterialScreenContent } from "../../components/MaterialScreenContent";
+import { ScreenContent } from "../../components/ScreenContent";
 import { ComposerAttachmentButton } from "../../components/ComposerAttachmentButton";
 import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
 import { composerStripAttachments } from "../../lib/composerImages";
@@ -1911,7 +1911,7 @@ export function NewTaskDraftScreen(props: {
       <View className="flex-1 bg-sheet" collapsable={false}>
         <NativeStackScreenOptions options={{ headerShown: false }} />
         <AndroidScreenHeader title="New thread" hideBottomBorder onBack={closeNewTask} />
-        <MaterialScreenContent>
+        <ScreenContent>
           <View
             className="flex-1"
             onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
@@ -1925,7 +1925,7 @@ export function NewTaskDraftScreen(props: {
               {composerDock}
             </KeyboardStickyView>
           </View>
-        </MaterialScreenContent>
+        </ScreenContent>
       </View>
     );
   }
